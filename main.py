@@ -1,18 +1,30 @@
-"""Vertical slice: one full turn through the pipeline, now via a real
-Collector instead of opening an image file directly.
+"""Vertical slice: a continuous turn loop through the pipeline.
 
     Collector (screen capture + calibrated OCR)
-        -> Scribe (sees image, extracts scene elements)
+        -> Scribe (sees image, extracts scene elements + genre guess)
         -> State Sandbox (holds this turn's facts + OCR ConfirmedFacts)
         -> Entity Registry (resolves facts against everything seen so far)
-        -> Ally (blind to the image, reasons from facts + entities only)
+        -> Genre Tracker (accumulates confidence across turns)
+        -> Memory Manager (short-term rolling buffer of recent turns)
+        -> Ally (blind to the image, reasons from facts + entities +
+                 genre + memory)
+
+EntityRegistry, GenreTracker, and MemoryManager are constructed once,
+outside the loop, and threaded through every call to run_turn(). This is
+what makes entity resolution, genre confidence, and memory actually
+accumulate across turns instead of silently resetting each time -- the
+previous version of this file built a fresh EntityRegistry inside
+run_turn() itself, which meant "accumulates across a run" was aspirational
+since the function only ever ran once.
 
 Usage:
-    python main.py                 # live capture via SlayTheSpireCollector
-    python main.py images/monkey.png   # still supported: file-backed run
+    python main.py                      # live capture loop via SlayTheSpireCollector
+    python main.py images/monkey.png    # still supported: single file-backed run, no loop
 """
 
 import sys
+import time
+import uuid
 
 from PIL import Image
 
@@ -21,27 +33,38 @@ from ally.personalities import PERSONALITIES
 from collectors.base import RawObservation
 from interpretation.scribe import Scribe
 from llm.gemini_provider import GeminiProvider
+from memory.manager import MemoryManager
 from plugins.slay_the_spire.collector import SlayTheSpireCollector
 from state.entity_registry import EntityRegistry
-from state.sandbox import StateSandbox
 from state.genre_tracker import GenreTracker
+from state.sandbox import StateSandbox
+
+# How often to capture + process a turn during the live loop. Tune this
+# against two competing costs: snappier feel (lower) vs. Gemini RPD/RPM
+# budget and per-call latency, especially once thinking mode is enabled
+# on the Scribe for dense scenes (see ally_decision_log.md).
+TURN_INTERVAL_SECONDS = 5.0
 
 
-def run_turn(observation: RawObservation, genre_tracker: GenreTracker) -> None:
+def run_turn(
+    observation: RawObservation,
+    scribe: Scribe,
+    ally: Ally,
+    sandbox: StateSandbox,
+    registry: EntityRegistry,
+    genre_tracker: GenreTracker,
+    memory_manager: MemoryManager,
+) -> None:
     if observation.image is None:
         print("No image captured -- is the game window open?")
         return
 
-    provider = GeminiProvider()
-    scribe = Scribe(provider)
-    ally = Ally(provider, PERSONALITIES["Scout"])
-    sandbox = StateSandbox()
-    registry = EntityRegistry()
-
     print("--- Scribe extracting ---")
     scribe_output = scribe.extract(observation.image)
     sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
-    genre_tracker.update(scribe_output.genre_guess, scribe_output.genre_confidence)
+    genre_estimate = genre_tracker.update(
+        scribe_output.genre_guess, scribe_output.genre_confidence
+    )
 
     print("\n--- Confirmed facts (OCR, bypassed the Scribe) ---")
     for fact in sandbox.confirmed_facts:
@@ -54,14 +77,20 @@ def run_turn(observation: RawObservation, genre_tracker: GenreTracker) -> None:
     touched_entities = registry.resolve_or_create(scribe_output.screen_elements, sandbox.turn)
     entities_context = registry.as_context(touched_entities)
 
-    print("\n--- Entity registry (this turn) ---")
+    print("\n--- Entity registry (accumulated across the run) ---")
     print(entities_context)
+
+    print(
+        f"\n--- Genre: {genre_estimate.guess} "
+        f"(confidence={genre_estimate.confidence:.2f}, locked={genre_estimate.locked}) ---"
+    )
 
     print("\n--- Ally (blind to the image) ---")
     ally_output = ally.decide(
         elements_context=sandbox.as_context(),
         entities_context=entities_context,
         genre_context=genre_tracker.as_context(),
+        memory_context=memory_manager.build_context(),
     )
     print("\nAnalysis:")
     print(ally_output.analysis)
@@ -69,13 +98,52 @@ def run_turn(observation: RawObservation, genre_tracker: GenreTracker) -> None:
     for action in ally_output.actions:
         print(f"  - {action.text}")
 
+    memory_manager.record_turn(sandbox.turn, ally_output.analysis)
+
+
+def run_loop(
+    collector: SlayTheSpireCollector,
+    scribe: Scribe,
+    ally: Ally,
+    sandbox: StateSandbox,
+    registry: EntityRegistry,
+    genre_tracker: GenreTracker,
+    memory_manager: MemoryManager,
+    interval_seconds: float = TURN_INTERVAL_SECONDS,
+) -> None:
+    print(f"[main] Starting turn loop (every {interval_seconds}s). Ctrl+C to stop.")
+    try:
+        while True:
+            observation = collector.capture()
+            run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
+            time.sleep(interval_seconds)
+    except KeyboardInterrupt:
+        print("\n[main] Stopping loop.")
+    finally:
+        # Seam for the cross-session memory tier -- currently a no-op in
+        # MemoryManager, but the call site exists now so wiring real
+        # persistence later doesn't require touching main.py.
+        memory_manager.flush_to_cross_session()
+
 
 if __name__ == "__main__":
-    genre_tracker = GenreTracker()  # lives here, not inside run_turn, so a
-                                     # future loop can pass the same one in
-                                     # on every iteration
+    provider = GeminiProvider()
+    scribe = Scribe(provider)
+    ally = Ally(provider, PERSONALITIES["Scout"])
+    sandbox = StateSandbox()
+    registry = EntityRegistry()
+    genre_tracker = GenreTracker()
+    memory_manager = MemoryManager(
+        player_id="default_player",
+        game_id="slay_the_spire",
+        save_id=f"session_{uuid.uuid4().hex[:8]}",
+    )
+
     if len(sys.argv) > 1:
-        run_turn(RawObservation(image=Image.open(sys.argv[1])), genre_tracker)
+        # Back-compat: single file-backed run, no loop -- looping on a
+        # static image file doesn't mean anything.
+        observation = RawObservation(image=Image.open(sys.argv[1]))
+        run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
     else:
         collector = SlayTheSpireCollector()
-        run_turn(collector.capture(), genre_tracker)
+        run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager)

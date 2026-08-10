@@ -6,10 +6,6 @@ regress just because one frame was ambiguous (e.g. a cutscene). This
 holds the best guess seen so far and locks once confidence clears the
 threshold, so Ally gets a stable genre instead of it flickering turn to
 turn.
-
-NOTE: like EntityRegistry, this needs to live outside run_turn() and be
-passed in once main.py has a real per-turn loop instead of running once
-and exiting -- today it only ever sees a single Scribe call.
 """
 
 from dataclasses import dataclass

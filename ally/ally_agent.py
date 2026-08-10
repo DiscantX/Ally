@@ -6,9 +6,11 @@ whole point of the air-gap: even if the underlying model has memorized a
 walkthrough of this game, Ally is only ever handed facts your own pipeline
 extracted this run, so it has nothing else to reason from.
 
-Personality and long-term memory are not wired in yet -- this is the seam
-where the MemoryManager.build_context() from the earlier design plugs in.
-For now PERSONALITIES stands in for that.
+Personality/player-relationship memory is not wired in yet -- this is the
+seam where the full MemoryManager.build_context() (personality + memory
+combined) from the earlier design plugs in. PERSONALITIES stands in for
+the personality half; MemoryManager (memory/manager.py) now supplies the
+short-term-narrative half for real, as a vertical slice.
 """
 
 from llm.gemini_provider import GeminiProvider
@@ -25,6 +27,7 @@ ALLY_PROMPT_TEMPLATE = (
     "You have never seen this game before and have no access to the raw "
     "screen image -- you only know what's below, extracted this run.\n\n"
     "Best guess at genre so far: {genre}\n\n"
+    "What's happened so far this run (most recent last):\n{memory}\n\n"
     "Current screen elements:\n{elements}\n\n"
     "Known entities so far (persist across the whole run):\n{entities}\n\n"
     "Write a short analysis (3-4 sentences) of what's happening and what "
@@ -43,12 +46,14 @@ class Ally:
         self,
         elements_context: str,
         entities_context: str,
-        genre_context: str, 
-        personality: str | None = None
+        genre_context: str = "unknown (not yet determined)",
+        memory_context: str = "(no memory yet -- this is the first turn)",
+        personality: str | None = None,
     ) -> AllyOutput:
         prompt = ALLY_PROMPT_TEMPLATE.format(
             personality=personality if personality else self.base_personality,
             genre=genre_context,
+            memory=memory_context,
             elements=elements_context,
             entities=entities_context,
         )
