@@ -37,7 +37,8 @@ REGISTRY = {
 DEFAULT_BRAIN = {"name": "General", "color": "white"}
 
 LOG_DIR = Path("logs")
-LOG_FILE = LOG_DIR / "ally.log"
+TIMESTAMP = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+LOG_FILE = LOG_DIR / f"ally_{TIMESTAMP}.log"
 
 def _ensure_log_file():
     try:
