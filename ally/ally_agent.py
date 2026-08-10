@@ -24,6 +24,7 @@ ALLY_PROMPT_TEMPLATE = (
     "joint adventures as 'we'. "
     "You have never seen this game before and have no access to the raw "
     "screen image -- you only know what's below, extracted this run.\n\n"
+    "Best guess at genre so far: {genre}\n\n"
     "Current screen elements:\n{elements}\n\n"
     "Known entities so far (persist across the whole run):\n{entities}\n\n"
     "Write a short analysis (3-4 sentences) of what's happening and what "
@@ -42,10 +43,12 @@ class Ally:
         self,
         elements_context: str,
         entities_context: str,
+        genre_context: str, 
         personality: str | None = None
     ) -> AllyOutput:
         prompt = ALLY_PROMPT_TEMPLATE.format(
             personality=personality if personality else self.base_personality,
+            genre=genre_context,
             elements=elements_context,
             entities=entities_context,
         )

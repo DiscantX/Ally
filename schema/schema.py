@@ -16,6 +16,8 @@ class ScreenElement(BaseModel):
 
 class ScribeOutput(BaseModel):
     screen_elements: list[ScreenElement]
+    genre_guess: str
+    genre_confidence: float  # 0.0-1.0, the Scribe's own confidence in genre_guess
 
 
 class ActionItem(BaseModel):

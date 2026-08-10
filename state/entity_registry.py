@@ -50,8 +50,20 @@ class EntityRegistry:
     def resolve_or_create(
         self, elements: list[ScreenElement], turn: int
     ) -> list[Entity]:
+        """Resolve each element against entities that existed *before this
+        call* only. Elements are matched against `lookup` (a frozen snapshot
+        taken up front), never against each other -- two elements in the
+        same Scribe call are, by construction, distinct regions of the same
+        frame, so they must never merge into one entity even if the model
+        gave them identical or near-identical labels (e.g. 10 elements all
+        labeled "Player Character" on a Diablo II party screen). New
+        entities created during this call are staged separately and only
+        folded into self._entities / the lookup once the whole batch is
+        done.
+        """
         touched: list[Entity] = []
-        lookup = self._name_lookup()
+        lookup = self._name_lookup()  # frozen snapshot of pre-call state
+        new_this_turn: dict[str, Entity] = {}
 
         for el in elements:
             name = el.label.strip()
@@ -60,8 +72,6 @@ class EntityRegistry:
             # --- MATCH STEP -----------------------------------------
             # TODO(embeddings): replace this difflib call with a vector
             # search over entity embeddings once EmbeddingProvider exists.
-            # Everything below this block (create-vs-update, fact
-            # appending) stays the same either way.
             matches = difflib.get_close_matches(
                 key, lookup.keys(), n=1, cutoff=self.match_threshold
             )
@@ -84,11 +94,14 @@ class EntityRegistry:
                     last_seen_turn=turn,
                 )
                 self._next_id += 1
-                self._entities[ent.entity_id] = ent
-                lookup[key] = ent.entity_id
+                new_this_turn[ent.entity_id] = ent
+                # Deliberately NOT added to `lookup` here -- later elements in
+                # this same batch must not match against entities created
+                # earlier in this same batch.
 
             touched.append(ent)
 
+        self._entities.update(new_this_turn)
         return touched
 
     def as_context(self, entities: list[Entity]) -> str:

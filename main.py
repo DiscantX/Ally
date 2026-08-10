@@ -24,9 +24,10 @@ from llm.gemini_provider import GeminiProvider
 from plugins.slay_the_spire.collector import SlayTheSpireCollector
 from state.entity_registry import EntityRegistry
 from state.sandbox import StateSandbox
+from state.genre_tracker import GenreTracker
 
 
-def run_turn(observation: RawObservation) -> None:
+def run_turn(observation: RawObservation, genre_tracker: GenreTracker) -> None:
     if observation.image is None:
         print("No image captured -- is the game window open?")
         return
@@ -40,6 +41,7 @@ def run_turn(observation: RawObservation) -> None:
     print("--- Scribe extracting ---")
     scribe_output = scribe.extract(observation.image)
     sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
+    genre_tracker.update(scribe_output.genre_guess, scribe_output.genre_confidence)
 
     print("\n--- Confirmed facts (OCR, bypassed the Scribe) ---")
     for fact in sandbox.confirmed_facts:
@@ -59,6 +61,7 @@ def run_turn(observation: RawObservation) -> None:
     ally_output = ally.decide(
         elements_context=sandbox.as_context(),
         entities_context=entities_context,
+        genre_context=genre_tracker.as_context(),
     )
     print("\nAnalysis:")
     print(ally_output.analysis)
@@ -68,10 +71,11 @@ def run_turn(observation: RawObservation) -> None:
 
 
 if __name__ == "__main__":
+    genre_tracker = GenreTracker()  # lives here, not inside run_turn, so a
+                                     # future loop can pass the same one in
+                                     # on every iteration
     if len(sys.argv) > 1:
-        # Back-compat: still allow a file-backed run for testing without
-        # the game open.
-        run_turn(RawObservation(image=Image.open(sys.argv[1])))
+        run_turn(RawObservation(image=Image.open(sys.argv[1])), genre_tracker)
     else:
         collector = SlayTheSpireCollector()
-        run_turn(collector.capture())
+        run_turn(collector.capture(), genre_tracker)

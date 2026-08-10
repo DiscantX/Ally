@@ -13,6 +13,16 @@ from schema.schema import ScribeOutput
 
 SCRIBE_MODEL = "gemini-3.5-flash-lite"
 
+SCRIBE_PROMPT_GENRE_GUESS = (
+    "Also provide your best guess at the game's genre (e.g. 'action RPG', "
+    "'point-and-click adventure', 'turn-based strategy'), plus a confidence "
+    "score from 0.0 to 1.0 for that guess. Base confidence strictly on visual "
+    "evidence in *this* frame alone: a title screen or clear genre-defining "
+    "HUD (e.g. a skill/cooldown bar, a hand of cards) warrants high "
+    "confidence; an ambiguous cutscene or establishing shot warrants low "
+    "confidence, even if you personally suspect you know the game."
+)
+
 SCRIBE_PROMPT_NO_UI = (
     "You are analysing a single screenshot from a game."
     "Only use information visible in this image. Do not draw on any "
@@ -61,6 +71,6 @@ class Scribe:
     def extract(self, image: Image.Image) -> ScribeOutput:
         return self.provider.generate_structured(
             model=SCRIBE_MODEL,
-            contents=[image, SCRIBE_PROMPT_NO_UI],
+            contents=[image, SCRIBE_PROMPT_UI],
             schema=ScribeOutput,
         )

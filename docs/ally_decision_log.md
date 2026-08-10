@@ -305,4 +305,5 @@ confusion — e.g. `basal_ganglia/action_arbiter.py`.
   once real playtesting surfaces aliasing failures.
 - GUI/frontend stack — still undecided per the original scope doc
   (Tkinter vs. local web frontend).
+- `entity_type` is hardcoded to "unknown" for every newly created entity since the Scribe doesn't currently classify type, that's expected, but it means your future importance/salience scoring (the Amygdala-analogy component) won't be able to distinguish "player character" from "background prop" without either the Scribe emitting a type field or a cheap heuristic in the registry.
   
