@@ -15,16 +15,18 @@ import sys
 from PIL import Image
 
 from ally.ally_agent import Ally
+from ally.personalities import PERSONALITIES
 from interpretation.scribe import Scribe
 from llm.gemini_provider import GeminiProvider
 from state.entity_registry import EntityRegistry
 from state.sandbox import StateSandbox
 
+from random import choice
 
 def run_turn(image_path: str) -> None:
     provider = GeminiProvider()
     scribe = Scribe(provider)
-    ally = Ally(provider)
+    ally = Ally(provider, PERSONALITIES["Scout"])
     sandbox = StateSandbox()
     registry = EntityRegistry()
 
@@ -47,15 +49,22 @@ def run_turn(image_path: str) -> None:
     print(entities_context)
 
     print("\n--- Ally (blind to the image) ---")
-    ally_output = ally.decide(
-        elements_context=sandbox.as_context(),
-        entities_context=entities_context,
-    )
-    print("\nAnalysis:")
-    print(ally_output.analysis)
-    print("\nActions:")
-    for action in ally_output.actions:
-        print(f"  - {action.text}")
+
+    for personality in list(PERSONALITIES.items()):
+        print()
+        print("="*100)
+        print(f"Personality: {personality[0]}\n{personality[1]}")
+        print("-"*100)
+        ally_output = ally.decide(
+            elements_context=sandbox.as_context(),
+            entities_context=entities_context,
+            personality=personality[1]
+        )
+        print("\nAnalysis:")
+        print(ally_output.analysis)
+        print("\nActions:")
+        for action in ally_output.actions:
+            print(f"  - {action.text}")
 
 
 if __name__ == "__main__":
