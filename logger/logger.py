@@ -31,6 +31,7 @@ REGISTRY = {
     "manager.py": {"name": "MemoryManager", "color": "bright_magenta"},
     "main.py": {"name": "Main", "color": "magenta"},
     "layout.py": {"name": "Layout", "color": "green"},
+    "gemini_provider.py": {"name": "GeminiProvider", "color": "bright_yellow"},
 }
 
 DEFAULT_BRAIN = {"name": "General", "color": "white"}

@@ -14,6 +14,7 @@ from typing import TypeVar
 import time
 import random
 import functools
+from logger import log
 
 load_dotenv()
 
@@ -32,12 +33,14 @@ def retry_with_gemini_backoff(max_retries: int = 5):
                 except (errors.ClientError, errors.ServerError) as e:
                     attempt += 1
                     if attempt > max_retries:
+                        log("Gemini API error (max retries {max_retries} exceeded): {e}", max_retries=max_retries, e=e)
                         raise
                     
                     delay = self._extract_retry_delay(e)
                     if delay is None:
                         delay = (2 ** attempt) + random.uniform(0, 1)
                     
+                    log("Gemini API error ({e}). Retrying attempt {attempt}/{max_retries} in {delay:.2f}s...", e=e, attempt=attempt, max_retries=max_retries, delay=delay)
                     time.sleep(delay)
         return wrapper
     return decorator
