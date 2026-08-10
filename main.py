@@ -1,13 +1,15 @@
-"""Vertical slice: one full turn through the pipeline.
+"""Vertical slice: one full turn through the pipeline, now via a real
+Collector instead of opening an image file directly.
 
-    Scribe (sees image, extracts facts)
-        -> State Sandbox (holds this turn's facts)
+    Collector (screen capture + calibrated OCR)
+        -> Scribe (sees image, extracts scene elements)
+        -> State Sandbox (holds this turn's facts + OCR ConfirmedFacts)
         -> Entity Registry (resolves facts against everything seen so far)
         -> Ally (blind to the image, reasons from facts + entities only)
 
 Usage:
-    python main.py images/monkey.png
-    python main.py images/disco.jpg
+    python main.py                 # live capture via SlayTheSpireCollector
+    python main.py images/monkey.png   # still supported: file-backed run
 """
 
 import sys
@@ -16,57 +18,60 @@ from PIL import Image
 
 from ally.ally_agent import Ally
 from ally.personalities import PERSONALITIES
+from collectors.base import RawObservation
 from interpretation.scribe import Scribe
 from llm.gemini_provider import GeminiProvider
+from plugins.slay_the_spire.collector import SlayTheSpireCollector
 from state.entity_registry import EntityRegistry
 from state.sandbox import StateSandbox
 
-from random import choice
 
-def run_turn(image_path: str) -> None:
+def run_turn(observation: RawObservation) -> None:
+    if observation.image is None:
+        print("No image captured -- is the game window open?")
+        return
+
     provider = GeminiProvider()
     scribe = Scribe(provider)
     ally = Ally(provider, PERSONALITIES["Scout"])
     sandbox = StateSandbox()
     registry = EntityRegistry()
 
-    image = Image.open(image_path)
+    print("--- Scribe extracting ---")
+    scribe_output = scribe.extract(observation.image)
+    sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
 
-    print(f"--- Scribe extracting from {image_path} ---")
-    scribe_output = scribe.extract(image)
-    sandbox.update(scribe_output.screen_elements)
+    print("\n--- Confirmed facts (OCR, bypassed the Scribe) ---")
+    for fact in sandbox.confirmed_facts:
+        print(f"{fact.key}: {fact.value}  (source={fact.source})")
 
     print("\n--- Screen elements ---")
     for el in sandbox.current_elements:
         print(f"[{el.id}] {el.label}: {el.description}  box={el.box_2d}")
 
-    touched_entities = registry.resolve_or_create(
-        scribe_output.screen_elements, sandbox.turn
-    )
+    touched_entities = registry.resolve_or_create(scribe_output.screen_elements, sandbox.turn)
     entities_context = registry.as_context(touched_entities)
 
     print("\n--- Entity registry (this turn) ---")
     print(entities_context)
 
     print("\n--- Ally (blind to the image) ---")
-
-    for personality in list(PERSONALITIES.items()):
-        print()
-        print("="*100)
-        print(f"Personality: {personality[0]}\n{personality[1]}")
-        print("-"*100)
-        ally_output = ally.decide(
-            elements_context=sandbox.as_context(),
-            entities_context=entities_context,
-            personality=personality[1]
-        )
-        print("\nAnalysis:")
-        print(ally_output.analysis)
-        print("\nActions:")
-        for action in ally_output.actions:
-            print(f"  - {action.text}")
+    ally_output = ally.decide(
+        elements_context=sandbox.as_context(),
+        entities_context=entities_context,
+    )
+    print("\nAnalysis:")
+    print(ally_output.analysis)
+    print("\nActions:")
+    for action in ally_output.actions:
+        print(f"  - {action.text}")
 
 
 if __name__ == "__main__":
-    path = sys.argv[1] if len(sys.argv) > 1 else "images/monkey.png"
-    run_turn(path)
+    if len(sys.argv) > 1:
+        # Back-compat: still allow a file-backed run for testing without
+        # the game open.
+        run_turn(RawObservation(image=Image.open(sys.argv[1])))
+    else:
+        collector = SlayTheSpireCollector()
+        run_turn(collector.capture())

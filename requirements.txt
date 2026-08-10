@@ -2,3 +2,11 @@ google-genai
 pillow
 pydantic
 python-dotenv
+
+# Screen-capture Collector + calibrated OCR (Slay the Spire plugin).
+# window_manager.py is Windows-only (pywin32) -- if/when a Linux/macOS
+# capture backend is needed, it's a one-file swap behind ScreenCollector.
+opencv-python
+mss
+pytesseract
+pywin32; sys_platform == "win32"
