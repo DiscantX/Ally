@@ -13,7 +13,7 @@ For now PERSONALITIES stands in for that.
 
 from llm.gemini_provider import GeminiProvider
 from schema.schema import AllyOutput
-from personalities import PERSONALITIES
+from ally.personalities import PERSONALITIES
 
 ALLY_MODEL = "gemini-3.5-flash-lite"
 
