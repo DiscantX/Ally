@@ -18,6 +18,7 @@ from PIL import Image
 
 from collectors.base import RawObservation
 from collectors.window_manager import ClientRect
+from vision.change_detector import ChangeDetector  # This was added/changed as a part of the ZOO CODE idle safeguard pass
 
 
 class ScreenCollector:
@@ -26,6 +27,7 @@ class ScreenCollector:
         self.rect = ClientRect(window_title)
         self._always_on_top = always_on_top
         self._prepared = False
+        self.change_detector = ChangeDetector()  # This was added/changed as a part of the ZOO CODE idle safeguard pass
 
     def prepare_window(self) -> None:
         """Snap/focus/pin the window. Call once at startup; capture()
@@ -42,8 +44,11 @@ class ScreenCollector:
         if not self._prepared:
             self.prepare_window()
         frame = self.capture_bgr()
-        image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)) if frame is not None else None
-        return RawObservation(image=image)
+        if frame is None:
+            return RawObservation(image=None, changed=False)
+        changed = self.change_detector.has_changed(frame)  # This was added/changed as a part of the ZOO CODE idle safeguard pass
+        image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        return RawObservation(image=image, changed=changed)
 
     def capture_bgr(self) -> np.ndarray | None:
         """Raw BGR numpy frame. Exposed separately (not just via capture())

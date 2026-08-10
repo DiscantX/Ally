@@ -30,8 +30,9 @@ class SlayTheSpireCollector:
         # capture_bgr() separately (which would grab twice).
         frame_bgr = self.screen.capture_bgr()
         if frame_bgr is None:
-            return RawObservation(image=None)
+            return RawObservation(image=None, changed=False)
 
+        changed = self.screen.change_detector.has_changed(frame_bgr)  # This was added/changed as a part of the ZOO CODE idle safeguard pass
         image = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
         confirmed_facts = self.hud.read(frame_bgr)
-        return RawObservation(image=image, confirmed_facts=confirmed_facts)
+        return RawObservation(image=image, confirmed_facts=confirmed_facts, changed=changed)

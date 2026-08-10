@@ -43,7 +43,7 @@ from state.sandbox import StateSandbox
 # against two competing costs: snappier feel (lower) vs. Gemini RPD/RPM
 # budget and per-call latency, especially once thinking mode is enabled
 # on the Scribe for dense scenes (see ally_decision_log.md).
-TURN_INTERVAL_SECONDS = 5.0
+TURN_INTERVAL_SECONDS = 20.0
 
 
 def run_turn(
@@ -115,7 +115,10 @@ def run_loop(
     try:
         while True:
             observation = collector.capture()
-            run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
+            if observation.image is not None and not observation.changed:
+                print("[SuperiorColliculus] Screen unchanged (user idle). Skipping API calls.")  # This was added/changed as a part of the ZOO CODE idle safeguard pass
+            else:
+                run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
             time.sleep(interval_seconds)
     except KeyboardInterrupt:
         print("\n[main] Stopping loop.")

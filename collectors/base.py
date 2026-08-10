@@ -30,6 +30,7 @@ class ConfirmedFact:
 class RawObservation:
     image: Image.Image | None
     confirmed_facts: list[ConfirmedFact] = field(default_factory=list)
+    changed: bool = True  # This was added/changed as a part of the ZOO CODE idle safeguard pass
 
 
 class Collector(Protocol):
