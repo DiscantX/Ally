@@ -109,7 +109,7 @@ This agent looks at the game screenshot via **Gemini 3.5 Flash-Lite**. Its only 
 
 A standard Python script acting as a strict local database. It compiles a running record of facts the Scribe has confirmed during this specific run (e.g., `Current Location: Neon_District_Hotel`, `Active Task: Find missing gadget`, `Inventory: 10 Credits`). It contains zero outside context.
 
-###### Agent B: The Player (The Blind Brain)
+###### Agent B: Ally (The Blind Brain)
 
 This is a separate, text-only LLM instance. You do not give it the screenshot. You only feed it the raw text from the State Sandbox and the current dialogue choices. You explicitly prompt it to roleplay an amnesiac investigator who only knows what is written in the sandbox.
 
