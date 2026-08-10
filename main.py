@@ -38,6 +38,7 @@ from plugins.slay_the_spire.collector import SlayTheSpireCollector
 from state.entity_registry import EntityRegistry
 from state.genre_tracker import GenreTracker
 from state.sandbox import StateSandbox
+from logger import log
 
 # How often to capture + process a turn during the live loop. Tune this
 # against two competing costs: snappier feel (lower) vs. Gemini RPD/RPM
@@ -56,47 +57,48 @@ def run_turn(
     memory_manager: MemoryManager,
 ) -> None:
     if observation.image is None:
-        print("No image captured -- is the game window open?")
+        log("No image captured -- is the game window open?")
         return
 
-    print("--- Scribe extracting ---")
+    log("--- Scribe extracting ---")
     scribe_output = scribe.extract(observation.image)
     sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
     genre_estimate = genre_tracker.update(
         scribe_output.genre_guess, scribe_output.genre_confidence
     )
 
-    print("\n--- Confirmed facts (OCR, bypassed the Scribe) ---")
+    log("\n--- Confirmed facts (OCR, bypassed the Scribe) ---")
     for fact in sandbox.confirmed_facts:
-        print(f"{fact.key}: {fact.value}  (source={fact.source})")
+        log("{key}: {value}  (source={source})", key=fact.key, value=fact.value, source=fact.source)
 
-    print("\n--- Screen elements ---")
+    log("\n--- Screen elements ---")
     for el in sandbox.current_elements:
-        print(f"[{el.id}] {el.label}: {el.description}  box={el.box_2d}")
+        log("[{id}] {label}: {description}  box={box}", id=el.id, label=el.label, description=el.description, box=el.box_2d)
 
     touched_entities = registry.resolve_or_create(scribe_output.screen_elements, sandbox.turn)
     entities_context = registry.as_context(touched_entities)
 
-    print("\n--- Entity registry (accumulated across the run) ---")
-    print(entities_context)
+    log("\n--- Entity registry (accumulated across the run) ---")
+    log("{}", entities_context)
 
-    print(
-        f"\n--- Genre: {genre_estimate.guess} "
-        f"(confidence={genre_estimate.confidence:.2f}, locked={genre_estimate.locked}) ---"
+    log(
+        "\n--- Genre: {guess} (confidence={confidence:.2f}, locked={locked}) ---",
+        guess=genre_estimate.guess,
+        confidence=genre_estimate.confidence,
+        locked=genre_estimate.locked
     )
 
-    print("\n--- Ally (blind to the image) ---")
+    log("\n--- Ally (blind to the image) ---")
     ally_output = ally.decide(
         elements_context=sandbox.as_context(),
         entities_context=entities_context,
         genre_context=genre_tracker.as_context(),
         memory_context=memory_manager.build_context(),
     )
-    print("\nAnalysis:")
-    print(ally_output.analysis)
-    print("\nActions:")
+    log("\nAnalysis:\n{analysis}", analysis=ally_output.analysis)
+    log("\nActions:")
     for action in ally_output.actions:
-        print(f"  - {action.text}")
+        log("  - {text}", text=action.text)
 
     memory_manager.record_turn(sandbox.turn, ally_output.analysis)
 
@@ -111,17 +113,17 @@ def run_loop(
     memory_manager: MemoryManager,
     interval_seconds: float = TURN_INTERVAL_SECONDS,
 ) -> None:
-    print(f"[main] Starting turn loop (every {interval_seconds}s). Ctrl+C to stop.")
+    log("Starting turn loop (every {interval_seconds}s). Ctrl+C to stop.", interval_seconds=interval_seconds)
     try:
         while True:
             observation = collector.capture()
             if observation.image is not None and not observation.changed:
-                print("\n\033[36m[SuperiorColliculus]\033[0m Screen unchanged (user idle). Skipping API calls.")  # This was added/changed as a part of the ZOO CODE idle safeguard pass
+                log("\nScreen unchanged (user idle). Skipping API calls.", name="SuperiorColliculus")
             else:
                 run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
             time.sleep(interval_seconds)
     except KeyboardInterrupt:
-        print("\n[main] Stopping loop.")
+        log("\nStopping loop.")
     finally:
         # Seam for the cross-session memory tier -- currently a no-op in
         # MemoryManager, but the call site exists now so wiring real

@@ -5,6 +5,7 @@ This was added/changed as a part of the ZOO CODE idle safeguard pass.
 
 import cv2
 import numpy as np
+from logger import log
 
 
 class ChangeDetector:
@@ -63,7 +64,7 @@ class ChangeDetector:
         changed_pixels = cv2.countNonZero(thresh)
         total_pixels = gray.shape[0] * gray.shape[1]
         changed_percent = (changed_pixels / total_pixels) * 100.0
-        print(f"\n\033[36m[SuperiorColliculus]\033[0m Screen delta: {changed_pixels}/{total_pixels} = {changed_percent}%\n")
+        log("\nScreen delta: {changed_pixels}/{total_pixels} = {changed_percent}%\n")
 
         if changed_percent >= self.threshold_percent:
             self._last_frame_gray = gray_normalized
