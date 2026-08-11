@@ -46,9 +46,10 @@ def load_existing_layout():
 
 
 def save_to_disk():
+    os.makedirs(os.path.dirname(CONFIG_FILE) or ".", exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
         json.dump(layouts, f, indent=4)
-    log(f"Layout changes successfully saved to {CONFIG_FILE}")
+    print(f"[Neow's Eye] Layout changes successfully saved to {CONFIG_FILE}")
 
 
 def get_box_handles(x, y, w, h):
@@ -164,7 +165,7 @@ def show_ocr_preview(x1, y1, w, h):
 
 def mouse_callback(event, x, y, flags, param):
     global current_frame, original_frame, box_to_save, awaiting_input, input_text
-    global requires_hover_flag, selected_box_name, layouts, interaction_mode, drag_start_x, drag_start_y, initial_box_state
+    global requires_hover_flag, selected_box_name, layouts, interaction_mode, drag_start_x, drag_start_y, initial_box_state, anchor_flag
 
     if awaiting_input:
         return
@@ -377,9 +378,11 @@ def seed_from_scribe():
 
 
 def main():
-    global current_frame, original_frame, awaiting_input, input_text, box_to_save, requires_hover_flag, selected_box_name, layouts
+    global current_frame, original_frame, awaiting_input, input_text, box_to_save, requires_hover_flag, selected_box_name, layouts, anchor_flag, ignore_motion_flag, CONFIG_FILE
 
     window_title = sys.argv[1] if len(sys.argv) > 1 else "Slay the Spire"
+    if len(sys.argv) > 2:
+        CONFIG_FILE = sys.argv[2]
 
     client = ScreenCollector(window_title)
     client.prepare_window()

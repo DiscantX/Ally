@@ -64,7 +64,8 @@ class ScreenClassifier:
     def _similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         if _SSIM_AVAILABLE:
             score = ssim(a, b, full=False)
-            return max(0.0, score)
+            val = score[0] if isinstance(score, tuple) else score
+            return max(0.0, float(val))
         hist_a = cv2.calcHist([a], [0], None, [256], [0, 256])
         hist_b = cv2.calcHist([b], [0], None, [256], [0, 256])
         cv2.normalize(hist_a, hist_a)

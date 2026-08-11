@@ -39,13 +39,13 @@ class ChangeDetector:
 
     def __init__(
         self,
-        threshold_percent: float = 2.0,
+        threshold_percent: float = 5.0,
         pixel_diff_threshold: int = 30,
         enable_cooldown: bool = False,
         cooldown_seconds: float = 5.0,
         major_change_threshold: float = 20.0,
         enable_stability_check: bool = False,
-        stability_threshold_percent: float = 1.0,
+        stability_threshold_percent: float = 5.0,
         use_ssim: bool = True,
         ignore_regions: list[tuple[int, int, int, int]] | None = None,
     ):
