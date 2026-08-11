@@ -27,7 +27,10 @@ class ScreenCollector:
         self.rect = ClientRect(window_title)
         self._always_on_top = always_on_top
         self._prepared = False
-        self.change_detector = ChangeDetector()  # This was added/changed as a part of the ZOO CODE idle safeguard pass
+        self.change_detector = ChangeDetector(
+            enable_stability_check=True,
+            enable_cooldown=True,
+        )  # This was added/changed as a part of the ZOO CODE idle safeguard pass
 
     def prepare_window(self) -> None:
         """Snap/focus/pin the window. Call once at startup; capture()

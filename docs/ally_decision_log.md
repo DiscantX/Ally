@@ -293,6 +293,129 @@ Instead: **functional names for classes/methods** (`ActionArbiter`,
 docstrings**, where they're pure mnemonic value with no risk of
 confusion — e.g. `basal_ganglia/action_arbiter.py`.
 
+## Turn-gating: tiered signals before invoking Scribe/Ally
+
+Problem: the flat capture-every-N-seconds timer was inducing needless
+latency, and the raw absdiff ChangeDetector both false-triggered on
+ambient motion (title-screen background animation) and under-triggered
+on screen transitions (firing mid-transition instead of once settled).
+
+Decided on a tiered stack of local, free signals, evaluated before ever
+calling the Scribe:
+
+1. **Stability check** (already built, was just never turned on) --
+   ChangeDetector now runs with `enable_stability_check=True` by default
+   from ScreenCollector, so a turn only fires once the screen stops
+   moving, not on the first frame of a transition.
+2. **ROI masking** -- layout.json elements can now carry an
+   `ignore_motion` flag (calibrated the same way as `requires_hover`, via
+   inspect_coords.py's new 'M' toggle). Plugins pass these regions into
+   ChangeDetector.set_ignore_regions() so known-animated areas (title
+   background, particle effects) are zeroed out of the diff entirely,
+   rather than tuning a global threshold around them.
+3. **SSIM over raw absdiff** -- ChangeDetector now defaults to
+   structural similarity (skimage) instead of pixel-count absdiff, since
+   it's far less sensitive to uniform texture/brightness churn while
+   staying sensitive to actual structural change. Falls back to absdiff
+   if scikit-image isn't installed.
+   **Known gap, not yet resolved**: SSIM's percent scale is not
+   comparable to the old absdiff percent scale -- threshold_percent /
+   major_change_threshold / stability_threshold_percent were carried
+   over from absdiff tuning and need to be re-measured against real
+   capture sessions, not assumed correct.
+
+Explicitly deferred, not rejected: a local image-embedding similarity
+gate (small ONNX encoder, cosine similarity between frame embeddings) as
+a further tier above SSIM+ROI, for catching semantically novel content
+(a popup outside any calibrated region) that masking can't. Follows the
+same "local model over API call" reasoning as the fastembed decision for
+text embeddings. Not built -- revisit if SSIM+ROI still under- or
+over-triggers in playtesting.
+
+Also noted but not yet wired: LayoutOCRReader's ConfirmedFacts are
+already computed locally every capture and currently discarded after
+use each turn. Diffing this turn's ConfirmedFacts against last turn's
+would be a free additional gate (did any calibrated value actually
+change) but requires the collector to retain last turn's facts, which
+it doesn't do yet.
+
+Rejected direction, for now: replacing the Scribe itself with a local
+vision model. Larger scope than the gating problem, and matching
+Scribe's structured-output quality on target low-end-PC hardware is an
+open question -- kept separate from turn-gating so the two decisions
+don't get coupled.
+
+## Plugin system re-scoped: config-first, plugins as true fallback
+
+Reviewed what plugins/slay_the_spire/collector.py actually did and found
+it contributed zero game-specific *logic* -- every behavior (window
+capture, change detection, OCR, layout parsing) already lived in
+collectors/ and vision/. The plugin class was three configuration values
+(window title, layout path, source tag) wearing a Python-package
+costume. This was caught before any layout.json was ever calibrated --
+the OCR path this wrapped had not been exercised at all.
+
+Decided: collapse per-game screen+OCR setup into a JSON config
+(configs/<game>.json) consumed by one generic factory
+(collectors/configured_collector.py: CollectorConfig, GenericHudCollector,
+build_collector). Adding a new screen-capture game now requires zero
+Python -- a config file and, whenever convenient, a calibrated
+layout.json via inspect_coords.py. A missing/uncalibrated layout.json is
+a non-fatal, logged state (empty ConfirmedFacts), not an error, since
+this is expected during early integration of any new game.
+
+This reaffirms and sharpens the earlier "plugins are a fallback, not the
+default extension mechanism" position: a plugin (a bespoke Collector
+class) is now reserved for a game that needs a structurally different
+data path -- the concrete motivating case, per the original design doc,
+is a CommunicationMod-style internal API returning exact GameState JSON
+instead of pixels. build_collector's collector_type field is the seam
+for that when it's actually needed; no game currently needs it, so it's
+not built. plugins/slay_the_spire/ (including the dead duplicate
+layout.py, since removed) has been deleted -- Slay the Spire is
+currently just configs/slay_the_spire.json plus an as-yet-uncalibrated
+layout.json.
+
+## Screen-aware layouts + local screen classification
+
+Extended layout calibration from one flat layout.json per game to one
+per named screen (configs/<game>/layouts/<screen>.json), since HUD
+element positions genuinely differ between e.g. combat and map screens
+in most games.
+
+Decided against having Scribe classify the current screen (rejected
+alongside the earlier genre_guess-style approach considered for this):
+would require either an extra API call per turn or a one-turn lag
+reading last turn's classification. Instead: local anchor-based image
+matching (vision/screen_classifier.py) -- a designated stable box per
+screen, calibrated like any other box (inspect_coords.py's 'A' toggle),
+compared via SSIM against the live frame each turn. No API call, no
+lag, since it runs before Scribe and determines both which layout to
+OCR against and which Scribe prompt to use.
+
+This also finally activates the previously-dead SCRIBE_PROMPT_NO_UI:
+a screen with a calibrated layout uses NO_UI (OCR already owns HUD
+values, Scribe only extracts scene entities); an unrecognized/
+uncalibrated screen falls back to SCRIBE_PROMPT_UI, same as before this
+change, with box_2d now explicitly required to bound text only,
+excluding any icon, since these boxes are also what inspect_coords.py's
+Scribe-seeding path uses to draft new calibration.
+
+Corrected framing from an earlier discussion: a calibrated layout's
+ConfirmedFacts are trusted not because a human specifically verified
+them, but because they're trusted enough to skip an API call in favor
+of cheap local OCR. Human calibration is today's mechanism for
+establishing that trust; an automated confidence score would serve the
+same role if one existed later. StateSandbox's "confirmed exact
+readings" framing should be read this way, not as a human-in-the-loop
+requirement.
+
+Deferred: calibration remains a manual, hidden-by-default fallback --
+RawObservation.screen_name/screen_confidence are threaded through every
+turn now so a "this screen is unrecognized" signal exists, but nothing
+yet surfaces it to Ally or auto-triggers calibration. Natural next step
+once real playtesting shows how often "unknown" actually comes up.
+
 ## Open questions for future threads
 
 - `Collector` interface design (screen capture implementation, OCR/CV
@@ -306,4 +429,3 @@ confusion — e.g. `basal_ganglia/action_arbiter.py`.
 - GUI/frontend stack — still undecided per the original scope doc
   (Tkinter vs. local web frontend).
 - `entity_type` is hardcoded to "unknown" for every newly created entity since the Scribe doesn't currently classify type, that's expected, but it means your future importance/salience scoring (the Amygdala-analogy component) won't be able to distinguish "player character" from "background prop" without either the Scribe emitting a type field or a cheap heuristic in the registry.
-  

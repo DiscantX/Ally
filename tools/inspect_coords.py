@@ -1,21 +1,31 @@
-import json
 import os
+import sys
+import json
 import cv2
 import numpy as np
 import pytesseract
-from client import Client
+from dotenv import load_dotenv
+from collectors.screen_collector import ScreenCollector
+from logger import log
+
+
+load_dotenv(override=True)
 
 CONFIG_FILE = "layout.json"
+anchor_flag = False
 
 # Global application states
-current_frame = None
-original_frame = None
+current_frame: np.ndarray | None = None
+original_frame: np.ndarray | None = None
+box_to_save: dict | None = None
 layouts = {}
 selected_box_name = None
 awaiting_input = False
 input_text = ""
 requires_hover_flag = False
-box_to_save = None
+# add alongside the other globals near the top
+ignore_motion_flag = False
+# add alongside the other globals near the top
 
 # Interaction state machine
 interaction_mode = "none"
@@ -38,7 +48,7 @@ def load_existing_layout():
 def save_to_disk():
     with open(CONFIG_FILE, "w") as f:
         json.dump(layouts, f, indent=4)
-    print(f"[Neow's Eye] Layout changes successfully saved to {CONFIG_FILE}")
+    log(f"Layout changes successfully saved to {CONFIG_FILE}")
 
 
 def get_box_handles(x, y, w, h):
@@ -58,6 +68,8 @@ def get_box_handles(x, y, w, h):
 def redraw_canvas():
     """Redraws all saved layout boxes, handles for the selected box, and pending new box if any."""
     global original_frame, current_frame, layouts, selected_box_name, awaiting_input, box_to_save
+    if original_frame is None:
+        return
     current_frame = original_frame.copy()
 
     for name, data in layouts.items():
@@ -68,7 +80,12 @@ def redraw_canvas():
             color = (0, 255, 255)  # Bright yellow for selected box
             thickness = 2
         else:
-            color = (255, 0, 255) if requires_hover else (0, 255, 0)
+            if data.get("source") == "scribe_auto":
+                color = (0, 165, 255)  # orange (BGR) -- unconfirmed, seeded by Scribe
+            elif requires_hover:
+                color = (255, 0, 255)
+            else:
+                color = (0, 255, 0)
             thickness = 1
 
         cv2.rectangle(current_frame, (x, y), (x + w, y + h), color, thickness)
@@ -129,6 +146,8 @@ def process_and_ocr_crop(crop, w, h):
 def show_ocr_preview(x1, y1, w, h):
     """Triggers the OCR preview window for a given crop region."""
     global original_frame
+    if original_frame is None:
+        return
     crop = original_frame[y1 : y1 + h, x1 : x1 + w]
     preview_img, detected_text = process_and_ocr_crop(crop, w, h)
 
@@ -140,7 +159,7 @@ def show_ocr_preview(x1, y1, w, h):
         cv2.rectangle(combined_canvas, (0, ph), (combined_canvas.shape[1], ph + 50), (30, 30, 30), -1)
         cv2.putText(combined_canvas, f"OCR: '{detected_text}'", (10, ph + 32), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2, cv2.LINE_AA)
         cv2.imshow("Neow's Eye - OCR Result Preview", combined_canvas)
-        print(f"OCR: '{detected_text}'")
+        log(f"OCR: '{detected_text}'")
 
 
 def mouse_callback(event, x, y, flags, param):
@@ -154,11 +173,11 @@ def mouse_callback(event, x, y, flags, param):
         if interaction_mode != "none":
             interaction_mode = "none"
             redraw_canvas()
-            print("[Neow's Eye] Action canceled.")
+            log("Action canceled.")
         elif selected_box_name:
             selected_box_name = None
             redraw_canvas()
-            print("[Neow's Eye] Box deselected.")
+            log("Box deselected.")
         return
 
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -196,7 +215,7 @@ def mouse_callback(event, x, y, flags, param):
             selected_box_name = clicked_box
             interaction_mode = "none"
             redraw_canvas()
-            print(f"[Neow's Eye] Selected box: '{selected_box_name}'")
+            log(f"Selected box: '{selected_box_name}'")
         else:
             # 4. Create new box
             selected_box_name = None
@@ -206,7 +225,8 @@ def mouse_callback(event, x, y, flags, param):
     elif event == cv2.EVENT_MOUSEMOVE:
         if interaction_mode == "creating":
             redraw_canvas()
-            cv2.rectangle(current_frame, (drag_start_x, drag_start_y), (x, y), (0, 255, 0), 2)
+            if current_frame is not None:
+                cv2.rectangle(current_frame, (drag_start_x, drag_start_y), (x, y), (0, 255, 0), 2)
 
         elif interaction_mode == "repositioning" and selected_box_name in layouts:
             dx = x - drag_start_x
@@ -249,13 +269,20 @@ def mouse_callback(event, x, y, flags, param):
                 redraw_canvas()
                 return
 
+            # box creation, in mouse_callback's LBUTTONUP "creating" branch:
             box_to_save = {
-                "x": x1,
-                "y": y1,
-                "w": w,
-                "h": h,
+                "x": x1, "y": y1, "w": w, "h": h,
                 "requires_hover": requires_hover_flag,
+                "ignore_motion": ignore_motion_flag,
+                "is_anchor": anchor_flag,
             }
+            if anchor_flag:
+                import base64, io
+                frame_ref = original_frame
+                if frame_ref is not None:
+                    crop = frame_ref[y1:y1 + h, x1:x1 + w]
+                    _, buf = cv2.imencode(".png", crop)
+                    box_to_save["anchor_reference"] = base64.b64encode(buf).decode()
             awaiting_input = True
             input_text = ""
             
@@ -264,6 +291,8 @@ def mouse_callback(event, x, y, flags, param):
 
         elif interaction_mode in ["repositioning"] or interaction_mode.startswith("resizing_"):
             interaction_mode = "none"
+            if selected_box_name and selected_box_name in layouts:
+                layouts[selected_box_name].pop("source", None)  # human-adjusted -> confirmed
             save_to_disk()
             
             if selected_box_name and selected_box_name in layouts:
@@ -271,14 +300,21 @@ def mouse_callback(event, x, y, flags, param):
                 show_ocr_preview(b["x"], b["y"], b["w"], b["h"])
 
             redraw_canvas()
-            print(f"[Neow's Eye] Updated box '{selected_box_name}' dimensions/position.")
+            log(f"Updated box '{selected_box_name}' dimensions/position.")
 
 
 def draw_ui_overlay(frame):
     global awaiting_input, input_text, box_to_save, requires_hover_flag, selected_box_name
     h, w, _ = frame.shape
 
-    status_text = f"Hover [H]: {'ON' if requires_hover_flag else 'OFF'} | Selected: {selected_box_name or 'None'}"
+    status_text = (
+        f"Hover [H]: {'ON' if requires_hover_flag else 'OFF'} | "
+        f"IgnoreMotion [M]: {'ON' if ignore_motion_flag else 'OFF'} | "
+        f"Anchor [A]: {'ON' if anchor_flag else 'OFF'} | "
+        f"Selected: {selected_box_name or 'None'}"
+        f"Selected: {selected_box_name or 'None'}"
+    )
+    
     text_size = cv2.getTextSize(status_text, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)[0]
     hud_x = (w - text_size[0]) // 2
     hud_y = 70
@@ -286,7 +322,7 @@ def draw_ui_overlay(frame):
     cv2.rectangle(frame, (hud_x - 10, hud_y - 22), (hud_x + text_size[0] + 10, hud_y + 8), (30, 30, 30), -1)
     cv2.putText(frame, status_text, (hud_x, hud_y), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, cv2.LINE_AA)
 
-    if not awaiting_input:
+    if not awaiting_input or box_to_save is None:
         return frame
 
     overlay = frame.copy()
@@ -299,12 +335,55 @@ def draw_ui_overlay(frame):
     cv2.putText(frame, sub_str, (20, h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1, cv2.LINE_AA)
     return frame
 
+def seed_from_scribe():
+    """Run the Scribe once against the current frame and stage its
+    detected elements as draft layout boxes (source: 'scribe_auto').
+    Existing boxes are never overwritten -- a name collision is skipped
+    silently, on the assumption the existing box was already confirmed.
+    """
+    global layouts, original_frame
+    if original_frame is None:
+        return
+
+    from PIL import Image
+    import cv2
+    from llm.gemini_provider import GeminiProvider
+    from interpretation.scribe import Scribe
+    from vision.geometry import normalized_box_to_pixels
+
+    log("Calling Scribe to seed draft boxes...")
+    scribe = Scribe(GeminiProvider())
+    h, w = original_frame.shape[:2]
+    pil_image = Image.fromarray(cv2.cvtColor(original_frame, cv2.COLOR_BGR2RGB))
+    result = scribe.extract(pil_image)
+
+    added = 0
+    for el in result.screen_elements:
+        name = el.label.strip().lower().replace(" ", "_")
+        if name in layouts:
+            continue
+        x, y, bw, bh = normalized_box_to_pixels(el.box_2d, w, h)
+        layouts[name] = {
+            "x": x, "y": y, "w": bw, "h": bh,
+            "requires_hover": False,
+            "ignore_motion": False,
+            "psm": 7,
+            "source": "scribe_auto",  # unconfirmed -- nudge/rename before trusting for OCR
+        }
+        added += 1
+
+    save_to_disk()
+    log(f"Added {added} draft box(es) from Scribe. Review before trusting for OCR.")
+
 
 def main():
     global current_frame, original_frame, awaiting_input, input_text, box_to_save, requires_hover_flag, selected_box_name, layouts
 
-    client = Client("Slay the Spire")
-    original_frame = client.capture_view()
+    window_title = sys.argv[1] if len(sys.argv) > 1 else "Slay the Spire"
+
+    client = ScreenCollector(window_title)
+    client.prepare_window()
+    original_frame = client.capture_bgr()
 
     if original_frame is not None:
         load_existing_layout()
@@ -314,8 +393,12 @@ def main():
         cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
         cv2.setMouseCallback(window_name, mouse_callback)
 
-        print("[Neow's Eye] Layout Editor Active.")
+        log("Layout Editor Active.")
         while True:
+            if current_frame is None:
+                log("Lost the captured frame -- stopping.")
+                break
+
             display_frame = draw_ui_overlay(current_frame.copy())
             cv2.imshow(window_name, display_frame)
 
@@ -356,16 +439,25 @@ def main():
                     if selected_box_name and selected_box_name in layouts:
                         del layouts[selected_box_name]
                         save_to_disk()
-                        print(f"[Neow's Eye] Deleted box: '{selected_box_name}'")
+                        log(f"Deleted box: '{selected_box_name}'")
                         selected_box_name = None
                         redraw_canvas()
                 elif key == ord("h"):
                     requires_hover_flag = not requires_hover_flag
-                    print(f"[Neow's Eye] requires_hover set to: {requires_hover_flag}")
+                    log(f"Requires_hover set to: {requires_hover_flag}")
+                elif key == ord("m"):
+                    ignore_motion_flag = not ignore_motion_flag
+                    log(f"Ignore_motion set to: {ignore_motion_flag}")
                 elif key == ord("r"):
-                    original_frame = client.capture_view()
+                    original_frame = client.capture_bgr()
                     redraw_canvas()
-                    print("[Neow's Eye] View refreshed.")
+                    log("View refreshed.")
+                elif key == ord("s"):
+                    seed_from_scribe()
+                    redraw_canvas()
+                elif key == ord("a"):
+                    anchor_flag = not anchor_flag
+                    log(f"Anchor set to: {anchor_flag}")
 
         cv2.destroyAllWindows()
 

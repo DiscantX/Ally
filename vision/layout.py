@@ -17,6 +17,9 @@ class UIElement:
         self.h = data.get("h", 40)
         self.requires_hover = data.get("requires_hover", False)
         self.psm = data.get("psm", 7)
+        self.ignore_motion = data.get("ignore_motion", False)
+        self.is_anchor = data.get("is_anchor", False)
+        self.anchor_reference = data.get("anchor_reference")  # base64 PNG, only if is_anchor
 
     @property
     def box(self):

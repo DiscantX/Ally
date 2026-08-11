@@ -31,10 +31,10 @@ from PIL import Image
 from ally.ally_agent import Ally
 from ally.personalities import PERSONALITIES
 from collectors.base import RawObservation
+from collectors.configured_collector import build_collector, GenericHudCollector
 from interpretation.scribe import Scribe
 from llm.gemini_provider import GeminiProvider
 from memory.manager import MemoryManager
-from plugins.slay_the_spire.collector import SlayTheSpireCollector
 from state.entity_registry import EntityRegistry
 from state.genre_tracker import GenreTracker
 from state.sandbox import StateSandbox
@@ -56,6 +56,7 @@ def run_turn(
     registry: EntityRegistry,
     genre_tracker: GenreTracker,
     memory_manager: MemoryManager,
+    include_ui: bool = True,
 ) -> None:
     if observation.image is None:
         log("No image captured -- is the game window open?")
@@ -63,8 +64,13 @@ def run_turn(
 
     show_image(observation.image)
 
-    log("--- Scribe extracting ---")
-    scribe_output = scribe.extract(observation.image)
+    log(
+        "\n--- Screen: {name} (confidence={confidence:.2f}) ---",
+        name=observation.screen_name, confidence=observation.screen_confidence,
+    )
+
+    log("--- Scribe extracting ({mode}) ---", mode="NO_UI" if not include_ui else "UI")
+    scribe_output = scribe.extract(observation.image, include_ui=include_ui)
     sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
     genre_estimate = genre_tracker.update(
         scribe_output.genre_guess, scribe_output.genre_confidence
@@ -107,7 +113,7 @@ def run_turn(
 
 
 def run_loop(
-    collector: SlayTheSpireCollector,
+    collector: GenericHudCollector,
     scribe: Scribe,
     ally: Ally,
     sandbox: StateSandbox,
@@ -121,10 +127,11 @@ def run_loop(
         while True:
             observation = collector.capture()
             if observation.image is not None and not observation.changed:
-                # log("\nScreen unchanged (user idle). Skipping API calls.", name="SuperiorColliculus")
                 pass
             else:
-                run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
+                reader = collector.readers.get(observation.screen_name)
+                include_ui = reader is None
+                run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager, include_ui=include_ui)
             time.sleep(interval_seconds)
     except KeyboardInterrupt:
         log("\nStopping loop.")
@@ -154,5 +161,5 @@ if __name__ == "__main__":
         observation = RawObservation(image=Image.open(sys.argv[1]))
         run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
     else:
-        collector = SlayTheSpireCollector()
+        collector = build_collector("configs/slay_the_spire.json")
         run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager)

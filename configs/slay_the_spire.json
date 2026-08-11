@@ -1,0 +1,6 @@
+{
+  "game_id": "slay_the_spire",
+  "window_title": "Slay the Spire",
+  "layout_dir": "configs/slay_the_spire/layouts",
+  "source_tag": "ocr:slay_the_spire"
+}

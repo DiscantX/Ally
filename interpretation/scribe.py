@@ -60,6 +60,12 @@ SCRIBE_PROMPT_UI = (
     "- description: one plain sentence describing it\n"
     "- box_2d: a bounding box as [y_min, x_min, y_max, x_max], normalized "
     "0-1000\n\n"
+    "IMPORTANT for box_2d: if an element combines an icon/graphic with "
+    "a text or number value (e.g. a heart icon next to an HP number, or "
+    "a coin icon next to a gold count), box_2d must bound ONLY the text "
+    "or number -- exclude the icon entirely. This box will be used to "
+    "crop exactly this region for text recognition, so a loose box that "
+    "includes non-text pixels will hurt accuracy.\n\n"
     "Do not interpret what anything means. Do not suggest actions. "
     "Description only."
 )
@@ -68,9 +74,10 @@ class Scribe:
     def __init__(self, provider: GeminiProvider):
         self.provider = provider
 
-    def extract(self, image: Image.Image) -> ScribeOutput:
+    def extract(self, image: Image.Image, include_ui: bool = True) -> ScribeOutput:
+        prompt = SCRIBE_PROMPT_UI if include_ui else SCRIBE_PROMPT_NO_UI
         return self.provider.generate_structured(
             model=SCRIBE_MODEL,
-            contents=[image, SCRIBE_PROMPT_UI],
+            contents=[image, prompt],
             schema=ScribeOutput,
         )
