@@ -39,12 +39,13 @@ from state.entity_registry import EntityRegistry
 from state.genre_tracker import GenreTracker
 from state.sandbox import StateSandbox
 from logger import log
+from tools.display import show_image
 
 # How often to capture + process a turn during the live loop. Tune this
 # against two competing costs: snappier feel (lower) vs. Gemini RPD/RPM
 # budget and per-call latency, especially once thinking mode is enabled
 # on the Scribe for dense scenes (see ally_decision_log.md).
-TURN_INTERVAL_SECONDS =1.0
+TURN_INTERVAL_SECONDS =10.0
 
 
 def run_turn(
@@ -59,6 +60,8 @@ def run_turn(
     if observation.image is None:
         log("No image captured -- is the game window open?")
         return
+
+    show_image(observation.image)
 
     log("--- Scribe extracting ---")
     scribe_output = scribe.extract(observation.image)
@@ -118,7 +121,8 @@ def run_loop(
         while True:
             observation = collector.capture()
             if observation.image is not None and not observation.changed:
-                log("\nScreen unchanged (user idle). Skipping API calls.", name="SuperiorColliculus")
+                # log("\nScreen unchanged (user idle). Skipping API calls.", name="SuperiorColliculus")
+                pass
             else:
                 run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
             time.sleep(interval_seconds)

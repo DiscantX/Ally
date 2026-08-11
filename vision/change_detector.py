@@ -3,6 +3,7 @@
 This was added/changed as a part of the ZOO CODE idle safeguard pass.
 """
 
+import time
 import cv2
 import numpy as np
 from logger import log
@@ -14,15 +15,36 @@ class ChangeDetector:
     Acts as the biological 'Superior Colliculus' sensory gate.
 
     Includes luminance normalization and tuned thresholds to prevent false positives
-    from UI hover brightening (e.g. mouse cursor over large buttons or cards).
+    from UI hover brightening (e.g. mouse cursor over large buttons or cards),
+    along with optional post-trigger cooldown and settling stability checks.
 
     This was added/changed as a part of the ZOO CODE idle safeguard pass.
     """
 
-    def __init__(self, threshold_percent: float = 2.0, pixel_diff_threshold: int = 30):
+    def __init__(
+        self,
+        threshold_percent: float = 2.0,
+        pixel_diff_threshold: int = 30,
+        enable_cooldown: bool = False,
+        cooldown_seconds: float = 5.0,
+        major_change_threshold: float = 20.0,
+        enable_stability_check: bool = False,
+        stability_threshold_percent: float = 1.0,
+    ):
         self.threshold_percent = threshold_percent
         self.pixel_diff_threshold = pixel_diff_threshold
         self._last_frame_gray: np.ndarray | None = None
+
+        # Cooldown mechanism configuration
+        self.enable_cooldown = enable_cooldown
+        self.cooldown_seconds = cooldown_seconds
+        self.major_change_threshold = major_change_threshold
+        self._last_trigger_timestamp: float = 0.0
+
+        # Stability / settling check mechanism configuration
+        self.enable_stability_check = enable_stability_check
+        self.stability_threshold_percent = stability_threshold_percent
+        self._in_transition: bool = False
 
     def has_changed(self, frame_bgr: np.ndarray) -> bool:
         """Compares current BGR frame against the previous frame with luminance
@@ -64,10 +86,43 @@ class ChangeDetector:
         changed_pixels = cv2.countNonZero(thresh)
         total_pixels = gray.shape[0] * gray.shape[1]
         changed_percent = (changed_pixels / total_pixels) * 100.0
-        log("\nScreen delta: {changed_pixels}/{total_pixels} = {changed_percent}%\n")
+        log(f"\nScreen delta: {changed_pixels}/{total_pixels} = {changed_percent}%\n")
 
+        current_time = time.time()
+
+        # 1. Cooldown mechanism (independent toggle)
+        if self.enable_cooldown:
+            if changed_percent >= self.major_change_threshold:
+                if current_time - self._last_trigger_timestamp < self.cooldown_seconds:
+                    log(f"[SuperiorColliculus] Cooldown active ({current_time - self._last_trigger_timestamp:.1f}s < {self.cooldown_seconds}s). Skipping trigger.")
+                    self._last_frame_gray = gray_normalized
+                    return False
+
+        # 2. Stability / settling check mechanism (independent toggle)
+        if self.enable_stability_check:
+            if changed_percent >= self.threshold_percent:
+                if not self._in_transition:
+                    self._in_transition = True
+                    log("[SuperiorColliculus] Transition started. Waiting for screen to settle.")
+                self._last_frame_gray = gray_normalized
+                return False
+            elif self._in_transition:
+                if changed_percent <= self.stability_threshold_percent:
+                    self._in_transition = False
+                    log(f"[SuperiorColliculus] Screen settled (delta {changed_percent}% <= {self.stability_threshold_percent}%). Triggering turn.")
+                    self._last_frame_gray = gray_normalized
+                    if self.enable_cooldown:
+                        self._last_trigger_timestamp = current_time
+                    return True
+                else:
+                    self._last_frame_gray = gray_normalized
+                    return False
+
+        # Standard check (if neither cooldown nor stability check suppresses it)
         if changed_percent >= self.threshold_percent:
             self._last_frame_gray = gray_normalized
+            if self.enable_cooldown and changed_percent >= self.major_change_threshold:
+                self._last_trigger_timestamp = current_time
             return True
 
         return False
@@ -78,3 +133,5 @@ class ChangeDetector:
         This was added/changed as a part of the ZOO CODE idle safeguard pass.
         """
         self._last_frame_gray = None
+        self._in_transition = False
+        self._last_trigger_timestamp = 0.0

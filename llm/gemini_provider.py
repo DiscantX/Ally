@@ -16,7 +16,7 @@ import random
 import functools
 from logger import log
 
-load_dotenv()
+load_dotenv(override=True)
 
 T = TypeVar("T", bound=BaseModel)
 
