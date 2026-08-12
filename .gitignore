@@ -7,3 +7,6 @@ __pycache__/
 
 images/
 logs/
+smoke_test_*
+
+configs/
