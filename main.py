@@ -56,6 +56,7 @@ def run_turn(
     registry: EntityRegistry,
     genre_tracker: GenreTracker,
     memory_manager: MemoryManager,
+    collector: GenericHudCollector | None = None,
     include_ui: bool = True,
 ) -> None:
     if observation.image is None:
@@ -65,12 +66,16 @@ def run_turn(
     show_image(observation.image)
 
     log(
-        "\n--- Screen: {name} (confidence={confidence:.2f}) ---",
-        name=observation.screen_name, confidence=observation.screen_confidence,
+        "\n--- Screen: {screen_name} (confidence={confidence:.2f}) ---",
+        screen_name=observation.screen_name, confidence=observation.screen_confidence,
     )
 
     log("--- Scribe extracting ({mode}) ---", mode="NO_UI" if not include_ui else "UI")
     scribe_output = scribe.extract(observation.image, include_ui=include_ui)
+
+    if collector is not None and observation.bootstrap_ready:
+        collector.bootstrap_screen(scribe_output.screen_elements, scribe_output.screen_name_guess)
+
     sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
     genre_estimate = genre_tracker.update(
         scribe_output.genre_guess, scribe_output.genre_confidence
@@ -130,15 +135,15 @@ def run_loop(
                 pass
             else:
                 reader = collector.readers.get(observation.screen_name)
-                include_ui = reader is None
-                run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager, include_ui=include_ui)
+                include_ui = reader is None or not reader.has_calibrated_fields
+                run_turn(
+                    observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager,
+                    collector=collector, include_ui=include_ui,
+                )
             time.sleep(interval_seconds)
     except KeyboardInterrupt:
         log("\nStopping loop.")
     finally:
-        # Seam for the cross-session memory tier -- currently a no-op in
-        # MemoryManager, but the call site exists now so wiring real
-        # persistence later doesn't require touching main.py.
         memory_manager.flush_to_cross_session()
 
 
@@ -161,5 +166,5 @@ if __name__ == "__main__":
         observation = RawObservation(image=Image.open(sys.argv[1]))
         run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
     else:
-        collector = build_collector("configs/slay_the_spire.json")
+        collector = build_collector("configs/slay_the_spire/slay_the_spire.json")
         run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager)

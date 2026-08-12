@@ -20,6 +20,19 @@ class UIElement:
         self.ignore_motion = data.get("ignore_motion", False)
         self.is_anchor = data.get("is_anchor", False)
         self.anchor_reference = data.get("anchor_reference")  # base64 PNG, only if is_anchor
+        self.source = data.get("source")          # None once human-edited, else "scribe_auto"
+        self.validated = data.get("validated", False)
+
+    @property
+    def is_trusted(self) -> bool:
+        """Anchors are never OCR-trusted. A human-confirmed box (no
+        'source' tag) is always trusted. A scribe_auto draft is trusted
+        only if it passed self-confirmation at bootstrap time."""
+        if self.is_anchor:
+            return False
+        if self.source != "scribe_auto":
+            return True
+        return self.validated
 
     @property
     def box(self):

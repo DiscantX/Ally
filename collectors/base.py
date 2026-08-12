@@ -33,6 +33,7 @@ class RawObservation:
     changed: bool = True
     screen_name: str = "unknown"
     screen_confidence: float = 0.0
+    bootstrap_ready: bool = False
 
 
 class Collector(Protocol):

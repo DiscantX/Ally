@@ -13,11 +13,21 @@ from vision.ocr import extract_text, preprocess_for_ocr
 class LayoutOCRReader:
     def __init__(self, layout_path: str, source_tag: str):
         self.layout = LayoutManager(layout_path)
-        self.source_tag = source_tag  # e.g. "ocr:slay_the_spire"
+        self.source_tag = source_tag
+
+    @property
+    def has_calibrated_fields(self) -> bool:
+        """True once at least one non-anchor element has been calibrated.
+        is_anchor elements exist only so ScreenClassifier can recognize
+        the screen -- they were never meant to be OCR'd as HUD values,
+        so they don't count toward "this screen's OCR is ready."""
+        return any(el.is_trusted for el in self.layout.elements.values())
 
     def read(self, frame_bgr) -> list[ConfirmedFact]:
         facts = []
         for name, element in self.layout.elements.items():
+            if not element.is_trusted:
+                continue
             x, y, w, h = element.box
             crop = frame_bgr[y : y + h, x : x + w]
             processed = preprocess_for_ocr(crop)

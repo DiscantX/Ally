@@ -25,41 +25,56 @@ try:
 except ImportError:
     _SSIM_AVAILABLE = False
 
-
 @dataclass
 class ScreenMatch:
     screen_name: str
-    confidence: float  # 0.0-1.0, best anchor similarity score
+    confidence: float
+    is_draft: bool = False  # matched via whole-frame draft signature, not a real anchor
 
 
 class ScreenClassifier:
-    def __init__(self, match_threshold: float = 0.85):
+    def __init__(self, match_threshold: float = 0.85, draft_match_threshold: float = 0.85, draft_frame_size: tuple[int, int] = (160, 90)):
         self.match_threshold = match_threshold
+        self.draft_match_threshold = draft_match_threshold
+        self.draft_frame_size = draft_frame_size
         self._anchors: dict[str, tuple[tuple[int, int, int, int], np.ndarray]] = {}
+        self._draft_frames: dict[str, np.ndarray] = {}
 
     def register_anchor(self, screen_name: str, box: tuple[int, int, int, int], reference_bgr: np.ndarray) -> None:
         gray = cv2.cvtColor(reference_bgr, cv2.COLOR_BGR2GRAY)
         self._anchors[screen_name] = (box, gray)
 
+    def register_draft_frame(self, screen_name: str, frame_bgr: np.ndarray) -> None:
+        gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        self._draft_frames[screen_name] = cv2.resize(gray, self.draft_frame_size, interpolation=cv2.INTER_AREA)
+
     def classify(self, frame_bgr: np.ndarray) -> ScreenMatch:
-        if not self._anchors:
-            return ScreenMatch("unknown", 0.0)
-
         gray_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-        best_name, best_score = "unknown", 0.0
 
-        for name, (box, reference_gray) in self._anchors.items():
-            x, y, w, h = box
-            crop = gray_frame[y:y + h, x:x + w]
-            if crop.shape != reference_gray.shape:
-                continue  # window resized or bad calibration -- skip, don't crash
-            score = self._similarity(crop, reference_gray)
-            if score > best_score:
-                best_name, best_score = name, score
+        if self._anchors:
+            best_name, best_score = "unknown", 0.0
+            for name, (box, reference_gray) in self._anchors.items():
+                x, y, w, h = box
+                crop = gray_frame[y:y + h, x:x + w]
+                if crop.shape != reference_gray.shape:
+                    continue
+                score = self._similarity(crop, reference_gray)
+                if score > best_score:
+                    best_name, best_score = name, score
+            if best_score >= self.match_threshold:
+                return ScreenMatch(best_name, best_score)
 
-        if best_score < self.match_threshold:
-            return ScreenMatch("unknown", best_score)
-        return ScreenMatch(best_name, best_score)
+        if self._draft_frames:
+            small = cv2.resize(gray_frame, self.draft_frame_size, interpolation=cv2.INTER_AREA)
+            best_name, best_score = "unknown", 0.0
+            for name, ref in self._draft_frames.items():
+                score = self._similarity(small, ref)
+                if score > best_score:
+                    best_name, best_score = name, score
+            if best_score >= self.draft_match_threshold:
+                return ScreenMatch(best_name, best_score, is_draft=True)
+
+        return ScreenMatch("unknown", 0.0)
 
     def _similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         if _SSIM_AVAILABLE:

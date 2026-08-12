@@ -34,3 +34,15 @@ def extract_text(processed_image, config="--psm 7"):
     if processed_image is None:
         return ""
     return pytesseract.image_to_string(processed_image, config=config).strip()
+    
+def looks_like_real_text(text: str, min_alnum_ratio: float = 0.5) -> bool:
+    """Coarse self-confirmation check: is this OCR output probably real
+    text, not garbage? Lets a bootstrapped screen validate its own draft
+    boxes with no human review. Deliberately simple (character-class
+    ratio, not a dictionary or language-model check) -- flagged to revisit
+    if noisy OCR starts leaking into ConfirmedFacts undetected."""
+    cleaned = text.strip()
+    if not cleaned:
+        return False
+    alnum = sum(c.isalnum() for c in cleaned)
+    return alnum / len(cleaned) >= min_alnum_ratio

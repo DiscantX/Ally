@@ -23,6 +23,14 @@ SCRIBE_PROMPT_GENRE_GUESS = (
     "confidence, even if you personally suspect you know the game."
 )
 
+SCRIBE_PROMPT_SCREEN_NAME_GUESS = (
+    "Also provide a short (1-3 word) functional label for what kind of "
+    "screen this is (e.g. 'combat', 'map', 'shop', 'title screen', "
+    "'inventory'), based on what's visually distinguishable about it. "
+    "This label is used to automatically name and recognize the screen "
+    "later, so prefer a generic functional name over a flavorful one."
+)
+
 SCRIBE_PROMPT_NO_UI = (
     "You are analysing a single screenshot from a game."
     "Only use information visible in this image. Do not draw on any "
@@ -43,6 +51,8 @@ SCRIBE_PROMPT_NO_UI = (
     "0-1000\n\n"
     "Do not interpret what anything means. Do not suggest actions. "
     "Description only."
+    + "\n\n" + SCRIBE_PROMPT_GENRE_GUESS
+    + "\n\n" + SCRIBE_PROMPT_SCREEN_NAME_GUESS
 #
 )
 
@@ -68,6 +78,8 @@ SCRIBE_PROMPT_UI = (
     "includes non-text pixels will hurt accuracy.\n\n"
     "Do not interpret what anything means. Do not suggest actions. "
     "Description only."
+    + "\n\n" + SCRIBE_PROMPT_GENRE_GUESS
+    + "\n\n" + SCRIBE_PROMPT_SCREEN_NAME_GUESS
 )
 
 class Scribe:

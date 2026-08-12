@@ -31,6 +31,7 @@ from collectors.base import RawObservation
 from collectors.screen_collector import ScreenCollector
 from vision.layout_reader import LayoutOCRReader
 from vision.screen_classifier import ScreenClassifier
+from vision.screen_bootstrapper import ScreenBootstrapper
 from logger import log
 
 
@@ -91,6 +92,8 @@ class GenericHudCollector:
         self.config = config
         self.screen = ScreenCollector(config.window_title)
         self.readers, self.classifier = build_screen_layouts(config.layout_dir, config.source_tag)
+        self.bootstrapper = ScreenBootstrapper(config.layout_dir, unknown_streak_threshold=3)
+        self._last_frame_bgr = None
 
         # Union of ignore_motion regions across every known screen -- we
         # don't know which screen we're on until *after* the change
@@ -108,19 +111,32 @@ class GenericHudCollector:
         if frame_bgr is None:
             return RawObservation(image=None, changed=False)
 
+        self._last_frame_bgr = frame_bgr
         changed = self.screen.change_detector.has_changed(frame_bgr)
         match = self.classifier.classify(frame_bgr)
+        bootstrap_ready = self.bootstrapper.note_classification(match.screen_name)
         reader = self.readers.get(match.screen_name)
         confirmed_facts = reader.read(frame_bgr) if reader else []
 
         image = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
         return RawObservation(
-            image=image,
-            confirmed_facts=confirmed_facts,
-            changed=changed,
-            screen_name=match.screen_name,
-            screen_confidence=match.confidence,
+            image=image, confirmed_facts=confirmed_facts, changed=changed,
+            screen_name=match.screen_name, screen_confidence=match.confidence,
+            bootstrap_ready=bootstrap_ready,
         )
+
+    def bootstrap_screen(self, screen_elements: list, screen_name_guess: str):
+        """Called from main.py right after Scribe runs, only when capture()
+        flagged bootstrap_ready this turn."""
+        if self._last_frame_bgr is None:
+            log("[Collector] bootstrap_screen called with no cached frame -- skipping.")
+            return None
+        result = self.bootstrapper.bootstrap(self._last_frame_bgr, screen_elements, screen_name_guess)
+        self.readers[result.screen_name] = LayoutOCRReader(
+            result.layout_path, source_tag=f"{self.config.source_tag}:{result.screen_name}"
+        )
+        self.classifier.register_draft_frame(result.screen_name, self._last_frame_bgr)
+        return result
 
 
 def build_collector(config_path: str) -> GenericHudCollector:

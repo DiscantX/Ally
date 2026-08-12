@@ -42,7 +42,7 @@ class ChangeDetector:
         threshold_percent: float = 5.0,
         pixel_diff_threshold: int = 30,
         enable_cooldown: bool = False,
-        cooldown_seconds: float = 5.0,
+        cooldown_seconds: float = 1.0,
         major_change_threshold: float = 20.0,
         enable_stability_check: bool = False,
         stability_threshold_percent: float = 5.0,
@@ -123,8 +123,9 @@ class ChangeDetector:
         gray_normalized = np.clip(gray.astype(np.float32) - mean_diff, 0, 255).astype(np.uint8)
 
         if self.use_ssim:
-            score, _ = ssim(gray_normalized, self._last_frame_gray, full=True)
-            changed_percent = max(0.0, (1.0 - score)) * 100.0
+            result = ssim(gray_normalized, self._last_frame_gray, full=True)
+            score = result[0] if isinstance(result, tuple) else result
+            changed_percent = max(0.0, (1.0 - float(score))) * 100.0
         else:
             diff = cv2.absdiff(gray_normalized, self._last_frame_gray)
             _, thresh = cv2.threshold(diff, self.pixel_diff_threshold, 255, cv2.THRESH_BINARY)
