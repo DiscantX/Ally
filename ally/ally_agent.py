@@ -61,4 +61,5 @@ class Ally:
             model=ALLY_MODEL,
             contents=[prompt],
             schema=AllyOutput,
+            thinking_level="HIGH"
         )

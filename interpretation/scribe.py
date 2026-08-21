@@ -92,4 +92,5 @@ class Scribe:
             model=SCRIBE_MODEL,
             contents=[image, prompt],
             schema=ScribeOutput,
+            thinking_level="minimal"
         )

@@ -45,7 +45,7 @@ from tools.display import show_image
 # against two competing costs: snappier feel (lower) vs. Gemini RPD/RPM
 # budget and per-call latency, especially once thinking mode is enabled
 # on the Scribe for dense scenes (see ally_decision_log.md).
-TURN_INTERVAL_SECONDS =10.0
+TURN_INTERVAL_SECONDS =0.1
 
 
 def run_turn(
@@ -166,5 +166,5 @@ if __name__ == "__main__":
         observation = RawObservation(image=Image.open(sys.argv[1]))
         run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
     else:
-        collector = build_collector("configs/slay_the_spire/slay_the_spire.json")
+        collector = build_collector("configs/slay_the_spire/config.json")
         run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
