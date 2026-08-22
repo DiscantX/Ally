@@ -193,18 +193,29 @@ class EntityResolver(BaseLookupResolver):
             if grp_id not in self.cards_db:
                 self.cards_db[grp_id] = row_dict
 
-    def resolve_card(self, grp_id: int) -> Dict[str, Any]:
-        """Resolve a grpId to card metadata (title, types, colors, etc.)."""
+    def resolve_card(self, grp_id: int, name_loc_id: Optional[int] = None) -> Dict[str, Any]:
+        """Resolve a grpId to card metadata. If grpId isn't in the local
+        Cards table -- the common case for dynamically-generated tokens,
+        which often never get a permanent catalog entry -- fall back to
+        resolving `name_loc_id` (the gameObject's own `name` field, a
+        LocId) directly against the already-loaded localization table.
+        This recovers the display name for free (no extra lookup source)
+        but can't recover type/colors, since those live on the Cards row
+        we don't have."""
         self.load_data()
-        
+
         card_info = self.cards_db.get(int(grp_id))
         if not card_info:
+            if name_loc_id is not None:
+                fallback_name = self.loc_db.get(int(name_loc_id))
+                if fallback_name:
+                    return {
+                        "grpId": grp_id, "name": fallback_name, "type": "Unknown",
+                        "colors": [], "source": "token_name_fallback",
+                    }
             return {
-                "grpId": grp_id,
-                "name": f"Card({grp_id})",
-                "type": "Unknown",
-                "colors": [],
-                "source": "unresolved",
+                "grpId": grp_id, "name": f"Card({grp_id})", "type": "Unknown",
+                "colors": [], "source": "unresolved",
             }
 
         title_id = self._optional_int(card_info.get("TitleId"))
@@ -214,12 +225,8 @@ class EntityResolver(BaseLookupResolver):
         colors = self._resolve_colors(card_info.get("Colors"))
 
         return {
-            "grpId": grp_id,
-            "name": name,
-            "type": card_type,
-            "colors": colors,
-            "source": "arena_db",
-            "raw": card_info,
+            "grpId": grp_id, "name": name, "type": card_type,
+            "colors": colors, "source": "arena_db", "raw": card_info,
         }
 
     @staticmethod

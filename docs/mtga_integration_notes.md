@@ -353,3 +353,127 @@ they generalize:
    concession) to chip away at the §4.2 gap and stress-test the
    accumulator against messier state transitions than a clean single
    match provides.
+
+## 8. Token resolution and verification tiers
+
+### Token resolution gap (closed)
+
+The 5.8% of objects that didn't resolve against the local Cards table
+turned out to be dynamically-generated tokens -- confirmed by checking
+their grpIds against Scryfall directly and getting 404s, meaning they
+were never permanent catalog entries in the first place, not a schema
+mismatch. Fix: `EntityResolver.resolve_card` now accepts an optional
+`name_loc_id` -- the gameObject's own `name` field (a LocId, per §3.1's
+earlier note) -- and falls back to resolving it directly against the
+already-loaded `loc_db` when the grpId lookup misses. This recovers a
+real display name for tokens at zero extra cost (no second lookup
+source, no network call) but can't recover type/colors, since those
+only live on a Cards row we don't have. Tagged `source:
+"token_name_fallback"` in the resolved dict so callers can distinguish
+"a real catalog card" from "a name we recovered from the game object
+itself" if that distinction ever matters downstream.
+
+### Verification: two tiers, not one pile
+
+| Script | Proves | Needs Arena installed? |
+|---|---|---|
+| `test_log_framing.py`, `test_annotations.py`, `test_accumulator.py` | Parser structure vs. a fixed fixture log | No |
+| `test_resolver.py` (synthetic-DB cases) | Resolver logic vs. a synthetic DB | No |
+| `test_resolver.py::...local_arena_schema...` | Real column/table names match assumptions | Yes |
+| `test_integration_resolution.py` | Real resolver + real log hit an acceptable resolution rate | Yes |
+| `verify_parser.py`, `verify_name_resolution.py`, `test_actual_files.py` | Human-readable diagnostics, not assertions | Mixed |
+
+Run `python -m unittest discover plugins/mtga -p "test_*.py"` as the one
+command for both tiers -- skip-guards mean it's always safe to run, it
+just proves more on a machine with Arena installed.
+
+The real-environment tier isn't a one-time gate: Arena's card DB updates
+every set release, so the resolution-rate assertion in
+`test_integration_resolution.py` is a drift check, not a closed
+question. Worth re-running periodically during active MTGA-plugin work,
+not just once to close this pass.
+
+## 9. Entity resolution refinements (token fallback + object-type awareness)
+
+Two refinements made after the initial resolver rewrite (§6), surfaced
+during real-log verification rather than assumed up front.
+
+### Token name fallback
+
+~5.8% of objects in a real session didn't resolve against the local
+Cards table. Checked directly against Scryfall (404s), confirming these
+aren't a stale-local-DB problem -- they never had a permanent catalog
+entry, consistent with dynamically-generated tokens.
+
+Fix: `EntityResolver.resolve_card` now accepts an optional
+`name_loc_id` -- the gameObject's own `name` field, a LocId (per §3.1's
+earlier note that this field was safe to ignore for the main flow).
+When the `grpId` lookup misses, `resolve_card` falls back to resolving
+`name_loc_id` directly against the already-loaded `loc_db`, recovering a
+real display name at zero extra cost (same data already in memory, no
+second lookup source). Tagged `source: "token_name_fallback"` so callers
+can distinguish "a real catalog card" from "a name recovered from the
+object itself." Type/colors stay `"Unknown"` in this path, since those
+only live on a Cards row we don't have.
+
+### Object type awareness (Card vs. Token vs. Ability vs. unknown)
+
+Investigating the objects that still didn't resolve even with the token
+fallback in place surfaced `type: "GameObjectType_Ability"` --
+ability-instance objects (owned by a permanent via `parentId`, generated
+by a card via `objectSourceGrpId`), not cards at all. A real session's
+full breakdown by `type`:
+
+- `GameObjectType_Card`: 95
+- `GameObjectType_Token`: 65
+- `GameObjectType_Ability`: 11
+
+Two things this caught before they shipped:
+
+1. **`grpId` is not one namespace across object types.** Under the
+   original type-blind resolution, one of the 11 Ability objects
+   coincidentally matched a row in `Cards`. That's a false positive, not
+   a real resolution -- and more dangerous than an honest miss, since it
+   would present as confirmed data to anything reading it downstream.
+2. **Token is its own `type`, distinct from Card.** An allowlist that
+   only checked `type == "GameObjectType_Card"` would have silently
+   stopped resolving all 65 Token objects -- caught by checking the full
+   type breakdown before pasting the fix in, not after.
+
+Fix: `parser._resolve_object()` allowlists
+`{"GameObjectType_Card", "GameObjectType_Token"}` for real
+catalog/name-fallback resolution via `resolved_card`. Everything else
+(Ability today; whatever else Arena's schema uses tomorrow) never has
+its own `grpId` checked against `Cards` -- instead, if
+`objectSourceGrpId` is present, that resolves into
+`resolved_source_card`, a structurally trustworthy link (the card that
+generated this ability/effect) rather than a coincidental one. Any
+`type` outside the allowlist that isn't already known as
+`"GameObjectType_Ability"` logs once on first sight, so a future Arena
+schema addition becomes a visible event during playtesting rather than
+a silent misclassification.
+
+This generalizes a principle already established elsewhere in the
+pipeline (`StateSandbox`'s `ConfirmedFacts`-vs-interpretation split): a
+resolution should only be presented as trustworthy when the lookup path
+that produced it is structurally guaranteed to be meaningful, not just
+"some integer happened to match some row somewhere."
+
+### Verification tiers (feeds into plan step 8)
+
+| Script | Proves | Needs Arena installed? |
+|---|---|---|
+| `test_log_framing.py`, `test_annotations.py`, `test_accumulator.py` | Parser structure vs. a fixed fixture log | No |
+| `test_resolver.py` (synthetic-DB cases) | Resolver logic vs. a synthetic DB | No |
+| `test_resolver.py::...local_arena_schema...` | Real column/table names match assumptions | Yes |
+| `test_integration_resolution.py` | Real resolver + real log hit an acceptable resolution rate, and every object with a `grpId` resolves via either `resolved_card` or `resolved_source_card` | Yes |
+| `verify_parser.py`, `verify_name_resolution.py`, `inspect_unresolved.py`, `test_actual_files.py` | Human-readable diagnostics, not assertions | Mixed |
+
+Open, not yet decided: whether the real-environment tier and the
+diagnostic scripts stay in the committed suite long-term, or the
+diagnostics move into a `diagnostics/`-style folder (matching the
+project-wide non-test-diagnostics convention) once the plugin is
+considered stable. Leaning toward keeping the fixture-based fast tests
+as permanent regression guards and treating the real-environment tier
+as a periodic drift check (Arena's card DB changes every set release)
+rather than a one-time gate -- final call still pending.
