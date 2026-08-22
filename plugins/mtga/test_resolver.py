@@ -3,8 +3,7 @@
 import os
 import tempfile
 import unittest
-import json
-import gzip
+import sqlite3
 
 from plugins.mtga.resolver import EnumResolver, EntityResolver
 
@@ -38,31 +37,23 @@ class TestMTGAResolvers(unittest.TestCase):
         self.assertEqual(card["name"], "Card(12345)")
         self.assertEqual(card["type"], "Unknown")
 
-    def test_entity_resolver_with_local_files(self):
+    def test_entity_resolver_with_sqlite_db(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            # Create mock data_cards_abc123.mtga (JSON or Gzip JSON)
-            cards_data = [
-                {"grpId": 1001, "titleId": 5001, "cardType": "CardType_Creature", "color": ["CardColor_Red"]}
-            ]
-            loc_data = [
-                {"id": 5001, "text": "Goblin Guide"}
-            ]
-
-            cards_path = os.path.join(tmpdir, "data_cards_abc123.mtga")
-            loc_path = os.path.join(tmpdir, "data_loc_abc123.mtga")
-
-            with open(cards_path, "wb") as f:
-                f.write(gzip.compress(json.dumps(cards_data).encode("utf-8")))
-
-            with open(loc_path, "wb") as f:
-                f.write(json.dumps(loc_data).encode("utf-8"))
+            db_path = os.path.join(tmpdir, "Raw_CardDatabase_test123.mtga")
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("CREATE TABLE Cards (grpId INTEGER, name TEXT, type TEXT)")
+            cursor.execute("INSERT INTO Cards VALUES (?, ?, ?)", (1001, "Lightning Bolt", "Instant"))
+            cursor.execute("CREATE TABLE Localization (id INTEGER, text TEXT)")
+            cursor.execute("INSERT INTO Localization VALUES (?, ?)", (5001, "Lightning Bolt"))
+            conn.commit()
+            conn.close()
 
             resolver = EntityResolver(data_dir=tmpdir)
             card = resolver.resolve_card(1001)
             self.assertEqual(card["grpId"], 1001)
-            self.assertEqual(card["name"], "Goblin Guide")
-            self.assertEqual(card["type"], "CardType_Creature")
-            self.assertEqual(card["colors"], ["CardColor_Red"])
+            self.assertEqual(card["name"], "Lightning Bolt")
+            self.assertEqual(card["type"], "Instant")
 
 
 if __name__ == "__main__":
