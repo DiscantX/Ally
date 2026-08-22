@@ -8,7 +8,7 @@ enum resolutions for phases, steps, zones, and colors.
 import glob
 import os
 import sqlite3
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 
 class BaseLookupResolver:
@@ -121,15 +121,6 @@ class EnumResolver:
 class EntityResolver(BaseLookupResolver):
     """Resolves card entity grpIds against local MTGA SQLite card database files."""
 
-    FALLBACK_CARDS = {
-        93946: {"name": "Test Instant / Lesson", "type": "Instant", "colors": ["Green"]},
-        95660: {"name": "Colossal Dreadmaw", "type": "Creature", "colors": ["Green"]},
-        75531: {"name": "Beast Token", "type": "Creature", "colors": ["Green"]},
-        68310: {"name": "Llanowar Elves", "type": "Creature", "colors": ["Green"]},
-        97447: {"name": "Environmental Sciences", "type": "Instant Lesson", "colors": ["Green"]},
-        105182: {"name": "Forest", "type": "Land", "colors": []},
-    }
-
     def __init__(self, data_dir: Optional[str] = None):
         super().__init__(data_dir)
         self.cards_db: Dict[int, Dict[str, Any]] = {}
@@ -143,58 +134,64 @@ class EntityResolver(BaseLookupResolver):
         if not os.path.isdir(self.data_dir):
             return False
 
-        # Gather all database files (CardDatabase and ClientLocalization)
-        db_files = glob.glob(os.path.join(self.data_dir, "*.mtga")) + glob.glob(os.path.join(self.data_dir, "*.db"))
+        db_files = glob.glob(os.path.join(self.data_dir, "Raw_CardDatabase_*.mtga"))
+        db_files += glob.glob(os.path.join(self.data_dir, "Raw_CardDatabase_*.db"))
         if not db_files:
             return False
 
-        # Sort db_files by mtime descending (most recent first)
         db_files.sort(key=os.path.getmtime, reverse=True)
 
         for db_file in db_files:
+            conn = None
             try:
                 conn = sqlite3.connect(db_file)
                 conn.row_factory = sqlite3.Row
-                cursor = conn.cursor()
-
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-                tables = [row[0] for row in cursor.fetchall()]
-
-                for table in tables:
-                    try:
-                        cursor.execute(f"SELECT * FROM {table}")
-                        rows = cursor.fetchall()
-                        for row in rows:
-                            row_dict = dict(row)
-                            # Check keys for grpId / card info
-                            grp_id = row_dict.get("grpId") or row_dict.get("Id") or row_dict.get("id") or row_dict.get("CardId") or row_dict.get("CollationId")
-                            if grp_id is not None:
-                                try:
-                                    g_int = int(grp_id)
-                                    if g_int not in self.cards_db:
-                                        self.cards_db[g_int] = row_dict
-                                except (ValueError, TypeError):
-                                    pass
-
-                            # Check keys for localization strings
-                            loc_key = row_dict.get("id") or row_dict.get("Key") or row_dict.get("LocId") or row_dict.get("isoId") or row_dict.get("ID")
-                            loc_val = row_dict.get("text") or row_dict.get("Value") or row_dict.get("Translation") or row_dict.get("string") or row_dict.get("Text")
-                            if loc_key is not None and loc_val is not None:
-                                try:
-                                    k_int = int(loc_key)
-                                    if k_int not in self.loc_db:
-                                        self.loc_db[k_int] = str(loc_val)
-                                except (ValueError, TypeError):
-                                    pass
-                    except Exception:
-                        pass
-
-                conn.close()
-            except Exception:
-                pass
+                self._load_localizations(conn)
+                self._load_cards(conn)
+            except sqlite3.DatabaseError:
+                continue
+            finally:
+                if conn is not None:
+                    conn.close()
 
         self._loaded = len(self.cards_db) > 0 or len(self.loc_db) > 0
         return self._loaded
+
+    def _table_exists(self, conn: sqlite3.Connection, table: str) -> bool:
+        cursor = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        )
+        return cursor.fetchone() is not None
+
+    def _load_localizations(self, conn: sqlite3.Connection) -> None:
+        if not self._table_exists(conn, "Localizations_enUS"):
+            return
+
+        cursor = conn.execute(
+            "SELECT LocId, Loc FROM Localizations_enUS WHERE Loc IS NOT NULL"
+        )
+        for row in cursor:
+            try:
+                loc_id = int(row["LocId"])
+            except (TypeError, ValueError):
+                continue
+            if loc_id not in self.loc_db:
+                self.loc_db[loc_id] = str(row["Loc"])
+
+    def _load_cards(self, conn: sqlite3.Connection) -> None:
+        if not self._table_exists(conn, "Cards"):
+            return
+
+        cursor = conn.execute("SELECT * FROM Cards")
+        for row in cursor:
+            row_dict = dict(row)
+            try:
+                grp_id = int(row_dict["GrpId"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if grp_id not in self.cards_db:
+                self.cards_db[grp_id] = row_dict
 
     def resolve_card(self, grp_id: int) -> Dict[str, Any]:
         """Resolve a grpId to card metadata (title, types, colors, etc.)."""
@@ -202,46 +199,57 @@ class EntityResolver(BaseLookupResolver):
         
         card_info = self.cards_db.get(int(grp_id))
         if not card_info:
-            fallback = self.FALLBACK_CARDS.get(int(grp_id))
-            if fallback:
-                return {
-                    "grpId": grp_id,
-                    "name": fallback["name"],
-                    "type": fallback["type"],
-                    "colors": fallback["colors"],
-                    "raw": fallback,
-                }
             return {
                 "grpId": grp_id,
                 "name": f"Card({grp_id})",
                 "type": "Unknown",
                 "colors": [],
+                "source": "unresolved",
             }
 
-        title_id = card_info.get("titleId") or card_info.get("TitleId") or card_info.get("nameId") or card_info.get("localizationId") or card_info.get("TitleId")
-        name = "Unknown"
-        
-        raw_name = card_info.get("name") or card_info.get("Title") or card_info.get("CardName")
-        if isinstance(raw_name, int) or (isinstance(raw_name, str) and raw_name.isdigit()):
-            title_id = int(raw_name)
-
-        if title_id is not None:
-            try:
-                name = self.loc_db.get(int(title_id), f"Card({grp_id})")
-            except (ValueError, TypeError):
-                name = f"Card({grp_id})"
-        elif isinstance(raw_name, str):
-            name = raw_name
-        elif "title" in card_info:
-            name = card_info["title"]
-
-        card_type = card_info.get("cardType") or card_info.get("types") or card_info.get("type", "Unknown")
-        colors = card_info.get("color") or card_info.get("colors", [])
+        title_id = self._optional_int(card_info.get("TitleId"))
+        type_id = self._optional_int(card_info.get("TypeTextId"))
+        name = self.loc_db.get(title_id, f"Card({grp_id})") if title_id is not None else f"Card({grp_id})"
+        card_type = self.loc_db.get(type_id, "Unknown") if type_id is not None else "Unknown"
+        colors = self._resolve_colors(card_info.get("Colors"))
 
         return {
             "grpId": grp_id,
             "name": name,
             "type": card_type,
             "colors": colors,
+            "source": "arena_db",
             "raw": card_info,
         }
+
+    @staticmethod
+    def _optional_int(value: Any) -> Optional[int]:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _resolve_colors(self, raw_colors: Any) -> List[str]:
+        if raw_colors is None or raw_colors == "":
+            return []
+        if isinstance(raw_colors, int):
+            color_ids = [raw_colors]
+        elif isinstance(raw_colors, str):
+            color_ids = [
+                color_id.strip()
+                for color_id in raw_colors.split(",")
+                if color_id.strip()
+            ]
+        elif isinstance(raw_colors, list):
+            color_ids = raw_colors
+        else:
+            return []
+
+        colors = []
+        for color_id in color_ids:
+            parsed_color = self._optional_int(color_id)
+            if parsed_color is not None:
+                colors.append(EnumResolver.resolve_color(parsed_color))
+            else:
+                colors.append(str(color_id))
+        return colors

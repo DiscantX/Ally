@@ -32,20 +32,36 @@ class TestMTGAResolvers(unittest.TestCase):
 
     def test_entity_resolver_fallback(self):
         resolver = EntityResolver(data_dir="nonexistent_path_abc")
-        card = resolver.resolve_card(12345)
-        self.assertEqual(card["grpId"], 12345)
-        self.assertEqual(card["name"], "Card(12345)")
+        card = resolver.resolve_card(95660)
+        self.assertEqual(card["grpId"], 95660)
+        self.assertEqual(card["name"], "Card(95660)")
         self.assertEqual(card["type"], "Unknown")
+        self.assertEqual(card["colors"], [])
+        self.assertEqual(card["source"], "unresolved")
 
     def test_entity_resolver_with_sqlite_db(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "Raw_CardDatabase_test123.mtga")
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()
-            cursor.execute("CREATE TABLE Cards (grpId INTEGER, name TEXT, type TEXT)")
-            cursor.execute("INSERT INTO Cards VALUES (?, ?, ?)", (1001, "Lightning Bolt", "Instant"))
-            cursor.execute("CREATE TABLE Localization (id INTEGER, text TEXT)")
-            cursor.execute("INSERT INTO Localization VALUES (?, ?)", (5001, "Lightning Bolt"))
+            cursor.execute(
+                "CREATE TABLE Cards (GrpId INTEGER, TitleId INTEGER, TypeTextId INTEGER, Colors TEXT)"
+            )
+            cursor.execute(
+                "INSERT INTO Cards VALUES (?, ?, ?, ?)",
+                (1001, 5001, 6001, "4"),
+            )
+            cursor.execute(
+                "CREATE TABLE Localizations_enUS (LocId INTEGER, Formatted INTEGER, Loc TEXT)"
+            )
+            cursor.execute(
+                "INSERT INTO Localizations_enUS VALUES (?, ?, ?)",
+                (5001, 1, "Lightning Bolt"),
+            )
+            cursor.execute(
+                "INSERT INTO Localizations_enUS VALUES (?, ?, ?)",
+                (6001, 1, "Instant"),
+            )
             conn.commit()
             conn.close()
 
@@ -54,6 +70,29 @@ class TestMTGAResolvers(unittest.TestCase):
             self.assertEqual(card["grpId"], 1001)
             self.assertEqual(card["name"], "Lightning Bolt")
             self.assertEqual(card["type"], "Instant")
+            self.assertEqual(card["colors"], ["Red"])
+            self.assertEqual(card["source"], "arena_db")
+
+    def test_entity_resolver_against_local_arena_schema_when_available(self):
+        resolver = EntityResolver()
+        if not os.path.isdir(resolver.data_dir):
+            self.skipTest("local MTGA data directory not available")
+        if not resolver.load_data():
+            self.skipTest("local MTGA card database not available")
+
+        snakeskin_veil = resolver.resolve_card(93946)
+        craterhoof = resolver.resolve_card(95660)
+        forest = resolver.resolve_card(105182)
+
+        self.assertEqual(snakeskin_veil["name"], "Snakeskin Veil")
+        self.assertEqual(snakeskin_veil["type"], "Instant")
+        self.assertEqual(snakeskin_veil["source"], "arena_db")
+        self.assertEqual(craterhoof["name"], "Craterhoof Behemoth")
+        self.assertEqual(craterhoof["type"], "Creature")
+        self.assertEqual(craterhoof["source"], "arena_db")
+        self.assertEqual(forest["name"], "Forest")
+        self.assertEqual(forest["type"], "Basic Land")
+        self.assertEqual(forest["source"], "arena_db")
 
 
 if __name__ == "__main__":
