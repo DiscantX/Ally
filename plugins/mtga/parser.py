@@ -15,6 +15,20 @@ from plugins.mtga.resolver import EntityResolver, EnumResolver
 class MTGALogParser:
     """Parses MTGA log files and accumulates game state with card and enum resolution."""
 
+    ANNOTATION_TYPES = {
+        1: "ZoneTransfer",
+        3: "DamageDealt",
+        4: "TappedUntappedPermanent",
+        8: "PhaseOrStepModified",
+        10: "ModifiedLife",
+        13: "ObjectIdChanged",
+        34: "ManaPaid",
+        35: "TokenCreated",
+        43: "ResolutionStart",
+        44: "ResolutionComplete",
+        48: "NewTurnStarted",
+    }
+
     def __init__(self, log_path: str):
         self.log_path = log_path
         self.reader = LogReader(log_path, follow=False)
@@ -24,7 +38,14 @@ class MTGALogParser:
             "players": {},
             "zones": {},
             "game_objects": {},
-            "turn_info": {"turn": 0, "phase": 0, "phase_name": "None", "step": 0, "step_name": "None"},
+            "turn_info": {
+                "turn": 0,
+                "turn_event_count": 0,
+                "phase": 0,
+                "phase_name": "None",
+                "step": 0,
+                "step_name": "None",
+            },
             "match_state": "Unknown",
         }
         self.match_state = "Unknown"
@@ -138,7 +159,15 @@ class MTGALogParser:
             "players": {},
             "zones": {},
             "game_objects": {},
-            "turn_info": {"turn": 0, "phase": 0, "phase_name": "None", "step": 0, "step_name": "None"},
+            "turn_info": {
+                "turn": 0,
+                "turn_event_count": 0,
+                "phase": 0,
+                "phase_name": "None",
+                "step": 0,
+                "step_name": "None",
+            },
+            "match_state": self.match_state,
         }
         game_state = msg.get("gameState", msg)
         
@@ -166,6 +195,7 @@ class MTGALogParser:
                 if grp_id is not None:
                     obj["resolved_card"] = self.entity_resolver.resolve_card(int(grp_id))
                 self.game_state["game_objects"][obj_id] = obj
+                self._reconcile_object_zone(obj_id)
 
     def _apply_diff_state(self, msg: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Apply incremental diffs and extract semantic annotations."""
@@ -195,10 +225,12 @@ class MTGALogParser:
                 if grp_id is not None:
                     obj["resolved_card"] = self.entity_resolver.resolve_card(int(grp_id))
                 self.game_state["game_objects"][obj_id].update(obj)
+                self._reconcile_object_zone(obj_id)
 
         annotations = diff.get("annotations", [])
         for ann in annotations:
-            ann_types = ann.get("type", [])
+            raw_ann_types = ann.get("type", [])
+            ann_types = self._normalize_annotation_types(raw_ann_types)
             details = ann.get("details", [])
             
             # Helper to read typed detail values
@@ -206,6 +238,7 @@ class MTGALogParser:
             
             event = {
                 "types": ann_types,
+                "raw_types": raw_ann_types,
                 "affectorId": ann.get("affectorId"),
                 "affectedIds": ann.get("affectedIds", []),
                 "details": detail_dict,
@@ -214,12 +247,21 @@ class MTGALogParser:
             self.events.append(event)
 
             # Update running state based on annotation types
-            if "NewTurnStarted" in ann_types or 48 in ann_types:
+            if self._has_annotation_type(ann_types, "NewTurnStarted"):
+                self.game_state["turn_info"]["turn_event_count"] += 1
                 turn_num = detail_dict.get("turn") or detail_dict.get("turnNumber")
                 if turn_num is not None:
                     self.game_state["turn_info"]["turn"] = turn_num
 
-            if "PhaseOrStepModified" in ann_types or 8 in ann_types:
+            if self._has_annotation_type(ann_types, "ObjectIdChanged"):
+                old_id = detail_dict.get("orig_id")
+                new_id = detail_dict.get("new_id")
+                if old_id is not None:
+                    self._remove_object_from_zones(old_id)
+                if new_id is not None:
+                    self._reconcile_object_zone(new_id)
+
+            if self._has_annotation_type(ann_types, "PhaseOrStepModified"):
                 phase = detail_dict.get("phase")
                 step = detail_dict.get("step")
                 if phase is not None:
@@ -230,6 +272,56 @@ class MTGALogParser:
                     self.game_state["turn_info"]["step_name"] = self.enum_resolver.resolve_step(step)
 
         return diff_events
+
+    @classmethod
+    def _normalize_annotation_type(cls, ann_type: Any) -> str:
+        if isinstance(ann_type, int):
+            return cls.ANNOTATION_TYPES.get(ann_type, f"UnknownAnnotation({ann_type})")
+        if isinstance(ann_type, str):
+            prefix = "AnnotationType_"
+            if ann_type.startswith(prefix):
+                return ann_type[len(prefix):]
+            return ann_type
+        return str(ann_type)
+
+    @classmethod
+    def _normalize_annotation_types(cls, ann_types: Any) -> List[str]:
+        if not isinstance(ann_types, list):
+            ann_types = [ann_types]
+        return [cls._normalize_annotation_type(ann_type) for ann_type in ann_types]
+
+    @staticmethod
+    def _has_annotation_type(ann_types: List[str], expected: str) -> bool:
+        return expected in ann_types
+
+    def _remove_object_from_zones(self, object_id: int) -> None:
+        for zone in self.game_state["zones"].values():
+            instance_ids = zone.get("objectInstanceIds")
+            if not isinstance(instance_ids, list):
+                continue
+            zone["objectInstanceIds"] = [
+                existing_id
+                for existing_id in instance_ids
+                if existing_id != object_id
+            ]
+
+    def _reconcile_object_zone(self, object_id: int) -> None:
+        obj = self.game_state["game_objects"].get(object_id)
+        if not obj:
+            return
+
+        zone_id = obj.get("zoneId")
+        if zone_id is None:
+            return
+
+        self._remove_object_from_zones(object_id)
+        zone = self.game_state["zones"].get(zone_id)
+        if zone is None:
+            return
+
+        instance_ids = zone.setdefault("objectInstanceIds", [])
+        if isinstance(instance_ids, list) and object_id not in instance_ids:
+            instance_ids.append(object_id)
 
     def get_resolved_zones(self) -> Dict[str, List[Dict[str, Any]]]:
         """Resolve zone object instance IDs to actual game objects."""
@@ -249,6 +341,8 @@ class MTGALogParser:
     def _parse_details(self, details: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Extract typed key-value pairs from annotation details."""
         parsed = {}
+        if not details:
+            return parsed
         for d in details:
             key = d.get("key")
             if not key:
