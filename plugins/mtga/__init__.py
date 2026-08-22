@@ -1,0 +1,1 @@
+"""MTGA Integration Plugin package."""
