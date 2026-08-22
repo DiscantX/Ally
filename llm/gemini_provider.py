@@ -6,7 +6,7 @@ client directly. Swapping providers later (different Gemini model, a
 different vendor entirely) means editing this one file.
 """
 
-from google import genai, ThinkingLevel
+from google import genai
 from google.genai import types, errors
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -72,14 +72,25 @@ class GeminiProvider:
         schema: type[T],
         thinking_level: str | None = None,
     ) -> T:
-        config_kwargs = dict(response_mime_type="application/json", response_schema=schema)
-        if thinking_level is not None:
-            config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=thinking_level)
+        """Call the model and parse the response straight into `schema`.
 
-        response = self.client.models.generate_content(s
+        Using response_mime_type + response_schema instead of asking nicely
+        for JSON in the prompt avoids the markdown-fence/stray-text problem
+        the original script was exposed to.
+        """
+        thinking_config = None
+        if thinking_level is not None:
+            lvl = types.ThinkingLevel[thinking_level.upper()] if isinstance(thinking_level, str) else thinking_level
+            thinking_config = types.ThinkingConfig(thinking_level=lvl)
+
+        response = self.client.models.generate_content(
             model=model,
             contents=contents,
-            config=types.GenerateContentConfig(**config_kwargs),
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=schema,
+                thinking_config=thinking_config,
+            ),
         )
         if not response.text:
             raise ValueError("Model returned empty response text")

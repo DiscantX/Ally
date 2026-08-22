@@ -45,7 +45,7 @@ from tools.display import show_image
 # against two competing costs: snappier feel (lower) vs. Gemini RPD/RPM
 # budget and per-call latency, especially once thinking mode is enabled
 # on the Scribe for dense scenes (see ally_decision_log.md).
-TURN_INTERVAL_SECONDS =0.1
+TURN_INTERVAL_SECONDS = 0.01
 
 
 def run_turn(
