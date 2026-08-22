@@ -6,4 +6,5 @@ opencv-python
 mss
 pytesseract
 scikit-image
+msgpack
 pywin32; sys_platform == "win32"

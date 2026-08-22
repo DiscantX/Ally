@@ -2,26 +2,29 @@
 
 Parses MTGA Player.log messages, handles Full and Diff game state payloads,
 extracts annotations (life changes, zone transfers, turn/phase changes),
-and maintains a running game state accumulator.
+and maintains a running game state accumulator with entity and enum resolution.
 """
 
 import json
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
 from collectors.log_reader import LogReader
+from plugins.mtga.resolver import EntityResolver, EnumResolver
 
 
 class MTGALogParser:
-    """Parses MTGA log files and accumulates game state."""
+    """Parses MTGA log files and accumulates game state with card and enum resolution."""
 
     def __init__(self, log_path: str):
         self.log_path = log_path
         self.reader = LogReader(log_path, follow=False)
+        self.entity_resolver = EntityResolver()
+        self.enum_resolver = EnumResolver()
         self.game_state: Dict[str, Any] = {
             "players": {},
             "zones": {},
             "game_objects": {},
-            "turn_info": {"turn": 0, "phase": 0, "step": 0},
+            "turn_info": {"turn": 0, "phase": 0, "phase_name": "None", "step": 0, "step_name": "None"},
             "match_state": "Unknown",
         }
         self.events: List[Dict[str, Any]] = []
@@ -91,7 +94,7 @@ class MTGALogParser:
             "players": {},
             "zones": {},
             "game_objects": {},
-            "turn_info": {"turn": 0, "phase": 0, "step": 0},
+            "turn_info": {"turn": 0, "phase": 0, "phase_name": "None", "step": 0, "step_name": "None"},
         }
         game_state = msg.get("gameState", msg)
         
@@ -106,12 +109,18 @@ class MTGALogParser:
         for z in zones:
             z_id = z.get("zoneId")
             if z_id:
+                z_type_val = z.get("type")
+                if z_type_val is not None:
+                    z["type_name"] = self.enum_resolver.resolve_zone(z_type_val)
                 self.game_state["zones"][z_id] = z
 
         objects = game_state.get("gameObjects", [])
         for obj in objects:
             obj_id = obj.get("instanceId") or obj.get("id")
             if obj_id:
+                grp_id = obj.get("grpId")
+                if grp_id is not None:
+                    obj["resolved_card"] = self.entity_resolver.resolve_card(int(grp_id))
                 self.game_state["game_objects"][obj_id] = obj
 
     def _apply_diff_state(self, msg: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -126,6 +135,9 @@ class MTGALogParser:
             if z_id:
                 if z_id not in self.game_state["zones"]:
                     self.game_state["zones"][z_id] = {}
+                z_type_val = z.get("type")
+                if z_type_val is not None:
+                    z["type_name"] = self.enum_resolver.resolve_zone(z_type_val)
                 self.game_state["zones"][z_id].update(z)
 
         # Update game objects from diff
@@ -135,6 +147,9 @@ class MTGALogParser:
             if obj_id:
                 if obj_id not in self.game_state["game_objects"]:
                     self.game_state["game_objects"][obj_id] = {}
+                grp_id = obj.get("grpId")
+                if grp_id is not None:
+                    obj["resolved_card"] = self.entity_resolver.resolve_card(int(grp_id))
                 self.game_state["game_objects"][obj_id].update(obj)
 
         annotations = diff.get("annotations", [])
@@ -165,26 +180,24 @@ class MTGALogParser:
                 step = detail_dict.get("step")
                 if phase is not None:
                     self.game_state["turn_info"]["phase"] = phase
+                    self.game_state["turn_info"]["phase_name"] = self.enum_resolver.resolve_phase(phase)
                 if step is not None:
                     self.game_state["turn_info"]["step"] = step
-
-            if "ModifiedLife" in ann_types or 10 in ann_types:
-                life_change = detail_dict.get("life") or detail_dict.get("value")
-                # Could update player life totals here
+                    self.game_state["turn_info"]["step_name"] = self.enum_resolver.resolve_step(step)
 
         return diff_events
 
     def get_resolved_zones(self) -> Dict[str, List[Dict[str, Any]]]:
         """Resolve zone object instance IDs to actual game objects."""
         resolved = {}
-        for z_id, zone in self.game_state["zones"].items.items() if hasattr(self.game_state["zones"].items, "items") else self.game_state["zones"].items(): # wait, dict items
-            pass
         for z_id, zone in self.game_state["zones"].items():
             z_type = zone.get("type", "Unknown")
+            z_type_name = zone.get("type_name") or self.enum_resolver.resolve_zone(z_type)
             instance_ids = zone.get("objectInstanceIds", [])
             objects = [self.game_state["game_objects"].get(i) for i in instance_ids if i in self.game_state["game_objects"]]
             resolved[str(z_id)] = {
                 "type": z_type,
+                "type_name": z_type_name,
                 "objects": [o for o in objects if o is not None]
             }
         return resolved
