@@ -6,7 +6,7 @@ and maintains a running game state accumulator with entity and enum resolution.
 """
 
 import json
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Optional
 
 from collectors.log_reader import LogReader
 from plugins.mtga.resolver import EntityResolver, EnumResolver
@@ -27,34 +27,81 @@ class MTGALogParser:
             "turn_info": {"turn": 0, "phase": 0, "phase_name": "None", "step": 0, "step_name": "None"},
             "match_state": "Unknown",
         }
+        self.match_state = "Unknown"
         self.events: List[Dict[str, Any]] = []
+
+    def iter_gre_payloads(self) -> Generator[Dict[str, Any], None, None]:
+        """Yield framed GRE JSON payloads from the log without interpreting them."""
+        prev_line = ""
+        for line in self.reader.read_lines():
+            if line.startswith("{") and self._is_gre_header(prev_line):
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    pass
+            prev_line = line
+
+    def iter_gre_client_messages(self) -> Generator[Dict[str, Any], None, None]:
+        """Yield each individual greToClientMessages item from framed GRE payloads."""
+        for payload in self.iter_gre_payloads():
+            inner = payload.get("greToClientEvent", payload)
+            messages = inner.get("greToClientMessages", [])
+            if messages:
+                yield from messages
+            elif isinstance(inner, dict):
+                yield inner
 
     def parse(self) -> Generator[Dict[str, Any], None, None]:
         """Parse log file line by line, yielding parsed GRE messages and events."""
         prev_line = ""
         for line in self.reader.read_lines():
-            # Check for match boundaries
             if "STATE CHANGED" in line:
-                if "Playing" in line:
-                    self.match_state = "Playing"
-                    yield {"type": "match_state", "state": "Playing"}
-                elif "MatchCompleted" in line:
-                    self.match_state = "MatchCompleted"
-                    yield {"type": "match_state", "state": "MatchCompleted"}
+                state_event = self._parse_state_changed(line)
+                if state_event:
+                    self.match_state = state_event["new"]
+                    self.game_state["match_state"] = self.match_state
+                    yield {
+                        "type": "match_state",
+                        "old": state_event["old"],
+                        "new": state_event["new"],
+                        "state": state_event["new"],
+                    }
 
             # GRE Client Message framing: Header line followed by JSON payload starting with '{'
-            if line.startswith("{") and ("GreToClientEvent" in prev_line or "GRE_to_Client" in prev_line or "GreToClient" in prev_line):
+            if line.startswith("{") and self._is_gre_header(prev_line):
                 try:
                     payload = json.loads(line)
-                    parsed_event = self._handle_gre_message(payload)
-                    if parsed_event:
+                    for parsed_event in self._handle_gre_payload(payload):
                         yield parsed_event
                 except json.JSONDecodeError:
                     pass
 
             prev_line = line
 
-    def _handle_gre_message(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    @staticmethod
+    def _is_gre_header(line: str) -> bool:
+        return "GreToClientEvent" in line or "GRE_to_Client" in line or "GreToClient" in line
+
+    @staticmethod
+    def _parse_state_changed(line: str) -> Optional[Dict[str, str]]:
+        marker = "STATE CHANGED"
+        if marker not in line:
+            return None
+
+        _, _, raw_json = line.partition(marker)
+        raw_json = raw_json.strip()
+        try:
+            state = json.loads(raw_json)
+        except json.JSONDecodeError:
+            return None
+
+        old = state.get("old")
+        new = state.get("new")
+        if not isinstance(old, str) or not isinstance(new, str):
+            return None
+        return {"old": old, "new": new}
+
+    def _handle_gre_payload(self, payload: Dict[str, Any]) -> Generator[Dict[str, Any], None, None]:
         """Process a parsed GRE-to-client event payload."""
         inner = payload.get("greToClientEvent", payload)
         
@@ -62,18 +109,15 @@ class MTGALogParser:
         if not messages and isinstance(inner, dict):
             messages = [inner]
 
-        last_result = None
         for msg in messages:
-            game_state_msg = msg.get("gameStateMessage") or inner.get("gameStateMessage")
+            game_state_msg = msg.get("gameStateMessage")
             if game_state_msg:
-                last_result = self._handle_game_state_message(game_state_msg)
+                yield self._handle_game_state_message(game_state_msg)
             
-            room_state = msg.get("matchGameRoomStateChangedEvent") or inner.get("matchGameRoomStateChangedEvent")
+            room_state = msg.get("matchGameRoomStateChangedEvent")
             if room_state:
                 state_type = room_state.get("stateType")
-                last_result = {"type": "room_state", "stateType": state_type}
-
-        return last_result
+                yield {"type": "room_state", "stateType": state_type}
 
     def _handle_game_state_message(self, msg: Dict[str, Any]) -> Dict[str, Any]:
         """Handle GameStateType_Full or GameStateType_Diff."""
