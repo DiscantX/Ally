@@ -34,7 +34,7 @@ class MTGALogParser:
     def __init__(self, log_path: str):
         self.log_path = log_path
         self.reader = LogReader(log_path, follow=False)
-        self.entity_resolver = EntityResolver()
+        self.entity_resolver: Any = EntityResolver()
         self.enum_resolver = EnumResolver()
         self.game_state: Dict[str, Any] = {
             "players": {},

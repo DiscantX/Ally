@@ -3,7 +3,7 @@ against a real captured log and reports how well name resolution actually
 worked end-to-end -- not just in isolation against the resolver's own tests.
 
 Usage:
-    python plugins/mtga/verify_name_resolution.py [path/to/Player.log]
+    python plugins/mtga/tests/diagnostics/verify_name_resolution.py [path/to/Player.log]
 
 Defaults to docs/log-single-game.log if no path given.
 """

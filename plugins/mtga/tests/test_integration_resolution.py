@@ -61,7 +61,7 @@ class TestNameResolutionIntegration(unittest.TestCase):
         parser = MTGALogParser(SAMPLE_LOG)
         list(parser.parse())
 
-        resolved_zones = parser.get_resolved_zones()
+        resolved_zones: dict = parser.get_resolved_zones()
         placeholder_names = [
             obj["resolved_card"]["name"]
             for zone in resolved_zones.values()
@@ -81,6 +81,21 @@ class TestNameResolutionIntegration(unittest.TestCase):
                 f"{len(placeholder_names)}/{total_named} zone objects still show "
                 f"placeholder 'Card(N)' names: {placeholder_names[:10]}",
             )
+
+    def test_every_object_with_grpid_has_resolved_card_or_source_card(self):
+        parser = MTGALogParser(SAMPLE_LOG)
+        list(parser.parse())
+
+        uncovered = []
+        for obj_id, obj in parser.game_state["game_objects"].items():
+            if obj.get("grpId") is not None:
+                if obj.get("resolved_card") is None and obj.get("resolved_source_card") is None:
+                    uncovered.append((obj_id, obj.get("type"), obj.get("grpId")))
+
+        self.assertEqual(
+            len(uncovered), 0,
+            f"Objects with grpId fell through without either resolved_card or resolved_source_card: {uncovered}"
+        )
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ entirely -- so we're not just re-confirming a bug in our own loading
 code with more of our own loading code.
 
 Usage:
-    python plugins/mtga/inspect_unresolved.py [path/to/Player.log]
+    python plugins/mtga/tests/diagnostics/inspect_unresolved.py [path/to/Player.log]
 """
 
 import glob

@@ -10,7 +10,7 @@ SAMPLE_LOG = "docs/log-single-game.log"
 
 
 class StubEntityResolver:
-    def resolve_card(self, grp_id: int) -> dict:
+    def resolve_card(self, grp_id: int, **kwargs) -> dict:
         return {
             "grpId": grp_id,
             "name": f"Card({grp_id})",

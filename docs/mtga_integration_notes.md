@@ -467,7 +467,7 @@ that produced it is structurally guaranteed to be meaningful, not just
 | `test_resolver.py` (synthetic-DB cases) | Resolver logic vs. a synthetic DB | No |
 | `test_resolver.py::...local_arena_schema...` | Real column/table names match assumptions | Yes |
 | `test_integration_resolution.py` | Real resolver + real log hit an acceptable resolution rate, and every object with a `grpId` resolves via either `resolved_card` or `resolved_source_card` | Yes |
-| `verify_parser.py`, `verify_name_resolution.py`, `inspect_unresolved.py`, `test_actual_files.py` | Human-readable diagnostics, not assertions | Mixed |
+| `diagnostics/verify_parser.py`, `diagnostics/verify_name_resolution.py`, `diagnostics/inspect_unresolved.py`, `diagnostics/test_actual_files.py`, `diagnostics/test_diag.py` | Human-readable diagnostics, not assertions | Mixed |
 
 Open, not yet decided: whether the real-environment tier and the
 diagnostic scripts stay in the committed suite long-term, or the
