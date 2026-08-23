@@ -133,9 +133,9 @@ class ChangeDetector:
             total_pixels = gray.shape[0] * gray.shape[1]
             changed_percent = (changed_pixels / total_pixels) * 100.0
 
-        log(
-            f"\nScreen delta: {changed_percent:.3f}% ({'ssim' if self.use_ssim else 'absdiff'})\n"
-        )
+        # log(
+        #     f"\nScreen delta: {changed_percent:.3f}% ({'ssim' if self.use_ssim else 'absdiff'})\n"
+        # )
 
         current_time = time.time()
 

@@ -1,0 +1,6 @@
+{
+  "game_id": "my_game",
+  "window_title": "My Game",
+  "layout_dir": "configs/my_game/layouts",
+  "source_tag": "ocr:my_game"
+}

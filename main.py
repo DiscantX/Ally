@@ -17,15 +17,35 @@ previous version of this file built a fresh EntityRegistry inside
 run_turn() itself, which meant "accumulates across a run" was aspirational
 since the function only ever ran once.
 
+Game selection (new in this pass): main.py no longer hardcodes a single
+game's config path. --game <game_id> looks up configs/<game_id>/config.json
+and, if it doesn't exist yet, auto-creates it from the currently focused
+window via tools/init_config.py -- so onboarding a brand-new screen-capture
+game requires zero hand-written JSON, only having that game's window
+focused the first time you run it. This is the "just play FTL" path: no
+plugin, no layout calibration required to start (an uncalibrated layout
+just means Scribe runs in full-UI mode until ScreenBootstrapper drafts one
+on its own).
+
 Usage:
-    python main.py                      # live capture loop via SlayTheSpireCollector
-    python main.py images/monkey.png    # still supported: single file-backed run, no loop
+    python main.py --game ftl            # auto-creates configs/ftl/config.json
+                                          # from the focused window if missing,
+                                          # then runs the live loop
+    python main.py                       # same, but derives game_id from
+                                          # whatever window is focused right now
+    python main.py --config path/to.json # explicit config path, skips --game
+                                          # lookup/auto-create entirely
+    python main.py images/monkey.png     # still supported: single file-backed
+                                          # run, no loop
 """
 
+import argparse
 import sys
 import time
 import uuid
 
+import cv2
+import numpy as np
 from PIL import Image
 
 from ally.ally_agent import Ally
@@ -38,6 +58,8 @@ from memory.manager import MemoryManager
 from state.entity_registry import EntityRegistry
 from state.genre_tracker import GenreTracker
 from state.sandbox import StateSandbox
+from tools.init_config import init_config
+from vision.debug_overlay import draw_layout_overlay
 from logger import log
 from tools.display import show_image
 
@@ -46,6 +68,42 @@ from tools.display import show_image
 # budget and per-call latency, especially once thinking mode is enabled
 # on the Scribe for dense scenes (see ally_decision_log.md).
 TURN_INTERVAL_SECONDS = 0.01
+
+
+def _debug_frame(observation: RawObservation, collector: GenericHudCollector | None) -> np.ndarray:
+    """Builds the frame shown in the debug window: the raw capture with
+    the current screen's calibrated OCR boxes -- and this turn's
+    extracted values -- drawn on top, when a collector/reader is
+    available. Lets misaligned or misread boxes be diagnosed by eye
+    during actual play, without a separate run of tools/inspect_coords.py.
+    Falls back to the plain frame when there's no collector (single-image
+    mode) or no reader for this screen yet (unrecognized/uncalibrated)."""
+    frame_bgr = cv2.cvtColor(np.array(observation.image.convert("RGB")), cv2.COLOR_RGB2BGR)
+    if collector is None:
+        return frame_bgr
+    reader = collector.readers.get(observation.screen_name)
+    layout = reader.layout if reader else None
+    return draw_layout_overlay(frame_bgr, layout, observation.confirmed_facts)
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Ally vertical slice runner.")
+    parser.add_argument(
+        "image", nargs="?",
+        help="Path to a single image file -- back-compat single-shot mode, no loop.",
+    )
+    parser.add_argument(
+        "--game",
+        help="game_id to run (e.g. 'ftl'). Looks up configs/<game_id>/config.json, "
+             "auto-creating it from the currently focused window if it doesn't exist yet. "
+             "Omit entirely to derive game_id from whatever window is focused right now.",
+    )
+    parser.add_argument(
+        "--config",
+        help="Explicit path to a config.json. Overrides --game entirely -- no "
+             "auto-create, the file must already exist.",
+    )
+    return parser.parse_args()
 
 
 def run_turn(
@@ -63,7 +121,7 @@ def run_turn(
         log("No image captured -- is the game window open?")
         return
 
-    show_image(observation.image)
+    show_image(_debug_frame(observation, collector))
 
     log(
         "\n--- Screen: {screen_name} (confidence={confidence:.2f}) ---",
@@ -148,23 +206,38 @@ def run_loop(
 
 
 if __name__ == "__main__":
+    args = parse_args()
+
     provider = GeminiProvider()
     scribe = Scribe(provider)
     ally = Ally(provider, PERSONALITIES["Scout"])
     sandbox = StateSandbox()
     registry = EntityRegistry()
     genre_tracker = GenreTracker()
-    memory_manager = MemoryManager(
-        player_id="default_player",
-        game_id="slay_the_spire",
-        save_id=f"session_{uuid.uuid4().hex[:8]}",
-    )
 
-    if len(sys.argv) > 1:
+    if args.image:
         # Back-compat: single file-backed run, no loop -- looping on a
         # static image file doesn't mean anything.
-        observation = RawObservation(image=Image.open(sys.argv[1]))
+        memory_manager = MemoryManager(
+            player_id="default_player",
+            game_id="adhoc_image",
+            save_id=f"session_{uuid.uuid4().hex[:8]}",
+        )
+        observation = RawObservation(image=Image.open(args.image))
         run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
     else:
-        collector = build_collector("configs/slay_the_spire/config.json")
+        if args.config:
+            config_path = args.config
+        else:
+            # Auto-creates configs/<game_id>/config.json from the focused
+            # window if it doesn't exist yet; no-ops (just returns the
+            # path) if it's already there. See tools/init_config.py.
+            config_path = init_config(game_id=args.game)
+
+        collector = build_collector(config_path)
+        memory_manager = MemoryManager(
+            player_id="default_player",
+            game_id=collector.config.game_id,
+            save_id=f"session_{uuid.uuid4().hex[:8]}",
+        )
         run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager)

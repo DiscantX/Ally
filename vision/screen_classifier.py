@@ -12,6 +12,23 @@ above threshold wins; nothing above threshold -> "unknown".
 Runs before Scribe every turn -- this is what lets the pipeline pick the
 right OCR layout and the right Scribe prompt (UI vs NO_UI) without an
 extra API call and without a one-turn classification lag.
+
+draft_match_threshold note: whole-frame SSIM draft matching (used for
+auto-bootstrapped screens, before any anchor has been manually
+calibrated) is coarser than anchor matching -- it's comparing an entire
+downscaled frame, not one hand-picked distinctive region, so two
+screens that share most of their layout but differ in one meaningful
+way (e.g. a ship-selection screen vs. the gameplay screen showing the
+same ship) can score deceptively high similarity and get merged. Bumped
+from the original 0.85 to 0.93 after exactly that happened in practice
+(FTL's ship-select and in-flight screens were classified as the same
+screen). This is still a coarse, un-tuned guess, not a measured value --
+per ally_decision_log.md's existing "SSIM thresholds ... need to be
+re-measured against real capture sessions" flag, this remains open. The
+more reliable real fix for a specific pair of screens that keeps
+conflating is a manually calibrated anchor (inspect_coords.py's 'A'
+toggle) on a small region that's reliably different between them --
+anchor matching is deliberately more precise than the draft fallback.
 """
 
 from dataclasses import dataclass
@@ -33,7 +50,7 @@ class ScreenMatch:
 
 
 class ScreenClassifier:
-    def __init__(self, match_threshold: float = 0.85, draft_match_threshold: float = 0.85, draft_frame_size: tuple[int, int] = (160, 90)):
+    def __init__(self, match_threshold: float = 0.85, draft_match_threshold: float = 0.93, draft_frame_size: tuple[int, int] = (160, 90)):
         self.match_threshold = match_threshold
         self.draft_match_threshold = draft_match_threshold
         self.draft_frame_size = draft_frame_size
