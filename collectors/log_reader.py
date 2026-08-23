@@ -67,57 +67,72 @@ class LogReader:
     def read_lines(self) -> Generator[str, None, None]:
         """Yield lines from the log file as they appear or from start to
         finish, per `follow`/`start_at_end` -- see module docstring."""
-        f = self._open_with_retry()
+        current_pos = 0
+        last_ino = None
+        last_dev = None
+        initialized = False
 
-        try:
-            if self.follow and self.start_at_end:
-                f.seek(0, os.SEEK_END)
+        while True:
+            try:
+                f = self._open_with_retry()
+            except FileNotFoundError:
+                if not self.follow:
+                    raise
+                time.sleep(self.poll_interval)
+                continue
 
-            last_ino, last_dev = self._stat_identity(f)
+            try:
+                if not initialized:
+                    if self.follow and self.start_at_end:
+                        f.seek(0, os.SEEK_END)
+                        current_pos = f.tell()
+                    else:
+                        f.seek(0, os.SEEK_SET)
+                        current_pos = 0
 
-            while True:
+                    ino, dev = self._stat_identity(f)
+                    last_ino, last_dev = ino, dev
+                    initialized = True
+                else:
+                    # Check if file identity changed or truncated
+                    current_ino, current_dev = self._stat_identity_at_path()
+                    if current_ino is not None:
+                        ino, dev = self._stat_identity(f)
+                        try:
+                            size_now = os.fstat(f.fileno()).st_size
+                        except OSError:
+                            size_now = None
+
+                        identity_changed = (current_ino, current_dev) != (last_ino, last_dev)
+                        truncated_in_place = (
+                            not identity_changed
+                            and size_now is not None
+                            and size_now < current_pos
+                        )
+
+                        if identity_changed or truncated_in_place:
+                            last_ino, last_dev = current_ino, current_dev
+                            current_pos = 0
+
+                    f.seek(current_pos)
+
                 line = f.readline()
                 if line:
+                    current_pos = f.tell()
+                    f.close()
                     yield line.rstrip("\r\n")
                     continue
+
+                f.close()
 
                 if not self.follow:
                     break
 
                 time.sleep(self.poll_interval)
 
-                current_ino, current_dev = self._stat_identity_at_path()
-                if current_ino is None:
-                    # Path vanished momentarily (mid-rotation). Keep the
-                    # current handle open; a later poll will either see
-                    # the path again (and detect a swap then, since the
-                    # identity we last knew won't match) or keep waiting.
-                    continue
-
-                current_pos = f.tell()
-                try:
-                    size_now = os.fstat(f.fileno()).st_size
-                except OSError:
-                    size_now = None
-
-                identity_changed = (current_ino, current_dev) != (last_ino, last_dev)
-                truncated_in_place = (
-                    not identity_changed
-                    and size_now is not None
-                    and size_now < current_pos
-                )
-
-                if identity_changed or truncated_in_place:
-                    f.close()
-                    f = self._open_with_retry()
-                    # A detected restart always means "read the new
-                    # content from its own start forward" -- start_at_end
-                    # only governs the very first open of a tail, since by
-                    # definition nothing in the new/truncated file has
-                    # been seen yet.
-                    last_ino, last_dev = self._stat_identity(f)
-        finally:
-            f.close()
+            except Exception:
+                f.close()
+                raise
 
     def _open_with_retry(self) -> TextIO:
         """Opens file_path. Retries on FileNotFoundError only when

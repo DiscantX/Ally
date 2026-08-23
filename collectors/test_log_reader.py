@@ -104,7 +104,6 @@ class TestLogReaderTruncation(unittest.TestCase):
             finally:
                 gen.close()
 
-    @unittest.skipIf(os.name == "nt", "os.remove on open files is not supported on Windows")
     def test_recovers_from_file_replacement(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "replaced.log")
