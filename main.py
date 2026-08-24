@@ -39,6 +39,7 @@ Usage:
                                           # run, no loop
 """
 
+from typing import Any, cast
 import argparse
 import sys
 import time
@@ -78,7 +79,10 @@ def _debug_frame(observation: RawObservation, collector: GenericHudCollector | N
     during actual play, without a separate run of tools/inspect_coords.py.
     Falls back to the plain frame when there's no collector (single-image
     mode) or no reader for this screen yet (unrecognized/uncalibrated)."""
-    frame_bgr = cv2.cvtColor(np.array(observation.image.convert("RGB")), cv2.COLOR_RGB2BGR)
+    if observation.image is None:
+        return np.zeros((100, 100, 3), dtype=np.uint8)
+    img = observation.image
+    frame_bgr = cv2.cvtColor(np.array(img.convert("RGB")), cv2.COLOR_RGB2BGR)
     if collector is None:
         return frame_bgr
     reader = collector.readers.get(observation.screen_name)
@@ -103,6 +107,11 @@ def parse_args() -> argparse.Namespace:
         help="Explicit path to a config.json. Overrides --game entirely -- no "
              "auto-create, the file must already exist.",
     )
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="Launch the standalone Ally GUI overlay.",
+    )
     return parser.parse_args()
 
 
@@ -116,6 +125,7 @@ def run_turn(
     memory_manager: MemoryManager,
     collector: GenericHudCollector | None = None,
     include_ui: bool = True,
+    gui_app = None,
 ) -> None:
     if observation.image is None:
         log("No image captured -- is the game window open?")
@@ -147,7 +157,7 @@ def run_turn(
     for el in sandbox.current_elements:
         log("[{id}] {label}: {description}  box={box}", id=el.id, label=el.label, description=el.description, box=el.box_2d)
 
-    touched_entities = registry.resolve_or_create(scribe_output.screen_elements, sandbox.turn)
+    touched_entities = registry.resolve_or_create(cast(Any, scribe_output.screen_elements), sandbox.turn)
     entities_context = registry.as_context(touched_entities)
 
     log("\n--- Entity registry (accumulated across the run) ---")
@@ -174,6 +184,13 @@ def run_turn(
 
     memory_manager.record_turn(sandbox.turn, ally_output.analysis)
 
+    if gui_app is not None:
+        gui_app.update_debug_info(observation.screen_name, "turn")
+        gui_app.update_state_summary(sandbox.as_context())
+        gui_app.update_prompt(sandbox.as_context()[:300])
+        gui_app.update_feedback(ally_output.analysis)
+        gui_app.set_eta_ready()
+
 
 def run_loop(
     collector: GenericHudCollector,
@@ -184,6 +201,7 @@ def run_loop(
     genre_tracker: GenreTracker,
     memory_manager: MemoryManager,
     interval_seconds: float = TURN_INTERVAL_SECONDS,
+    gui_app = None,
 ) -> None:
     log("Starting turn loop (every {interval_seconds}s). Ctrl+C to stop.", interval_seconds=interval_seconds)
     try:
@@ -196,7 +214,7 @@ def run_loop(
                 include_ui = reader is None or not reader.has_calibrated_fields
                 run_turn(
                     observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager,
-                    collector=collector, include_ui=include_ui,
+                    collector=collector, include_ui=include_ui, gui_app=gui_app,
                 )
             time.sleep(interval_seconds)
     except KeyboardInterrupt:
@@ -215,29 +233,44 @@ if __name__ == "__main__":
     registry = EntityRegistry()
     genre_tracker = GenreTracker()
 
-    if args.image:
-        # Back-compat: single file-backed run, no loop -- looping on a
-        # static image file doesn't mean anything.
-        memory_manager = MemoryManager(
-            player_id="default_player",
-            game_id="adhoc_image",
-            save_id=f"session_{uuid.uuid4().hex[:8]}",
-        )
-        observation = RawObservation(image=Image.open(args.image))
-        run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
-    else:
-        if args.config:
-            config_path = args.config
-        else:
-            # Auto-creates configs/<game_id>/config.json from the focused
-            # window if it doesn't exist yet; no-ops (just returns the
-            # path) if it's already there. See tools/init_config.py.
-            config_path = init_config(game_id=args.game)
+    gui_app = None
+    if args.gui:
+        from gui.tkinter_app import AllyOverlay
+        gui_app = AllyOverlay()
+        gui_app.set_connection_status(True)
 
-        collector = build_collector(config_path)
-        memory_manager = MemoryManager(
-            player_id="default_player",
-            game_id=collector.config.game_id,
-            save_id=f"session_{uuid.uuid4().hex[:8]}",
-        )
-        run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
+    def execute_run():
+        if args.image:
+            # Back-compat: single file-backed run, no loop -- looping on a
+            # static image file doesn't mean anything.
+            memory_manager = MemoryManager(
+                player_id="default_player",
+                game_id="adhoc_image",
+                save_id=f"session_{uuid.uuid4().hex[:8]}",
+            )
+            observation = RawObservation(image=Image.open(args.image))
+            run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager, gui_app=gui_app)
+        else:
+            if args.config:
+                config_path = args.config
+            else:
+                # Auto-creates configs/<game_id>/config.json from the focused
+                # window if it doesn't exist yet; no-ops (just returns the
+                # path) if it's already there. See tools/init_config.py.
+                config_path = init_config(game_id=args.game)
+
+            collector = build_collector(config_path)
+            memory_manager = MemoryManager(
+                player_id="default_player",
+                game_id=collector.config.game_id,
+                save_id=f"session_{uuid.uuid4().hex[:8]}",
+            )
+            run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager, gui_app=gui_app)
+
+    if args.gui:
+        import threading
+        threading.Thread(target=execute_run, daemon=True).start()
+        if gui_app is not None:
+            gui_app.mainloop()
+    else:
+        execute_run()
