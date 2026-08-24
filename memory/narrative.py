@@ -34,6 +34,7 @@ class NarrativeMemoryManager:
         db: MemoryDB,
         short_term_capacity: int = 8,
         flush_trigger: Trigger | None = None,
+        model: str = "gemini-3.5-flash-lite",
     ):
         self.player_id = player_id
         self.game_id = game_id
@@ -41,6 +42,7 @@ class NarrativeMemoryManager:
         self.provider = provider
         self.db = db
         self.short_term_capacity = short_term_capacity
+        self.model = model
         self._short_term: deque[ShortTermEntry] = deque(maxlen=short_term_capacity)
         self.flush_trigger = flush_trigger or TurnCountTrigger(interval=short_term_capacity)
         self._medium_term_summaries: list[str] = []
@@ -89,7 +91,7 @@ class NarrativeMemoryManager:
         prompt = NARRATIVE_MEDIUM_TERM_PROMPT.format(buffer_text=buffer_text)
         try:
             result = self.provider.generate_structured(
-                model="gemini-3.5-flash-lite",
+                model=self.model,
                 contents=[prompt],
                 schema=TextSummary,
             )
@@ -108,7 +110,7 @@ class NarrativeMemoryManager:
         prompt = NARRATIVE_LONG_TERM_PROMPT.format(med_text=med_text)
         try:
             result = self.provider.generate_structured(
-                model="gemini-3.5-flash-lite",
+                model=self.model,
                 contents=[prompt],
                 schema=TextSummary,
             )

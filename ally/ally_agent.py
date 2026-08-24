@@ -18,9 +18,10 @@ from prompts.ally import ALLY_PROMPT_TEMPLATE
 ALLY_MODEL = "gemini-3.5-flash-lite"
 
 class Ally:
-    def __init__(self, provider: GeminiProvider, base_personality: str = PERSONALITIES["Scout"]):
+    def __init__(self, provider: GeminiProvider, base_personality: str = PERSONALITIES["Scout"], model: str = "gemini-3.5-flash-lite"):
         self.provider = provider
         self.base_personality = base_personality
+        self.model = model
 
     def decide(
         self,
@@ -38,7 +39,7 @@ class Ally:
             entities=entities_context,
         )
         return self.provider.generate_structured(
-            model=ALLY_MODEL,
+            model=self.model,
             contents=[prompt],
             schema=AllyOutput,
             thinking_level="HIGH"

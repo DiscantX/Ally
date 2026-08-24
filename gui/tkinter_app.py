@@ -246,6 +246,19 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         )
         self.drawer_toggle_button.pack(side=tk.RIGHT, padx=(0, 2))
 
+        self.settings_button = tk.Button(
+            self.title_bar,
+            text="⚙ Settings",
+            font=self.mini_font,
+            fg=cfg.accent_color,
+            bg=cfg.border_color,
+            activebackground=cfg.dim_color,
+            activeforeground=cfg.fg_color,
+            relief=tk.FLAT, bd=0, cursor="hand2",
+            command=self._open_settings,
+        )
+        self.settings_button.pack(side=tk.RIGHT, padx=(0, 2))
+
         for widget in (self.title_bar, self.title_label, self.status_dot):
             widget.bind('<ButtonPress-1>', self._start_move)
             widget.bind('<B1-Motion>', self._do_move)
@@ -645,6 +658,10 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
             self._on_close_callback()
         self._running = False
         self.destroy()
+
+    def _open_settings(self):
+        from gui.settings_window import SettingsWindow
+        SettingsWindow(self)
 
     def _toggle_drawer(self):
         self._set_drawer_visible(not self._drawer_open)

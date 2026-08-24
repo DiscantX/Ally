@@ -15,11 +15,12 @@ class TextSummary(BaseModel):
 
 
 class PersonalityMemoryManager:
-    def __init__(self, player_id: str, provider: GeminiProvider, db: MemoryDB, base_personality: str):
+    def __init__(self, player_id: str, provider: GeminiProvider, db: MemoryDB, base_personality: str, model: str = "gemini-3.5-flash-lite"):
         self.player_id = player_id
         self.provider = provider
         self.db = db
         self.base_personality = base_personality
+        self.model = model
         self._master_journal: list[str] = []
         self._digest: str = ""
         self._micro: str = ""
@@ -57,7 +58,7 @@ class PersonalityMemoryManager:
         digest_prompt = PERSONALITY_DIGEST_PROMPT.format(journal_text=journal_text)
         try:
             digest_res = self.provider.generate_structured(
-                model="gemini-3.5-flash-lite",
+                model=self.model,
                 contents=[digest_prompt],
                 schema=TextSummary,
             )
@@ -68,7 +69,7 @@ class PersonalityMemoryManager:
         micro_prompt = PERSONALITY_MICRO_PROMPT.format(digest=self._digest)
         try:
             micro_res = self.provider.generate_structured(
-                model="gemini-3.5-flash-lite",
+                model=self.model,
                 contents=[micro_prompt],
                 schema=TextSummary,
             )

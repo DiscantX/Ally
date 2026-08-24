@@ -15,13 +15,14 @@ from prompts.scribe import SCRIBE_PROMPT_UI, SCRIBE_PROMPT_NO_UI
 SCRIBE_MODEL = "gemini-3.5-flash-lite"
 
 class Scribe:
-    def __init__(self, provider: GeminiProvider):
+    def __init__(self, provider: GeminiProvider, model: str = "gemini-3.5-flash-lite"):
         self.provider = provider
+        self.model = model
 
     def extract(self, image: Image.Image, include_ui: bool = True) -> ScribeOutput:
         prompt = SCRIBE_PROMPT_UI if include_ui else SCRIBE_PROMPT_NO_UI
         return self.provider.generate_structured(
-            model=SCRIBE_MODEL,
+            model=self.model,
             contents=[image, prompt],
             schema=ScribeOutput,
             thinking_level="minimal"
