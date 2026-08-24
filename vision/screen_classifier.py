@@ -50,12 +50,13 @@ class ScreenMatch:
 
 
 class ScreenClassifier:
-    def __init__(self, match_threshold: float = 0.85, draft_match_threshold: float = 0.93, draft_frame_size: tuple[int, int] = (160, 90)):
+    def __init__(self, match_threshold: float = 0.85, draft_match_threshold: float = 0.93, draft_frame_size: tuple[int, int] = (160, 90), gui_app = None):
         self.match_threshold = match_threshold
         self.draft_match_threshold = draft_match_threshold
         self.draft_frame_size = draft_frame_size
         self._anchors: dict[str, tuple[tuple[int, int, int, int], np.ndarray]] = {}
         self._draft_frames: dict[str, np.ndarray] = {}
+        self.gui_app = gui_app
 
     def register_anchor(self, screen_name: str, box: tuple[int, int, int, int], reference_bgr: np.ndarray) -> None:
         gray = cv2.cvtColor(reference_bgr, cv2.COLOR_BGR2GRAY)
@@ -67,12 +68,16 @@ class ScreenClassifier:
 
     def classify(self, frame_bgr: np.ndarray) -> ScreenMatch:
         gray_frame = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        if self.gui_app:
+            self.gui_app.update_pipeline_image("classifier_gray", gray_frame, "Classifier Grayscale Frame")
 
         if self._anchors:
             best_name, best_score = "unknown", 0.0
             for name, (box, reference_gray) in self._anchors.items():
                 x, y, w, h = box
                 crop = gray_frame[y:y + h, x:x + w]
+                if self.gui_app:
+                    self.gui_app.update_pipeline_image("classifier_crop", crop, "Anchor Crop / Draft Frame")
                 if crop.shape != reference_gray.shape:
                     continue
                 score = self._similarity(crop, reference_gray)
@@ -83,6 +88,8 @@ class ScreenClassifier:
 
         if self._draft_frames:
             small = cv2.resize(gray_frame, self.draft_frame_size, interpolation=cv2.INTER_AREA)
+            if self.gui_app:
+                self.gui_app.update_pipeline_image("classifier_crop", small, "Anchor Crop / Draft Frame")
             best_name, best_score = "unknown", 0.0
             for name, ref in self._draft_frames.items():
                 score = self._similarity(small, ref)

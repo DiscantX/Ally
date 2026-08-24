@@ -131,9 +131,20 @@ def run_turn(
         log("No image captured -- is the game window open?")
         return
 
+    if gui_app is not None:
+        gui_app.update_pipeline_image("observation", observation.image, "RGB PIL Image Observation")
+        if collector is not None:
+            c_any = cast(Any, collector)
+            if hasattr(c_any, "change_detector") and c_any.change_detector:
+                c_any.change_detector.gui_app = gui_app
+            if hasattr(c_any, "screen") and c_any.screen and hasattr(c_any.screen, "change_detector"):
+                c_any.screen.change_detector.gui_app = gui_app
+            if hasattr(c_any, "classifier") and c_any.classifier:
+                c_any.classifier.gui_app = gui_app
+
     debug_frame = _debug_frame(observation, collector)
     if gui_app is not None:
-        gui_app.update_debug_image(debug_frame)
+        gui_app.update_pipeline_image("debug_overlay", debug_frame, "Annotated Debug Overlay Frame")
     else:
         show_image(debug_frame)
 

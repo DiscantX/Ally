@@ -133,10 +133,64 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         """Create individual widget components for the main panel."""
         cfg = self.config_data
         
-        # ── Debug Image Panel (Left) ──
-        self.debug_panel_frame = tk.Frame(self, bg=cfg.bg_color)
-        self.debug_image_label = tk.Label(self.debug_panel_frame, bg=cfg.bg_color, bd=0)
-        self.debug_image_label.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        # ── Debug Image Panel (Left) - Scrollable Pipeline View ──
+        self.debug_panel_frame = tk.Frame(self, bg=cfg.bg_color, width=340)
+        self.debug_panel_frame.pack_propagate(False)
+
+        self._pipeline_canvas = tk.Canvas(self.debug_panel_frame, bg=cfg.bg_color, highlightthickness=0)
+        self._pipeline_scrollbar = ttk.Scrollbar(self.debug_panel_frame, orient="vertical", command=self._pipeline_canvas.yview)
+        self._pipeline_content = tk.Frame(self._pipeline_canvas, bg=cfg.bg_color)
+
+        self._pipeline_content.bind(
+            "<Configure>",
+            lambda e: self._pipeline_canvas.configure(scrollregion=self._pipeline_canvas.bbox("all"))
+        )
+        self._pipeline_canvas.create_window((0, 0), window=self._pipeline_content, anchor="nw")
+        self._pipeline_canvas.configure(yscrollcommand=self._pipeline_scrollbar.set)
+
+        self._pipeline_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self._pipeline_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        def _on_mousewheel(event):
+            try:
+                self._pipeline_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except Exception:
+                pass
+        self._pipeline_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        self._pipeline_slots = {}
+        pipeline_defs = [
+            ("observation", "RGB PIL Image Observation"),
+            ("grayscale", "Grayscale Frame"),
+            ("masked_grayscale", "ROI-Masked Grayscale Frame"),
+            ("normalized_grayscale", "Luminance-Normalized Grayscale"),
+            ("diff", "Absolute Difference Image"),
+            ("thresh", "Thresholded Binary Change Map"),
+            ("classifier_gray", "Classifier Grayscale Frame"),
+            ("classifier_crop", "Anchor Crop / Draft Frame"),
+            ("debug_overlay", "Annotated Debug Overlay Frame"),
+        ]
+
+        for key, default_title in pipeline_defs:
+            card = tk.Frame(self._pipeline_content, bg=cfg.bg_color, pady=4)
+            card.pack(fill=tk.X, padx=4)
+
+            title_lbl = tk.Label(
+                card, text=default_title, font=self.mini_font,
+                fg=cfg.accent_color, bg=cfg.bg_color, anchor="w"
+            )
+            title_lbl.pack(fill=tk.X, padx=2)
+
+            img_lbl = tk.Label(card, bg=cfg.border_color, bd=1, relief=tk.SOLID)
+            img_lbl.pack(fill=tk.X, padx=2, pady=(2, 0))
+
+            self._pipeline_slots[key] = {
+                "title_label": title_lbl,
+                "image_label": img_lbl,
+                "raw_image": None,
+                "photo_image": None,
+                "title": default_title,
+            }
 
         self.main_frame = tk.Frame(self, bg=cfg.bg_color)
 
@@ -439,13 +493,15 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
                 self.after_cancel(self._resize_job)
             self._resize_job = self.after(50, self._refresh_debug_image)
 
-    def update_debug_image(self, image):
-        """Update the debug panel image (accepts numpy ndarray BGR/RGB or PIL Image)."""
+    def update_pipeline_image(self, key: str, image, title: Optional[str] = None):
+        """Update a specific pipeline image slot asynchronously as soon as processed."""
         if image is None:
             return
         if isinstance(image, np.ndarray):
             if len(image.shape) == 3 and image.shape[2] == 3:
                 rgb_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            elif len(image.shape) == 2:
+                rgb_img = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
             else:
                 rgb_img = image
             pil_img = Image.fromarray(rgb_img)
@@ -455,40 +511,63 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
             return
 
         def _update():
-            self._debug_image_raw = pil_img
-            self._refresh_debug_image()
+            if key not in self._pipeline_slots:
+                card = tk.Frame(self._pipeline_content, bg=self.config_data.bg_color, pady=4)
+                card.pack(fill=tk.X, padx=4)
+                t = title or key
+                title_lbl = tk.Label(
+                    card, text=t, font=self.mini_font,
+                    fg=self.config_data.accent_color, bg=self.config_data.bg_color, anchor="w"
+                )
+                title_lbl.pack(fill=tk.X, padx=2)
+                img_lbl = tk.Label(card, bg=self.config_data.border_color, bd=1, relief=tk.SOLID)
+                img_lbl.pack(fill=tk.X, padx=2, pady=(2, 0))
+                self._pipeline_slots[key] = {
+                    "title_label": title_lbl,
+                    "image_label": img_lbl,
+                    "raw_image": None,
+                    "photo_image": None,
+                    "title": t,
+                }
+            
+            slot = self._pipeline_slots[key]
+            if title:
+                slot["title"] = title
+                slot["title_label"].config(text=title)
+            slot["raw_image"] = pil_img
+            self._refresh_pipeline_slot(key)
 
         self._dispatch(_update)
 
-    def _refresh_debug_image(self):
-        if self._debug_image_raw is None:
+    def update_debug_image(self, image):
+        """Backwards compatibility wrapper for debug overlay image."""
+        self.update_pipeline_image("debug_overlay", image, "Annotated Debug Overlay Frame")
+
+    def _refresh_pipeline_slot(self, key: str):
+        slot = self._pipeline_slots.get(key)
+        if not slot or slot["raw_image"] is None:
             return
         try:
-            current_h = self.winfo_height()
-            if current_h < 50:
-                current_h = self.config_data.height
+            orig_w, orig_h = slot["raw_image"].size
+            aspect_ratio = (orig_w / orig_h) if orig_h > 0 else 1.333
             
-            orig_w, orig_h = self._debug_image_raw.size
-            if orig_h > 0:
-                aspect_ratio = orig_w / orig_h
-            else:
-                aspect_ratio = 1.333
-            
-            # Use a fixed debug panel width of 340px, scaling height proportionally
-            target_w = 340
+            target_w = 320
             target_h = int(target_w / aspect_ratio)
-            
-            # Ensure height fits within window height if smaller
-            max_h = max(100, current_h - 10)
-            if target_h > max_h:
-                target_h = max_h
+            if target_h > 240:
+                target_h = 240
                 target_w = int(target_h * aspect_ratio)
-            
-            resized = self._debug_image_raw.resize((target_w, target_h), Image.Resampling.LANCZOS)
-            self._debug_photo_image = ImageTk.PhotoImage(resized)
-            self.debug_image_label.config(image=self._debug_photo_image)
+
+            resized = slot["raw_image"].resize((target_w, target_h), Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(resized)
+            slot["photo_image"] = photo
+            slot["image_label"].config(image=photo)
         except Exception:
             pass
+
+    def _refresh_debug_image(self):
+        """Refresh all pipeline slots on window configure/resize."""
+        for key in self._pipeline_slots:
+            self._refresh_pipeline_slot(key)
 
     def _add_borders(self, cfg):
         left_border = tk.Frame(self, bg=cfg.window_border_color, width=1)

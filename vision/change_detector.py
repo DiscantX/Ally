@@ -48,10 +48,12 @@ class ChangeDetector:
         stability_threshold_percent: float = 5.0,
         use_ssim: bool = True,
         ignore_regions: list[tuple[int, int, int, int]] | None = None,
+        gui_app = None,
     ):
         self.threshold_percent = threshold_percent
         self.pixel_diff_threshold = pixel_diff_threshold
         self._last_frame_gray: np.ndarray | None = None
+        self.gui_app = gui_app
 
         self.enable_cooldown = enable_cooldown
         self.cooldown_seconds = cooldown_seconds
@@ -105,10 +107,20 @@ class ChangeDetector:
             return False
 
         gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        if self.gui_app:
+            self.gui_app.update_pipeline_image("grayscale", gray, "Grayscale Frame")
+
         gray = self._apply_mask(gray)
+        if self.gui_app:
+            self.gui_app.update_pipeline_image("masked_grayscale", gray, "ROI-Masked Grayscale Frame")
 
         if self._last_frame_gray is None:
             self._last_frame_gray = gray
+            if self.gui_app:
+                self.gui_app.update_pipeline_image("normalized_grayscale", gray, "Luminance-Normalized Grayscale")
+                zero_diff = np.zeros_like(gray)
+                self.gui_app.update_pipeline_image("diff", zero_diff, "Absolute Difference Image")
+                self.gui_app.update_pipeline_image("thresh", zero_diff, "Thresholded Binary Change Map")
             return True  # First frame is always considered changed
 
         if gray.shape != self._last_frame_gray.shape:
@@ -121,14 +133,24 @@ class ChangeDetector:
         last_mean = np.mean(self._last_frame_gray)
         mean_diff = current_mean - last_mean
         gray_normalized = np.clip(gray.astype(np.float32) - mean_diff, 0, 255).astype(np.uint8)
+        if self.gui_app:
+            self.gui_app.update_pipeline_image("normalized_grayscale", gray_normalized, "Luminance-Normalized Grayscale")
+
+        diff = cv2.absdiff(gray_normalized, self._last_frame_gray)
+        if self.gui_app:
+            self.gui_app.update_pipeline_image("diff", diff, "Absolute Difference Image")
+        _, thresh = cv2.threshold(diff, self.pixel_diff_threshold, 255, cv2.THRESH_BINARY)
+        if self.gui_app:
+            self.gui_app.update_pipeline_image("thresh", thresh, "Thresholded Binary Change Map")
 
         if self.use_ssim:
             result = ssim(gray_normalized, self._last_frame_gray, full=True)
             score = result[0] if isinstance(result, tuple) else result
             changed_percent = max(0.0, (1.0 - float(score))) * 100.0
+            if self.gui_app and isinstance(result, tuple) and len(result) > 1:
+                diff_map = np.uint8(np.clip(result[1], 0, 1) * 255)
+                self.gui_app.update_pipeline_image("diff", diff_map, "Absolute Difference Image")
         else:
-            diff = cv2.absdiff(gray_normalized, self._last_frame_gray)
-            _, thresh = cv2.threshold(diff, self.pixel_diff_threshold, 255, cv2.THRESH_BINARY)
             changed_pixels = cv2.countNonZero(thresh)
             total_pixels = gray.shape[0] * gray.shape[1]
             changed_percent = (changed_pixels / total_pixels) * 100.0
