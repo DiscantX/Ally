@@ -452,6 +452,20 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         self._current_new_w = self._resize_start_width
         self._current_new_h = self._resize_start_height
 
+        cfg = self.config_data
+        self._resize_outline_win = tk.Toplevel(self)
+        self._resize_outline_win.overrideredirect(True)
+        self._resize_outline_win.attributes('-topmost', True)
+        self._resize_outline_win.attributes('-alpha', 0.35)
+        self._resize_outline_win.configure(bg=cfg.success_color)
+
+        outline_frame = tk.Frame(self._resize_outline_win, bg=cfg.bg_color, bd=2, relief=tk.SOLID)
+        outline_frame.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
+
+        x = self.winfo_x()
+        y = self.winfo_y()
+        self._resize_outline_win.geometry(f"{self._resize_start_width}x{self._resize_start_height}+{x}+{y}")
+
     def _do_resize(self, event):
         cfg = self.config_data
         dx = event.x_root - self._resize_start_x_root
@@ -460,7 +474,19 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         self._current_new_w = max(win_min_w, self._resize_start_width + dx)
         self._current_new_h = max(cfg.min_height, self._resize_start_height + dy)
 
+        if hasattr(self, '_resize_outline_win') and self._resize_outline_win:
+            x = self.winfo_x()
+            y = self.winfo_y()
+            self._resize_outline_win.geometry(f"{self._current_new_w}x{self._current_new_h}+{x}+{y}")
+
     def _stop_resize(self, event):
+        if hasattr(self, '_resize_outline_win') and self._resize_outline_win:
+            try:
+                self._resize_outline_win.destroy()
+            except Exception:
+                pass
+            self._resize_outline_win = None
+
         if hasattr(self, '_current_new_w') and hasattr(self, '_current_new_h'):
             self.geometry(f"{self._current_new_w}x{self._current_new_h}")
 

@@ -31,6 +31,12 @@ class ChatDrawerMixin:
     def _do_move(self, event):
         raise NotImplementedError
 
+    def _dispatch(self, callback):
+        pass
+
+    def _is_scrolled_to_bottom(self, text_widget: tk.Text, threshold: float = 0.98) -> bool:
+        return True
+
 
 
     def _create_drawer_widgets(self):
