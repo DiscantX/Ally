@@ -131,7 +131,11 @@ def run_turn(
         log("No image captured -- is the game window open?")
         return
 
-    show_image(_debug_frame(observation, collector))
+    debug_frame = _debug_frame(observation, collector)
+    if gui_app is not None:
+        gui_app.update_debug_image(debug_frame)
+    else:
+        show_image(debug_frame)
 
     log(
         "\n--- Screen: {screen_name} (confidence={confidence:.2f}) ---",

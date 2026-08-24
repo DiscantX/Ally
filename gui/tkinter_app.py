@@ -14,6 +14,9 @@ from tkinter import ttk, font as tkfont
 import time
 import threading
 from typing import Optional, Literal
+import cv2
+import numpy as np
+from PIL import Image, ImageTk
 
 from gui.models import OverlayConfig, FeedbackData, resolve_font_family, DEFAULT_DRAWER_OPEN
 from gui.chat_drawer import ChatDrawerMixin
@@ -57,6 +60,9 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         self._running = True
         self._feedback_entry_count = 0
         self._resize_job = None
+        self._debug_image_raw: Optional[Image.Image] = None
+        self._debug_photo_image: Optional[ImageTk.PhotoImage] = None
+        self.bind("<Configure>", self._on_window_configure)
 
         # Thread-safe UI dispatch
         self._init_dispatch_queue()
@@ -73,10 +79,11 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         self.attributes('-topmost', True)
         self.attributes('-alpha', cfg.opacity)
 
-        initial_width = cfg.width + (cfg.drawer_width if self._drawer_open else 0)
+        debug_w = 340
+        initial_width = cfg.width + debug_w + (cfg.drawer_width if self._drawer_open else 0)
         self.geometry(f"{initial_width}x{cfg.height}")
         
-        min_w = cfg.min_width + (cfg.drawer_width if self._drawer_open else 0)
+        min_w = cfg.min_width + debug_w + (cfg.drawer_width if self._drawer_open else 0)
         self.minsize(min_w, cfg.min_height)
         
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -125,6 +132,12 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
     def _create_widgets(self):
         """Create individual widget components for the main panel."""
         cfg = self.config_data
+        
+        # ── Debug Image Panel (Left) ──
+        self.debug_panel_frame = tk.Frame(self, bg=cfg.bg_color)
+        self.debug_image_label = tk.Label(self.debug_panel_frame, bg=cfg.bg_color, bd=0)
+        self.debug_image_label.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
         self.main_frame = tk.Frame(self, bg=cfg.bg_color)
 
         # ── Title bar section ──
@@ -417,7 +430,65 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
     def _create_layout(self):
         if self._drawer_open:
             self.drawer_outer_frame.pack(side=tk.RIGHT, fill=tk.Y)
+        self.debug_panel_frame.pack(side=tk.LEFT, fill=tk.Y)
         self.main_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    def _on_window_configure(self, event):
+        if event.widget is self:
+            if hasattr(self, '_resize_job') and self._resize_job:
+                self.after_cancel(self._resize_job)
+            self._resize_job = self.after(50, self._refresh_debug_image)
+
+    def update_debug_image(self, image):
+        """Update the debug panel image (accepts numpy ndarray BGR/RGB or PIL Image)."""
+        if image is None:
+            return
+        if isinstance(image, np.ndarray):
+            if len(image.shape) == 3 and image.shape[2] == 3:
+                rgb_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            else:
+                rgb_img = image
+            pil_img = Image.fromarray(rgb_img)
+        elif isinstance(image, Image.Image):
+            pil_img = image.convert("RGB")
+        else:
+            return
+
+        def _update():
+            self._debug_image_raw = pil_img
+            self._refresh_debug_image()
+
+        self._dispatch(_update)
+
+    def _refresh_debug_image(self):
+        if self._debug_image_raw is None:
+            return
+        try:
+            current_h = self.winfo_height()
+            if current_h < 50:
+                current_h = self.config_data.height
+            
+            orig_w, orig_h = self._debug_image_raw.size
+            if orig_h > 0:
+                aspect_ratio = orig_w / orig_h
+            else:
+                aspect_ratio = 1.333
+            
+            # Use a fixed debug panel width of 340px, scaling height proportionally
+            target_w = 340
+            target_h = int(target_w / aspect_ratio)
+            
+            # Ensure height fits within window height if smaller
+            max_h = max(100, current_h - 10)
+            if target_h > max_h:
+                target_h = max_h
+                target_w = int(target_h * aspect_ratio)
+            
+            resized = self._debug_image_raw.resize((target_w, target_h), Image.Resampling.LANCZOS)
+            self._debug_photo_image = ImageTk.PhotoImage(resized)
+            self.debug_image_label.config(image=self._debug_photo_image)
+        except Exception:
+            pass
 
     def _add_borders(self, cfg):
         left_border = tk.Frame(self, bg=cfg.window_border_color, width=1)
@@ -429,10 +500,10 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
 
     def _position_window(self):
         cfg = self.config_data
-        screen_width = self.winfo_screenwidth()
-        x = screen_width + cfg.offset_x
+        x = cfg.offset_x
         y = cfg.offset_y
-        initial_width = cfg.width + (cfg.drawer_width if self._drawer_open else 0)
+        debug_w = 340
+        initial_width = cfg.width + debug_w + (cfg.drawer_width if self._drawer_open else 0)
         self.geometry(f"{initial_width}x{cfg.height}+{x}+{y}")
 
     def _start_move(self, event):
