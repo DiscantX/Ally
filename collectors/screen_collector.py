@@ -19,6 +19,7 @@ from PIL import Image
 from collectors.base import RawObservation
 from collectors.window_manager import ClientRect
 from vision.change_detector import ChangeDetector  # This was added/changed as a part of the ZOO CODE idle safeguard pass
+from configs.config_manager import load_user_config
 
 
 class ScreenCollector:
@@ -43,6 +44,25 @@ class ScreenCollector:
             self.rect.set_always_on_top(True)
         self._prepared = True
 
+    def _downscale_image(self, image: Image.Image) -> Image.Image:
+        try:
+            config = load_user_config()
+            if not config.get("enable_downscaling", True):
+                return image
+            max_size = int(config.get("downscale_max_size", 950))
+            w, h = image.size
+            if max(w, h) > max_size:
+                if w > h:
+                    new_w = max_size
+                    new_h = int(h * (max_size / w))
+                else:
+                    new_h = max_size
+                    new_w = int(w * (max_size / h))
+                return image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        except Exception:
+            pass
+        return image
+
     def capture(self) -> RawObservation:
         if not self._prepared:
             self.prepare_window()
@@ -51,6 +71,7 @@ class ScreenCollector:
             return RawObservation(image=None, changed=False)
         changed = self.change_detector.has_changed(frame)  # This was added/changed as a part of the ZOO CODE idle safeguard pass
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        image = self._downscale_image(image)
         return RawObservation(image=image, changed=changed)
 
     def capture_bgr(self) -> np.ndarray | None:

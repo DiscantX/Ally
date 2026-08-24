@@ -198,6 +198,7 @@ class SettingsWindow(tk.Toplevel):
             ("Enable Cooldown", "enable_cooldown"),
             ("Enable Stability Check", "enable_stability_check"),
             ("Use SSIM", "use_ssim"),
+            ("Enable Downscaling", "enable_downscaling"),
         ]
 
         for label_text, key in toggles:
@@ -211,6 +212,7 @@ class SettingsWindow(tk.Toplevel):
         spinboxes = [
             ("Unknown Streak Threshold", "unknown_streak_threshold", 1, 10),
             ("Short-Term Buffer Capacity", "short_term_capacity", 2, 30),
+            ("Max Downscale Size", "downscale_max_size", 300, 3840),
         ]
 
         for label_text, key, min_v, max_v in spinboxes:
