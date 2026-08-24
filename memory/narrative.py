@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from llm.gemini_provider import GeminiProvider
 from memory.db import MemoryDB
 from memory.triggers import Trigger, TurnCountTrigger
+from prompts.narrative import NARRATIVE_MEDIUM_TERM_PROMPT, NARRATIVE_LONG_TERM_PROMPT
 
 
 class TextSummary(BaseModel):
@@ -85,11 +86,7 @@ class NarrativeMemoryManager:
         if not self._short_term:
             return
         buffer_text = "\n".join([f"Turn {e.turn}: {e.summary}" for e in self._short_term])
-        prompt = (
-            "Summarize the following recent gameplay turns into a concise 2-3 sentence "
-            "situational summary capturing key events, stakes, and narrative direction:\n\n"
-            f"{buffer_text}"
-        )
+        prompt = NARRATIVE_MEDIUM_TERM_PROMPT.format(buffer_text=buffer_text)
         try:
             result = self.provider.generate_structured(
                 model="gemini-3.5-flash-lite",
@@ -108,11 +105,7 @@ class NarrativeMemoryManager:
         if not self._medium_term_summaries:
             return
         med_text = "\n".join(self._medium_term_summaries)
-        prompt = (
-            "Synthesize the following situational summaries into a single cohesive strategic "
-            "long-term overview for the entire run so far:\n\n"
-            f"{med_text}"
-        )
+        prompt = NARRATIVE_LONG_TERM_PROMPT.format(med_text=med_text)
         try:
             result = self.provider.generate_structured(
                 model="gemini-3.5-flash-lite",

@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from llm.gemini_provider import GeminiProvider
 from memory.db import MemoryDB
+from prompts.personality import PERSONALITY_DIGEST_PROMPT, PERSONALITY_MICRO_PROMPT
 
 
 class TextSummary(BaseModel):
@@ -53,12 +54,7 @@ class PersonalityMemoryManager:
 
         journal_text = "\n".join(self._master_journal)
         
-        digest_prompt = (
-            "Based on the following master reflection journal of our companion Ally, "
-            "synthesize a comprehensive personality digest (200-400 words) capturing tone, "
-            "quirks, and player relationship dynamics:\n\n"
-            f"{journal_text}"
-        )
+        digest_prompt = PERSONALITY_DIGEST_PROMPT.format(journal_text=journal_text)
         try:
             digest_res = self.provider.generate_structured(
                 model="gemini-3.5-flash-lite",
@@ -69,11 +65,7 @@ class PersonalityMemoryManager:
         except Exception:
             self._digest = self.base_personality
 
-        micro_prompt = (
-            "Boil down the following personality digest into an ultra-concise micro prompt (< 50 tokens) "
-            "suitable for direct injection into a prompt to maintain voice consistency:\n\n"
-            f"{self._digest}"
-        )
+        micro_prompt = PERSONALITY_MICRO_PROMPT.format(digest=self._digest)
         try:
             micro_res = self.provider.generate_structured(
                 model="gemini-3.5-flash-lite",
