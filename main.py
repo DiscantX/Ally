@@ -250,9 +250,43 @@ if __name__ == "__main__":
     genre_tracker = GenreTracker()
 
     gui_app = None
+    state = {"memory_manager": None}
+
+    def on_send_message(text: str, message_type: str):
+        def _handle():
+            mm = state["memory_manager"]
+            if not mm:
+                if gui_app:
+                    gui_app.append_chat_message("coach", "Game loop hasn't started yet. Hang tight!")
+                return
+
+            if message_type == "feedback":
+                mm.personality.record_reflection(f"Player feedback: {text}")
+                if gui_app:
+                    gui_app.append_chat_message("coach", "Got it! I've noted that feedback and adjusted my approach.")
+            else:
+                try:
+                    res = ally.chat(
+                        elements_context=sandbox.as_context(),
+                        entities_context=registry.as_context(list(registry._entities.values())),
+                        genre_context=genre_tracker.as_context(),
+                        memory_context=mm.build_context(),
+                        personality=mm.get_personality_context(),
+                        question=text,
+                    )
+                    mm.record_turn(sandbox.turn, f"Player asked: '{text}' -> Ally answered: '{res.response}'", importance=5)
+                    if gui_app:
+                        gui_app.append_chat_message("coach", res.response)
+                except Exception as e:
+                    if gui_app:
+                        gui_app.append_chat_message("coach", f"(Error: {e})")
+
+        import threading
+        threading.Thread(target=_handle, daemon=True).start()
+
     if args.gui:
         from gui.tkinter_app import AllyOverlay
-        gui_app = AllyOverlay()
+        gui_app = AllyOverlay(on_send_message=on_send_message)
         gui_app.set_connection_status(True)
 
     def execute_run():
@@ -266,6 +300,7 @@ if __name__ == "__main__":
                 provider=provider,
                 base_personality=ally.base_personality,
             )
+            state["memory_manager"] = memory_manager
             observation = RawObservation(image=Image.open(args.image))
             run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager, gui_app=gui_app)
         else:
@@ -285,6 +320,7 @@ if __name__ == "__main__":
                 provider=provider,
                 base_personality=ally.base_personality,
             )
+            state["memory_manager"] = memory_manager
             run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager, gui_app=gui_app)
 
     if args.gui:

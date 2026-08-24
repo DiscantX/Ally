@@ -592,11 +592,18 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
 
     def _position_window(self):
         cfg = self.config_data
-        x = cfg.offset_x
-        y = cfg.offset_y
         debug_w = 340
         initial_width = cfg.width + debug_w + (cfg.drawer_width if self._drawer_open else 0)
-        self.geometry(f"{initial_width}x{cfg.height}+{x}+{y}")
+        initial_height = cfg.height
+
+        self.update_idletasks()
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        x = (screen_width - initial_width) // 2
+        y = (screen_height - initial_height) // 2
+
+        self.geometry(f"{initial_width}x{initial_height}+{x}+{y}")
 
     def _start_move(self, event):
         self._drag_offset_x = event.x_root - self.winfo_x()

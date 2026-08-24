@@ -30,3 +30,8 @@ class ActionItem(BaseModel):
 class AllyOutput(BaseModel):
     analysis: str
     actions: list[ActionItem]
+
+
+class AllyChatOutput(BaseModel):
+    response: str
+

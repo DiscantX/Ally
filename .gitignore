@@ -14,3 +14,4 @@ configs/*
 # Do not ignore the template subdirectory
 !configs/template/
 state/memory.db
+docs/log-single-game.log

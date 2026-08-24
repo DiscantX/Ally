@@ -11,9 +11,9 @@ Personality/player-relationship memory is wired via MemorySystem
 """
 
 from llm.gemini_provider import GeminiProvider
-from schema.schema import AllyOutput
+from schema.schema import AllyOutput, AllyChatOutput
 from ally.personalities import PERSONALITIES
-from prompts.ally import ALLY_PROMPT_TEMPLATE
+from prompts.ally import ALLY_PROMPT_TEMPLATE, ALLY_CHAT_PROMPT_TEMPLATE
 
 ALLY_MODEL = "gemini-3.5-flash-lite"
 
@@ -43,4 +43,27 @@ class Ally:
             contents=[prompt],
             schema=AllyOutput,
             thinking_level="HIGH"
+        )
+
+    def chat(
+        self,
+        elements_context: str,
+        entities_context: str,
+        genre_context: str = "unknown (not yet determined)",
+        memory_context: str = "(no memory yet -- this is the first turn)",
+        personality: str | None = None,
+        question: str = "",
+    ) -> AllyChatOutput:
+        prompt = ALLY_CHAT_PROMPT_TEMPLATE.format(
+            personality=personality if personality else self.base_personality,
+            genre=genre_context,
+            memory=memory_context,
+            elements=elements_context,
+            entities=entities_context,
+            question=question,
+        )
+        return self.provider.generate_structured(
+            model=self.model,
+            contents=[prompt],
+            schema=AllyChatOutput,
         )
