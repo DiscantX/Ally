@@ -191,6 +191,7 @@ def run_turn(
         entities_context=entities_context,
         genre_context=genre_tracker.as_context(),
         memory_context=memory_manager.build_context(),
+        personality=memory_manager.get_personality_context(),
     )
     log("\nAnalysis:\n{analysis}", analysis=ally_output.analysis)
     log("\nActions:")
@@ -262,6 +263,8 @@ if __name__ == "__main__":
                 player_id="default_player",
                 game_id="adhoc_image",
                 save_id=f"session_{uuid.uuid4().hex[:8]}",
+                provider=provider,
+                base_personality=ally.base_personality,
             )
             observation = RawObservation(image=Image.open(args.image))
             run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager, gui_app=gui_app)
@@ -279,6 +282,8 @@ if __name__ == "__main__":
                 player_id="default_player",
                 game_id=collector.config.game_id,
                 save_id=f"session_{uuid.uuid4().hex[:8]}",
+                provider=provider,
+                base_personality=ally.base_personality,
             )
             run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager, gui_app=gui_app)
 
