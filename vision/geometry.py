@@ -11,9 +11,16 @@ Nothing upstream should silently assume one format means the other;
 every call site converts explicitly through here.
 """
 
+from logger import log
+
+
 def normalized_box_to_pixels(box_2d: list[int], frame_w: int, frame_h: int) -> tuple[int, int, int, int]:
     """Scribe's [y_min, x_min, y_max, x_max] (0-1000) -> (x, y, w, h) pixels."""
-    y_min, x_min, y_max, x_max = box_2d
+    if not isinstance(box_2d, (list, tuple)) or len(box_2d) != 4:
+        log("Warning: Invalid box_2d received: {box}, expected 4 coordinates. Defaulting to [0, 0, 0, 0].", box=box_2d)
+        y_min, x_min, y_max, x_max = 0, 0, 0, 0
+    else:
+        y_min, x_min, y_max, x_max = box_2d
     x = round((x_min / 1000) * frame_w)
     y = round((y_min / 1000) * frame_h)
     w = round(((x_max - x_min) / 1000) * frame_w)
