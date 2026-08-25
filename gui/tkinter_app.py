@@ -156,7 +156,15 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
                 self._pipeline_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
             except Exception:
                 pass
-        self._pipeline_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _bound_to_mousewheel(event):
+            self.bind_all("<MouseWheel>", _on_mousewheel)
+
+        def _unbound_from_mousewheel(event):
+            self.unbind_all("<MouseWheel>")
+
+        self.debug_panel_frame.bind("<Enter>", _bound_to_mousewheel)
+        self.debug_panel_frame.bind("<Leave>", _unbound_from_mousewheel)
 
         self._pipeline_slots = {}
         pipeline_defs = [

@@ -18,12 +18,13 @@ class SettingsWindow(tk.Toplevel):
 
     def __init__(self, parent: tk.Widget, on_save: Callable[[], None] | None = None):
         super().__init__(parent)
+        self.withdraw()
+        self.transient(parent)
         self.title("Ally Settings & Configuration")
-        self.geometry("640x680")
         self.minsize(550, 500)
-        self.attributes("-topmost", True)
         self.protocol("WM_DELETE_WINDOW", self.destroy)
         self.configure(bg="#1a1a1a")
+        self.attributes("-topmost", True)
 
         self.on_save_callback = on_save
         self.config_data = load_user_config()
@@ -31,6 +32,29 @@ class SettingsWindow(tk.Toplevel):
 
         self._setup_styles()
         self._create_widgets()
+
+        width, height = 640, 680
+        self.geometry(f"{width}x{height}")
+        self.update_idletasks()
+        try:
+            if parent and parent.winfo_exists():
+                parent_x = parent.winfo_rootx()
+                parent_y = parent.winfo_rooty()
+                parent_w = parent.winfo_width()
+                parent_h = parent.winfo_height()
+                x = parent_x + (parent_w - width) // 2
+                y = parent_y + (parent_h - height) // 2
+            else:
+                raise Exception()
+        except Exception:
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight()
+            x = (screen_width - width) // 2
+            y = (screen_height - height) // 2
+        self.geometry(f"{width}x{height}+{max(0, x)}+{max(0, y)}")
+        self.update_idletasks()
+        self.focus_set()
+        self.deiconify()
 
     def _setup_styles(self):
         style = ttk.Style(self)
