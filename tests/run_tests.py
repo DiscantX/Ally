@@ -2,11 +2,11 @@ import sys
 import unittest
 
 sys.path.insert(0, ".")
-from memory.test_save_tracker import TestSaveTracker
-from memory.test_run_boundary import TestRunBoundary
-from memory.test_cross_session import TestCrossSessionMemory
-from memory.test_triggers import TestTriggers, TestNarrativeManagerTriggers
-from memory.test_narrative import TestNarrativeMemoryManagerEntryCount
+from tests.test_save_tracker import TestSaveTracker
+from tests.test_run_boundary import TestRunBoundary
+from tests.test_cross_session import TestCrossSessionMemory
+from tests.test_triggers import TestTriggers, TestNarrativeManagerTriggers
+from tests.test_narrative import TestNarrativeMemoryManagerEntryCount
 from state.test_entity_registry_persistence import TestEntityRegistryPersistence
 from ally.test_ally import TestAllyAgent
 
