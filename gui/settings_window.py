@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 from configs.config_manager import load_user_config, save_user_config
 from ally.personalities import PERSONALITIES
+from llm.model_lister import get_available_models
 
 
 class SettingsWindow(tk.Toplevel):
@@ -73,15 +74,28 @@ class SettingsWindow(tk.Toplevel):
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        model_choices = [
-            "gemini-3.5-flash-lite",
-            "gemini-3.5-flash",
-            "gemini-2.5-flash",
-            "gemini-2.5-pro",
-        ]
+        model_choices = get_available_models()
 
         row = 0
-        ttk.Label(scrollable_frame, text="LLM Model Selections", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
+        ttk.Label(scrollable_frame, text="LLM Model Management", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
+        row += 1
+
+        use_master_var = tk.BooleanVar(value=bool(self.config_data.get("use_master_model", False)))
+        self.vars["use_master_model"] = use_master_var
+        master_chk = ttk.Checkbutton(scrollable_frame, text="Use Master Model for All", variable=use_master_var, command=lambda: self._toggle_master_mode(master_chk))
+        master_chk.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+
+        master_model_var = tk.StringVar(value=self.config_data.get("master_model", model_choices[0]))
+        self.vars["master_model"] = master_model_var
+        master_combo = ttk.Combobox(scrollable_frame, textvariable=master_model_var, values=model_choices, state="readonly", width=25)
+        master_combo.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        row += 1
+        
+        ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky="ew", pady=15)
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Individual LLM Overrides", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
         row += 1
 
         models = [
@@ -92,13 +106,17 @@ class SettingsWindow(tk.Toplevel):
             ("Genealogy Model", "geneology_model"),
         ]
 
+        self.model_combos = []
         for label_text, key in models:
             ttk.Label(scrollable_frame, text=label_text).grid(row=row, column=0, sticky=tk.W, pady=5, padx=5)
             var = tk.StringVar(value=self.config_data.get(key, model_choices[0]))
             self.vars[key] = var
             combo = ttk.Combobox(scrollable_frame, textvariable=var, values=model_choices, state="readonly", width=25)
             combo.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+            self.model_combos.append(combo)
             row += 1
+            
+        self._toggle_master_mode(None) # Initialize state
 
         ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky="ew", pady=15)
         row += 1
@@ -113,6 +131,12 @@ class SettingsWindow(tk.Toplevel):
         p_combo = ttk.Combobox(scrollable_frame, textvariable=p_var, values=personality_choices, state="readonly", width=25)
         p_combo.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         row += 1
+
+    def _toggle_master_mode(self, event):
+        enabled = self.vars["use_master_model"].get()
+        state = "disabled" if enabled else "readonly"
+        for combo in self.model_combos:
+            combo.configure(state=state)
 
     def _build_advanced_tab(self, parent: ttk.Frame):
         canvas = tk.Canvas(parent, highlightthickness=0)

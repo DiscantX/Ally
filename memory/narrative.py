@@ -12,7 +12,7 @@ from llm.gemini_provider import GeminiProvider
 from memory.db import MemoryDB
 from memory.triggers import Trigger, TurnCountTrigger, CompositeTrigger, SalienceEventTrigger, ExplicitAllyTrigger
 from prompts.narrative import NARRATIVE_MEDIUM_TERM_PROMPT, NARRATIVE_LONG_TERM_PROMPT, CROSS_SESSION_SUMMARY_PROMPT
-from configs.config_manager import load_user_config
+from configs.config_manager import load_user_config, get_model
 
 
 class TextSummary(BaseModel):
@@ -47,7 +47,7 @@ class NarrativeMemoryManager:
         self.db = db
         self.short_term_capacity = short_term_capacity or config["short_term_capacity"]
         self.medium_flush_interval = medium_flush_interval
-        self.model = model or config["narrative_model"]
+        self.model = model or get_model("narrative_model", config)
         self.thinking_level = config["thinking_level"]
         self.save_tracker = save_tracker
         self._short_term: deque[ShortTermEntry] = deque(maxlen=short_term_capacity)

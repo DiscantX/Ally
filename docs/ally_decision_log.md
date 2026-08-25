@@ -446,3 +446,13 @@ This section supersedes prior claims regarding `flush_to_cross_session` and in-m
 Decided to use a coarse-grained `threading.Lock` (`STATE_LOCK`) to synchronize access to `sandbox`, `registry`, and `memory_manager` to fix identified data races. The project prefers simple, obviously-correct mechanisms over complex fine-grained locking, and this approach directly addresses the identified concurrency issues in `main.py` and the background GUI thread.
 
 Initial implementation left the slow ally.decide()/ally.chat() calls either fully unprotected or fully lock-held across the network round-trip; corrected to snapshot required context strings under the lock, release before the network call, then re-acquire only for the final write-back.
+
+## Model Selection Refactor (2026-08-25)
+
+Decided to move Gemini model choices from a hardcoded list in `gui/settings_window.py` to a system-level configuration file `configs/supported_models.json`.
+
+Additionally, implemented a "Master Model" toggle system in `user_config.json`:
+- `use_master_model`: Boolean flag to enable/disable master model override.
+- `master_model`: The model used for all components when override is enabled.
+
+Components now use `configs/config_manager.py:get_model()` to fetch the correct model based on whether master mode is active, preserving individual component overrides while allowing for a unified configuration.

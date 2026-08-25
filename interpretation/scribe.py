@@ -11,13 +11,13 @@ from PIL import Image
 from llm.gemini_provider import GeminiProvider
 from schema.schema import ScribeOutput
 from prompts.scribe import SCRIBE_PROMPT_UI, SCRIBE_PROMPT_NO_UI
-from configs.config_manager import load_user_config
+from configs.config_manager import load_user_config, get_model
 
 class Scribe:
     def __init__(self, provider: GeminiProvider, model: str | None = None):
         config = load_user_config()
         self.provider = provider
-        self.model = model or config["scribe_model"]
+        self.model = model or get_model("scribe_model", config)
         self.thinking_level = config["thinking_level"]
 
     def extract(self, image: Image.Image, include_ui: bool = True) -> ScribeOutput:

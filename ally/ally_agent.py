@@ -14,14 +14,14 @@ from llm.gemini_provider import GeminiProvider
 from schema.schema import AllyOutput, AllyChatOutput
 from ally.personalities import PERSONALITIES
 from prompts.ally import ALLY_PROMPT_TEMPLATE, ALLY_CHAT_PROMPT_TEMPLATE
-from configs.config_manager import load_user_config
+from configs.config_manager import load_user_config, get_model
 
 class Ally:
     def __init__(self, provider: GeminiProvider, base_personality: str = PERSONALITIES["Scout"], model: str | None = None, thinking_level: str | None = None):
         config = load_user_config()
         self.provider = provider
         self.base_personality = base_personality
-        self.model = model or config["ally_model"]
+        self.model = model or get_model("ally_model", config)
         self.thinking_level = thinking_level or config["thinking_level"]
 
     def decide(
