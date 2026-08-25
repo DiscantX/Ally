@@ -22,11 +22,14 @@ Usage:
 """
 
 import argparse
+import threading
 from PIL import Image
 
 from ally.core import AllyCore
 from collectors.base import RawObservation
 from logger import log
+
+STATE_LOCK = threading.Lock()
 
 
 def parse_args() -> argparse.Namespace:

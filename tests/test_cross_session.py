@@ -65,7 +65,11 @@ class TestCrossSessionMemory(unittest.TestCase):
     def test_second_run_merges_cross_session(self):
         self.db.insert_cross_session("player1", "game1", "First run summary.", "save_1")
 
-        self.provider.generate_structured.return_value = TextSummary(summary="Updated meta knowledge from run 1 and run 2.")
+        self.provider.generate_structured.side_effect = [
+            TextSummary(summary="Medium summary"),
+            TextSummary(summary="Long summary"),
+            TextSummary(summary="Updated meta knowledge from run 1 and run 2."),
+        ]
 
         save_id, _ = self.save_tracker.resolve_save_id("player1", "game1")
         manager = NarrativeMemoryManager(
@@ -82,7 +86,10 @@ class TestCrossSessionMemory(unittest.TestCase):
 
         call_args = self.provider.generate_structured.call_args
         self.assertIsNotNone(call_args)
-        prompt_text = call_args[1]["contents"][0] if "contents" in call_args[1] else call_args[0][1][0]
+        # Check that prompt contains First run summary
+        all_calls = self.provider.generate_structured.call_args_list
+        cross_session_call = all_calls[-1]
+        prompt_text = cross_session_call[1]["contents"][0] if "contents" in cross_session_call[1] else cross_session_call[0][1][0]
         self.assertIn("First run summary.", prompt_text)
 
         cross = self.db.get_latest_cross_session("player1", "game1")

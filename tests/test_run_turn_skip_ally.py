@@ -7,7 +7,7 @@ from collectors.base import RawObservation, ConfirmedFact
 from state.sandbox import StateSandbox
 from state.entity_registry import EntityRegistry
 from state.genre_tracker import GenreTracker
-from main import run_turn
+from ally.core import AllyCore
 
 
 class TestRunTurnSkipAlly(unittest.TestCase):
@@ -26,8 +26,16 @@ class TestRunTurnSkipAlly(unittest.TestCase):
         obs = RawObservation(image=real_image, confirmed_facts=facts)
         obs.skip_ally = True
 
+        core = AllyCore()
+        core.scribe = scribe
+        core.ally = ally
+        core.sandbox = sandbox
+        core.registry = registry
+        core.genre_tracker = genre_tracker
+        core.memory_manager = memory_manager
+
         # Should not raise
-        result = run_turn(obs, scribe, ally, sandbox, registry, genre_tracker, memory_manager)
+        result = core.run_turn(obs)
 
         self.assertFalse(result)  # run_boundary defaults to "none"
         ally.decide.assert_not_called()  # confirms Scribe/Ally were genuinely skipped

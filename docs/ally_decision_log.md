@@ -452,6 +452,7 @@ Initial implementation left the slow ally.decide()/ally.chat() calls either full
 Decided to move Gemini model choices from a hardcoded list in `gui/settings_window.py` to a system-level configuration file `configs/supported_models.json`.
 
 Additionally, implemented a "Master Model" toggle system in `user_config.json`:
+
 - `use_master_model`: Boolean flag to enable/disable master model override.
 - `master_model`: The model used for all components when override is enabled.
 

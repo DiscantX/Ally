@@ -193,7 +193,7 @@ class MemoryDB:
         conn = self._connect()
         try:
             cursor = conn.execute(
-                "SELECT * FROM cross_session_memory WHERE player_id = ? AND game_id = ? ORDER BY timestamp DESC LIMIT 1",
+                "SELECT * FROM cross_session_memory WHERE player_id = ? AND game_id = ? ORDER BY timestamp DESC, id DESC LIMIT 1",
                 (player_id, game_id)
             )
             row = cursor.fetchone()
