@@ -21,6 +21,7 @@ from PIL import Image, ImageTk
 from gui.models import OverlayConfig, FeedbackData, resolve_font_family, DEFAULT_DRAWER_OPEN
 from gui.chat_drawer import ChatDrawerMixin
 from gui.overlay_api import OverlayApiMixin
+from logger import log
 
 
 class DraggableFrame(tk.Frame):
@@ -34,13 +35,25 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
     """Main overlay window that stays always-on-top."""
 
     def __init__(self, config: Optional[OverlayConfig] = None, on_close=None,
-                 on_send_message=None):
+                 on_send_message=None, core=None):
         super().__init__()
 
         self.config_data = config or OverlayConfig()
         self.config_data.font_family = resolve_font_family(self.config_data.font_family)
         self._on_close_callback = on_close
         self._on_send_message = on_send_message
+        if core is not None:
+            if self._on_send_message is None:
+                self._on_send_message = core.send_message
+            core.on_pipeline_image = self.update_pipeline_image
+            core.on_debug_overlay = self.update_debug_image
+            core.on_status_update = lambda screen, event: (self.update_debug_info(screen, event), self.start_eta_countdown(15))
+            core.on_state_summary = self.update_state_summary
+            core.on_prompt_update = self.update_prompt
+            core.on_feedback = self.update_feedback
+            core.on_chat_message = self.append_chat_message
+            core.on_eta_ready = self.set_eta_ready
+            core.on_connection_status = self.set_connection_status
 
         self._drawer_open = DEFAULT_DRAWER_OPEN
         self._prompt_collapsed = True
@@ -510,9 +523,15 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
 
     def _on_window_configure(self, event):
         if event.widget is self:
+            w, h = self.winfo_width(), self.winfo_height()
+            if getattr(self, '_last_configure_width', None) == w and getattr(self, '_last_configure_height', None) == h:
+                return  # Position-only change (e.g. dragging the window), skip heavy image re-rendering!
+            self._last_configure_width = w
+            self._last_configure_height = h
+
             if hasattr(self, '_resize_job') and self._resize_job:
                 self.after_cancel(self._resize_job)
-            self._resize_job = self.after(50, self._refresh_debug_image)
+            self._resize_job = self.after(100, self._refresh_debug_image)
 
     def update_pipeline_image(self, key: str, image, title: Optional[str] = None):
         """Update a specific pipeline image slot asynchronously as soon as processed."""
@@ -578,7 +597,7 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
                 target_h = 240
                 target_w = int(target_h * aspect_ratio)
 
-            resized = slot["raw_image"].resize((target_w, target_h), Image.Resampling.LANCZOS)
+            resized = slot["raw_image"].resize((target_w, target_h), Image.Resampling.BILINEAR)
             photo = ImageTk.PhotoImage(resized)
             slot["photo_image"] = photo
             slot["image_label"].config(image=photo)
