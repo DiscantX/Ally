@@ -10,8 +10,8 @@ from pydantic import BaseModel
 
 from llm.gemini_provider import GeminiProvider
 from memory.db import MemoryDB
-from memory.triggers import Trigger, TurnCountTrigger
-from prompts.narrative import NARRATIVE_MEDIUM_TERM_PROMPT, NARRATIVE_LONG_TERM_PROMPT
+from memory.triggers import Trigger, TurnCountTrigger, CompositeTrigger, SalienceEventTrigger, ExplicitAllyTrigger
+from prompts.narrative import NARRATIVE_MEDIUM_TERM_PROMPT, NARRATIVE_LONG_TERM_PROMPT, CROSS_SESSION_SUMMARY_PROMPT
 
 
 class TextSummary(BaseModel):
@@ -33,8 +33,10 @@ class NarrativeMemoryManager:
         provider: GeminiProvider,
         db: MemoryDB,
         short_term_capacity: int = 8,
+        medium_flush_interval: int = 8,
         flush_trigger: Trigger | None = None,
         model: str = "gemini-3.5-flash-lite",
+        save_tracker: Any | None = None,
     ):
         self.player_id = player_id
         self.game_id = game_id
@@ -42,17 +44,25 @@ class NarrativeMemoryManager:
         self.provider = provider
         self.db = db
         self.short_term_capacity = short_term_capacity
+        self.medium_flush_interval = medium_flush_interval
         self.model = model
+        self.save_tracker = save_tracker
         self._short_term: deque[ShortTermEntry] = deque(maxlen=short_term_capacity)
-        self.flush_trigger = flush_trigger or TurnCountTrigger(interval=short_term_capacity)
+        self.flush_trigger = flush_trigger or CompositeTrigger([
+            TurnCountTrigger(interval=medium_flush_interval),
+            SalienceEventTrigger(importance_threshold=8),
+            ExplicitAllyTrigger()
+        ])
         self._medium_term_summaries: list[str] = []
         self._long_term_summary: str = ""
+        self._entry_count = 0
         self._load_from_db()
 
     def _load_from_db(self) -> None:
         short_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "short")
         for row in short_rows:
             self._short_term.append(ShortTermEntry(turn=row["turn"], summary=row["summary"]))
+        self._entry_count = len(short_rows)
         
         med_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "medium")
         self._medium_term_summaries = [row["summary"] for row in med_rows]
@@ -62,16 +72,23 @@ class NarrativeMemoryManager:
             self._long_term_summary = long_rows[-1]["summary"]
 
     def record_turn(self, turn: int, ally_analysis: str, importance: int = 0, explicit_checkpoint: bool = False) -> None:
+        self._entry_count += 1
         entry = ShortTermEntry(turn=turn, summary=ally_analysis)
         self._short_term.append(entry)
         self.db.save_narrative_entry(self.player_id, self.game_id, self.save_id, turn, "short", ally_analysis)
 
-        context = {"turn": turn, "importance": importance, "explicit_checkpoint": explicit_checkpoint}
+        if self.save_tracker:
+            self.save_tracker.touch(self.player_id, self.game_id, self.save_id)
+
+        context = {"turn": self._entry_count, "importance": importance, "explicit_checkpoint": explicit_checkpoint}
         if self.flush_trigger.should_trigger(context):
             self._flush_to_medium_term()
 
     def build_context(self) -> str:
         parts = []
+        cross_record = self.db.get_latest_cross_session(self.player_id, self.game_id)
+        if cross_record:
+            parts.append(f"Cross-Session Game Summary:\n{cross_record['summary']}")
         if self._long_term_summary:
             parts.append(f"Strategic Long-Term Overview:\n{self._long_term_summary}")
         if self._medium_term_summaries:
@@ -122,5 +139,38 @@ class NarrativeMemoryManager:
         latest_turn = self._short_term[-1].turn if self._short_term else 0
         self.db.save_narrative_entry(self.player_id, self.game_id, self.save_id, latest_turn, "long", summary.strip())
 
+    def close_run(self) -> None:
+        if not self._long_term_summary:
+            if self._medium_term_summaries:
+                self.flush_to_long_term()
+            elif self._short_term:
+                self._flush_to_medium_term()
+                self.flush_to_long_term()
+            else:
+                self._long_term_summary = "Run completed with no recorded turns."
+
+        just_finished_run = self._long_term_summary
+        prior_record = self.db.get_latest_cross_session(self.player_id, self.game_id)
+        prior_cross_session = prior_record["summary"] if prior_record else "This is the first recorded run for this game."
+
+        prompt = CROSS_SESSION_SUMMARY_PROMPT.format(
+            prior_cross_session=prior_cross_session,
+            just_finished_run=just_finished_run,
+        )
+        try:
+            result = self.provider.generate_structured(
+                model=self.model,
+                contents=[prompt],
+                schema=TextSummary,
+            )
+            new_summary = result.summary
+        except Exception:
+            new_summary = f"Cross-session summary synthesized from run {self.save_id}."
+
+        self.db.insert_cross_session(self.player_id, self.game_id, new_summary.strip(), self.save_id)
+
+        if self.save_tracker:
+            self.save_tracker.close(self.player_id, self.game_id, self.save_id)
+
     def flush_to_cross_session(self) -> None:
-        self.flush_to_long_term()
+        self.close_run()

@@ -27,6 +27,7 @@ ALLY_PROMPT_TEMPLATE = (
     "- Don't just present the options neutrally. You have an opinion -- "
     "say what you'd actually do and why, the way a co-op partner would, "
     "not a screen reader listing choices.\n\n"
+    "- If the current screen is an unambiguous end-of-run screen — victory, defeat, game over, run complete — set run_boundary to 'run_ended'. Only do this for a genuine terminal screen, not a story beat, cutscene, or dialogue that merely sounds final. When in doubt, use 'none'.\n\n"
     "Then list a few specific candidate actions, e.g. 'Click the "
     "[flower pot]', wrapping the target noun in square brackets and "
     "referencing only the screen element ids given above in "

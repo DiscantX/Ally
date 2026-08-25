@@ -56,6 +56,10 @@ from collectors.configured_collector import build_collector, GenericHudCollector
 from interpretation.scribe import Scribe
 from llm.gemini_provider import GeminiProvider
 from memory.manager import MemoryManager
+from memory.db import MemoryDB
+from memory.save_tracker import SaveTracker
+from memory.triggers import resolve_run_ended
+from memory.narrative import NarrativeMemoryManager
 from state.entity_registry import EntityRegistry
 from state.genre_tracker import GenreTracker
 from state.sandbox import StateSandbox
@@ -126,10 +130,10 @@ def run_turn(
     collector: GenericHudCollector | None = None,
     include_ui: bool = True,
     gui_app = None,
-) -> None:
+) -> bool:
     if observation.image is None:
         log("No image captured -- is the game window open?")
-        return
+        return False
 
     if gui_app is not None:
         gui_app.update_pipeline_image("observation", observation.image, "RGB PIL Image Observation")
@@ -200,12 +204,21 @@ def run_turn(
 
     memory_manager.record_turn(sandbox.turn, ally_output.analysis)
 
+    run_ended = resolve_run_ended(observation, ally_output)
+    if run_ended:
+        log("\n--- Run ended (boundary resolved) ---")
+        memory_manager.close_run()
+        if gui_app is not None:
+            gui_app.append_chat_message("coach", "Run ended! Closing session and saving cross-session memories.")
+
     if gui_app is not None:
         gui_app.update_debug_info(observation.screen_name, "turn")
         gui_app.update_state_summary(sandbox.as_context())
         gui_app.update_prompt(sandbox.as_context()[:300])
         gui_app.update_feedback(ally_output.analysis)
         gui_app.set_eta_ready()
+
+    return run_ended
 
 
 def run_loop(
@@ -216,6 +229,10 @@ def run_loop(
     registry: EntityRegistry,
     genre_tracker: GenreTracker,
     memory_manager: MemoryManager,
+    save_tracker: SaveTracker,
+    db: MemoryDB,
+    player_id: str,
+    game_id: str,
     interval_seconds: float = TURN_INTERVAL_SECONDS,
     gui_app = None,
 ) -> None:
@@ -228,15 +245,37 @@ def run_loop(
             else:
                 reader = collector.readers.get(observation.screen_name)
                 include_ui = reader is None or not reader.has_calibrated_fields
-                run_turn(
+                ended = run_turn(
                     observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager,
                     collector=collector, include_ui=include_ui, gui_app=gui_app,
                 )
+                if ended:
+                    log("Run concluded. Starting new run session...")
+                    new_save_id, _ = save_tracker.resolve_save_id(player_id=player_id, game_id=game_id)
+                    memory_manager.narrative = NarrativeMemoryManager(
+                        player_id=player_id,
+                        game_id=game_id,
+                        save_id=new_save_id,
+                        provider=memory_manager.narrative.provider,
+                        db=memory_manager.db,
+                        short_term_capacity=memory_manager.narrative.short_term_capacity,
+                        flush_trigger=memory_manager.narrative.flush_trigger,
+                        save_tracker=save_tracker,
+                    )
+                    registry.__init__(
+                        player_id=player_id,
+                        game_id=game_id,
+                        save_id=new_save_id,
+                        db=db,
+                    )
             time.sleep(interval_seconds)
     except KeyboardInterrupt:
         log("\nStopping loop.")
     finally:
-        memory_manager.flush_to_cross_session()
+        try:
+            memory_manager.close_run()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
@@ -246,15 +285,15 @@ if __name__ == "__main__":
     scribe = Scribe(provider)
     ally = Ally(provider, PERSONALITIES["Scout"])
     sandbox = StateSandbox()
-    registry = EntityRegistry()
     genre_tracker = GenreTracker()
 
     gui_app = None
-    state = {"memory_manager": None}
+    state = {"memory_manager": None, "registry": None}
 
     def on_send_message(text: str, message_type: str):
         def _handle():
             mm = state["memory_manager"]
+            reg = state["registry"]
             if not mm:
                 if gui_app:
                     gui_app.append_chat_message("coach", "Game loop hasn't started yet. Hang tight!")
@@ -266,9 +305,10 @@ if __name__ == "__main__":
                     gui_app.append_chat_message("coach", "Got it! I've noted that feedback and adjusted my approach.")
             else:
                 try:
+                    entities_context = reg.as_context(list(reg._entities.values())) if reg else "(no known entities yet)"
                     res = ally.chat(
                         elements_context=sandbox.as_context(),
-                        entities_context=registry.as_context(list(registry._entities.values())),
+                        entities_context=entities_context,
                         genre_context=genre_tracker.as_context(),
                         memory_context=mm.build_context(),
                         personality=mm.get_personality_context(),
@@ -290,19 +330,35 @@ if __name__ == "__main__":
         gui_app.set_connection_status(True)
 
     def execute_run():
+        db = MemoryDB()
+        save_tracker = SaveTracker(db)
         if args.image:
             # Back-compat: single file-backed run, no loop -- looping on a
             # static image file doesn't mean anything.
+            save_id, _ = save_tracker.resolve_save_id(player_id="default_player", game_id="adhoc_image")
             memory_manager = MemoryManager(
                 player_id="default_player",
                 game_id="adhoc_image",
-                save_id=f"session_{uuid.uuid4().hex[:8]}",
+                save_id=save_id,
                 provider=provider,
                 base_personality=ally.base_personality,
+                save_tracker=save_tracker,
             )
             state["memory_manager"] = memory_manager
+            registry = EntityRegistry(
+                player_id="default_player",
+                game_id="adhoc_image",
+                save_id=save_id,
+                db=db,
+            )
+            state["registry"] = registry
             observation = RawObservation(image=Image.open(args.image))
-            run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager, gui_app=gui_app)
+            ended = run_turn(observation, scribe, ally, sandbox, registry, genre_tracker, memory_manager, gui_app=gui_app)
+            if not ended:
+                try:
+                    memory_manager.close_run()
+                except Exception:
+                    pass
         else:
             if args.config:
                 config_path = args.config
@@ -313,15 +369,26 @@ if __name__ == "__main__":
                 config_path = init_config(game_id=args.game)
 
             collector = build_collector(config_path)
+            player_id = "default_player"
+            game_id = collector.config.game_id
+            save_id, _ = save_tracker.resolve_save_id(player_id=player_id, game_id=game_id)
             memory_manager = MemoryManager(
-                player_id="default_player",
-                game_id=collector.config.game_id,
-                save_id=f"session_{uuid.uuid4().hex[:8]}",
+                player_id=player_id,
+                game_id=game_id,
+                save_id=save_id,
                 provider=provider,
                 base_personality=ally.base_personality,
+                save_tracker=save_tracker,
             )
             state["memory_manager"] = memory_manager
-            run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager, gui_app=gui_app)
+            registry = EntityRegistry(
+                player_id=player_id,
+                game_id=game_id,
+                save_id=save_id,
+                db=db,
+            )
+            state["registry"] = registry
+            run_loop(collector, scribe, ally, sandbox, registry, genre_tracker, memory_manager, save_tracker, db, player_id, game_id, gui_app=gui_app)
 
     if args.gui:
         import threading

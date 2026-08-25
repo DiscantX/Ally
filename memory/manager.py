@@ -9,6 +9,7 @@ from memory.db import MemoryDB
 from memory.narrative import NarrativeMemoryManager
 from memory.personality import PersonalityMemoryManager
 from memory.triggers import Trigger, TurnCountTrigger
+from memory.save_tracker import SaveTracker
 
 
 class MemorySystem:
@@ -20,13 +21,16 @@ class MemorySystem:
         provider: GeminiProvider,
         base_personality: str,
         short_term_capacity: int = 8,
+        medium_flush_interval: int = 8,
         flush_trigger: Trigger | None = None,
         db_path: str = "state/memory.db",
+        save_tracker: SaveTracker | None = None,
     ):
         self.player_id = player_id
         self.game_id = game_id
         self.save_id = save_id
         self.db = MemoryDB(db_path)
+        self.save_tracker = save_tracker or SaveTracker(self.db)
         
         self.narrative = NarrativeMemoryManager(
             player_id=player_id,
@@ -35,7 +39,9 @@ class MemorySystem:
             provider=provider,
             db=self.db,
             short_term_capacity=short_term_capacity,
+            medium_flush_interval=medium_flush_interval,
             flush_trigger=flush_trigger,
+            save_tracker=self.save_tracker,
         )
         self.personality = PersonalityMemoryManager(
             player_id=player_id,
@@ -55,6 +61,9 @@ class MemorySystem:
 
     def flush_to_cross_session(self) -> None:
         self.narrative.flush_to_cross_session()
+
+    def close_run(self) -> None:
+        self.narrative.close_run()
 
 
 # Drop-in alias for backwards compatibility

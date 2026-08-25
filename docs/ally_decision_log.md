@@ -429,3 +429,15 @@ once real playtesting shows how often "unknown" actually comes up.
 - GUI/frontend stack — still undecided per the original scope doc
   (Tkinter vs. local web frontend).
 - `entity_type` is hardcoded to "unknown" for every newly created entity since the Scribe doesn't currently classify type, that's expected, but it means your future importance/salience scoring (the Amygdala-analogy component) won't be able to distinguish "player character" from "background prop" without either the Scribe emitting a type field or a cheap heuristic in the registry.
+
+## Pass 1: Memory System Correctness Pass (2026-08-25)
+
+This section supersedes prior claims regarding `flush_to_cross_session` and in-memory-only entity registry persistence.
+
+- **`save_id` Semantics:** Run-scoped identifiers (`save_id`) are resolved via an idle-window heuristic implemented in [`memory/save_tracker.py`](memory/save_tracker.py:1), with a collector-native override seam via `run_started` and `run_ended` flags in [`RawObservation`](collectors/base.py:1).
+- **Semantic Run Boundary Detection:** Handled via [`AllyOutput.run_boundary`](schema/schema.py:1) with deterministic priority resolution determining when a game session or run concludes.
+- **Genuine Cross-Session Memory Tier:** Fully operational cross-session memory tier backed by the [`cross_session_memory`](memory/db.py:1) table in SQLite, driven by [`CROSS_SESSION_SUMMARY_PROMPT`](prompts/narrative.py:1), executing synthesis automatically upon run close.
+- **Composite Trigger System:** Implemented via [`CompositeTrigger`](memory/triggers.py:1), combining turn count thresholds, salience events, and explicit checkpoint triggers, featuring a decoupled buffer size vs flush interval design.
+- **Monotonic Entry Counter in Narrative Memory:** [`NarrativeMemoryManager`](memory/narrative.py:1) maintains a monotonic entry counter protecting turn-based flush cadence from chat message corruption or out-of-order events.
+- **Run-Scoped Entity Registry Persistence:** [`EntityRegistry`](state/entity_registry.py:1) persistence scoped strictly to `(player_id, game_id, save_id)`. True cross-session entity carryover remains explicitly deferred.
+

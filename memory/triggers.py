@@ -37,3 +37,24 @@ class SalienceEventTrigger(Trigger):
 class ExplicitAllyTrigger(Trigger):
     def should_trigger(self, context: dict[str, Any]) -> bool:
         return bool(context.get("explicit_checkpoint", False))
+
+
+class CompositeTrigger(Trigger):
+    def __init__(self, triggers: list[Trigger]):
+        self.triggers = triggers
+
+    def should_trigger(self, context: dict[str, Any]) -> bool:
+        return any(t.should_trigger(context) for t in self.triggers)
+
+
+def resolve_run_ended(observation: Any, ally_output: Any) -> bool:
+    """Resolves whether a run has ended based on priority:
+    1. Collector native signal (`observation.run_ended`) takes absolute priority.
+    2. Ally semantic output (`ally_output.run_boundary == "run_ended"`) serves as fallback.
+    """
+    if getattr(observation, "run_ended", False):
+        return True
+    if getattr(ally_output, "run_boundary", "none") == "run_ended":
+        return True
+    return False
+

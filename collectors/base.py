@@ -34,6 +34,8 @@ class RawObservation:
     screen_name: str = "unknown"
     screen_confidence: float = 0.0
     bootstrap_ready: bool = False
+    run_started: bool = False
+    run_ended: bool = False
 
 
 class Collector(Protocol):

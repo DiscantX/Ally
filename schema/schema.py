@@ -4,6 +4,7 @@ Keeping these in one place means both agents agree on the shape of a
 screen element without importing each other's modules.
 """
 
+from typing import Literal
 from pydantic import BaseModel
 
 
@@ -30,6 +31,7 @@ class ActionItem(BaseModel):
 class AllyOutput(BaseModel):
     analysis: str
     actions: list[ActionItem]
+    run_boundary: Literal["none", "run_ended"] = "none"
 
 
 class AllyChatOutput(BaseModel):

@@ -30,9 +30,13 @@ not attempt to infer type from Scribe's free-text labels.
 """
 
 import difflib
+import json
+import sqlite3
 from dataclasses import dataclass, field
+from typing import Any
 
 from schema.schema import ScreenElement
+from memory.db import MemoryDB
 
 
 @dataclass
@@ -45,6 +49,49 @@ class Entity:
     first_seen_turn: int = 0
     last_seen_turn: int = 0
     external_id: str | None = None  # NEW -- set only when resolved via the exact-id path
+    status: str = "active"
+    importance: int = 0
+
+    def to_row(self) -> dict[str, Any]:
+        return {
+            "entity_id": self.entity_id,
+            "entity_type": self.entity_type,
+            "canonical_name": self.canonical_name,
+            "aliases": json.dumps(self.aliases),
+            "facts": json.dumps(self.facts),
+            "first_seen": self.first_seen_turn,
+            "last_seen": self.last_seen_turn,
+            "external_id": self.external_id,
+            "status": self.status,
+            "importance": self.importance,
+        }
+
+    @classmethod
+    def from_row(cls, row: dict[str, Any] | sqlite3.Row) -> "Entity":
+        aliases = row["aliases"]
+        if isinstance(aliases, str):
+            try:
+                aliases = json.loads(aliases)
+            except Exception:
+                aliases = []
+        facts = row["facts"]
+        if isinstance(facts, str):
+            try:
+                facts = json.loads(facts)
+            except Exception:
+                facts = []
+        return cls(
+            entity_id=row["entity_id"],
+            entity_type=row["entity_type"],
+            canonical_name=row["canonical_name"],
+            aliases=aliases,
+            facts=facts,
+            first_seen_turn=row["first_seen"],
+            last_seen_turn=row["last_seen"],
+            external_id=row["external_id"],
+            status=row["status"] if "status" in row.keys() else "active",
+            importance=row["importance"] if "importance" in row.keys() else 0,
+        )
 
 
 @dataclass
@@ -67,11 +114,37 @@ class ResolvableElement:
 
 
 class EntityRegistry:
-    def __init__(self, match_threshold: float = 0.75):
+    def __init__(
+        self,
+        player_id: str = "default_player",
+        game_id: str = "default_game",
+        save_id: str = "default_save",
+        db: MemoryDB | None = None,
+        match_threshold: float = 0.75,
+    ):
+        self.player_id = player_id
+        self.game_id = game_id
+        self.save_id = save_id
+        self.db = db
         self._entities: dict[str, Entity] = {}
         self._next_id = 1
         self.match_threshold = match_threshold
         self._external_id_index: dict[str, str] = {}  # NEW -- external_id -> entity_id
+
+        if self.db:
+            rows = self.db.load_entities(self.player_id, self.game_id, self.save_id)
+            for row in rows:
+                ent = Entity.from_row(row)
+                self._entities[ent.entity_id] = ent
+                if ent.external_id:
+                    self._external_id_index[ent.external_id] = ent.entity_id
+                if ent.entity_id.startswith("ent_"):
+                    try:
+                        num = int(ent.entity_id.split("_")[1])
+                        if num >= self._next_id:
+                            self._next_id = num + 1
+                    except ValueError:
+                        pass
 
     def _name_lookup(self) -> dict[str, str]:
         """Every known name/alias -> entity_id, lowercased."""
@@ -179,6 +252,15 @@ class EntityRegistry:
 
         self._entities.update(new_this_turn)
         self._external_id_index.update(new_ext_ids)
+
+        if self.db:
+            self.db.upsert_entities(
+                self.player_id,
+                self.game_id,
+                self.save_id,
+                [ent.to_row() for ent in touched],
+            )
+
         return touched
 
     def as_context(self, entities: list[Entity]) -> str:
