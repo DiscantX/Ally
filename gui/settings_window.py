@@ -1,7 +1,7 @@
 """Settings Menu Window for Ally Overlay.
 Provides a tabbed settings interface (Standard vs Advanced/Dev) with synchronized
 sliders and entry boxes, dropdowns, and checkboxes to configure models, thresholds,
-and pipeline parameters.
+and pipeline parameters in a modern, cohesive dark theme matching the main overlay.
 """
 
 import tkinter as tk
@@ -14,14 +14,16 @@ from llm.model_lister import get_available_models
 
 
 class SettingsWindow(tk.Toplevel):
-    """Settings menu dialog window."""
+    """Settings menu dialog window with modern dark theme and grouped controls."""
 
     def __init__(self, parent: tk.Widget, on_save: Callable[[], None] | None = None):
         super().__init__(parent)
         self.title("Ally Settings & Configuration")
-        self.geometry("600x550")
+        self.geometry("640x680")
+        self.minsize(550, 500)
         self.attributes("-topmost", True)
         self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.configure(bg="#1a1a1a")
 
         self.on_save_callback = on_save
         self.config_data = load_user_config()
@@ -34,35 +36,115 @@ class SettingsWindow(tk.Toplevel):
         style = ttk.Style(self)
         style.theme_use('clam')
 
+        # Global dark theme styling
+        bg_col = "#1a1a1a"
+        fg_col = "#e0e0e0"
+        field_col = "#2d2d2d"
+        border_col = "#333333"
+        accent_col = "#00ffcc"
+        disabled_fg = "#666666"
+
+        # Configure dropdown listbox background globally via option_add
+        self.option_add('*TCombobox*Listbox.background', field_col)
+        self.option_add('*TCombobox*Listbox.foreground', fg_col)
+        self.option_add('*TCombobox*Listbox.selectBackground', accent_col)
+        self.option_add('*TCombobox*Listbox.selectForeground', bg_col)
+
+        style.configure('.',
+                        background=bg_col,
+                        foreground=fg_col,
+                        fieldbackground=field_col,
+                        darkcolor=border_col,
+                        lightcolor=border_col,
+                        bordercolor=border_col,
+                        troughcolor=field_col,
+                        selectbackground=accent_col,
+                        selectforeground=bg_col)
+        
+        style.map('.',
+                  foreground=[('disabled', disabled_fg)],
+                  fieldbackground=[('disabled', field_col)])
+
+        style.configure('TNotebook', background=bg_col, bordercolor=border_col)
+        style.configure('TNotebook.Tab', background=field_col, foreground=fg_col, padding=[12, 6], font=('Segoe UI', 9, 'bold'))
+        style.map('TNotebook.Tab',
+                  background=[('selected', bg_col)],
+                  foreground=[('selected', accent_col)])
+
+        style.configure('TFrame', background=bg_col)
+        style.configure('TLabel', background=bg_col, foreground=fg_col, font=('Segoe UI', 9))
+        style.configure('Heading.TLabel', background=bg_col, foreground=accent_col, font=('Segoe UI', 10, 'bold'))
+        style.map('TLabel',
+                  foreground=[('disabled', disabled_fg)])
+        
+        style.configure('TCheckbutton', background=bg_col, foreground=fg_col, font=('Segoe UI', 9), focuscolor=bg_col)
+        style.map('TCheckbutton',
+                  background=[('active', bg_col)],
+                  foreground=[('active', accent_col), ('disabled', disabled_fg)])
+
+        style.configure('TButton', background=field_col, foreground=fg_col, font=('Segoe UI', 9, 'bold'), bordercolor=border_col, relief=tk.FLAT)
+        style.map('TButton',
+                  background=[('active', border_col), ('disabled', field_col)],
+                  foreground=[('active', accent_col), ('disabled', disabled_fg)])
+
+        style.configure('TCombobox', fieldbackground=field_col, background=field_col, foreground=fg_col, selectbackground=accent_col, selectforeground=bg_col)
+        style.map('TCombobox',
+                  fieldbackground=[('readonly', field_col), ('disabled', field_col)],
+                  foreground=[('disabled', disabled_fg)])
+
+        style.configure('TEntry', fieldbackground=field_col, foreground=fg_col, insertcolor=fg_col)
+        style.map('TEntry',
+                  fieldbackground=[('disabled', field_col)],
+                  foreground=[('disabled', disabled_fg)])
+
+        style.configure('TSpinbox', fieldbackground=field_col, foreground=fg_col, insertcolor=fg_col)
+        style.map('TSpinbox',
+                  fieldbackground=[('disabled', field_col)],
+                  foreground=[('disabled', disabled_fg)])
+
+        style.configure('Horizontal.TScale', background=bg_col, troughcolor=field_col, bordercolor=border_col)
+        style.map('Horizontal.TScale',
+                  background=[('active', '#444444'), ('pressed', '#333333')],
+                  troughcolor=[('active', field_col)])
+
+        style.configure('TSeparator', background=border_col)
+
+        style.configure('Vertical.TScrollbar', background=field_col, troughcolor=bg_col, bordercolor=border_col, arrowcolor=fg_col)
+        style.map('Vertical.TScrollbar',
+                  background=[('active', '#444444'), ('pressed', '#333333')])
+        style.configure('Horizontal.TScrollbar', background=field_col, troughcolor=bg_col, bordercolor=border_col, arrowcolor=fg_col)
+        style.map('Horizontal.TScrollbar',
+                  background=[('active', '#444444'), ('pressed', '#333333')])
+
     def _create_widgets(self):
         # Notebook for tabs
         notebook = ttk.Notebook(self)
-        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
 
         # Tab 1: Standard Settings
-        std_frame = ttk.Frame(notebook, padding=10)
-        notebook.add(std_frame, text="Standard Settings")
+        std_frame = ttk.Frame(notebook)
+        notebook.add(std_frame, text="  Standard Settings  ")
         self._build_standard_tab(std_frame)
 
         # Tab 2: Advanced / Dev Settings
-        adv_frame = ttk.Frame(notebook, padding=10)
-        notebook.add(adv_frame, text="Advanced / Dev Settings")
+        adv_frame = ttk.Frame(notebook)
+        notebook.add(adv_frame, text="  Advanced / Dev Settings  ")
         self._build_advanced_tab(adv_frame)
 
         # Bottom Button Bar
         btn_frame = ttk.Frame(self, padding=10)
         btn_frame.pack(fill=tk.X, side=tk.BOTTOM)
 
-        save_btn = ttk.Button(btn_frame, text="Save & Apply", command=self._save_settings)
+        save_btn = ttk.Button(btn_frame, text="Save & Apply", command=self._save_settings, width=15)
         save_btn.pack(side=tk.RIGHT, padx=5)
 
-        cancel_btn = ttk.Button(btn_frame, text="Cancel", command=self.destroy)
+        cancel_btn = ttk.Button(btn_frame, text="Cancel", command=self.destroy, width=12)
         cancel_btn.pack(side=tk.RIGHT, padx=5)
 
     def _build_standard_tab(self, parent: ttk.Frame):
-        canvas = tk.Canvas(parent, highlightthickness=0)
+        canvas = tk.Canvas(parent, bg="#1a1a1a", highlightthickness=0)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, padding=10)
+        scrollable_frame = ttk.Frame(canvas, padding=15)
 
         scrollable_frame.bind(
             "<Configure>",
@@ -75,27 +157,30 @@ class SettingsWindow(tk.Toplevel):
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         model_choices = get_available_models()
-
         row = 0
-        ttk.Label(scrollable_frame, text="LLM Model Management", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
+
+        # Subsection: LLM Model Management
+        ttk.Label(scrollable_frame, text="LLM Model Management", style='Heading.TLabel').grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 8))
         row += 1
 
         use_master_var = tk.BooleanVar(value=bool(self.config_data.get("use_master_model", False)))
         self.vars["use_master_model"] = use_master_var
-        master_chk = ttk.Checkbutton(scrollable_frame, text="Use Master Model for All", variable=use_master_var, command=lambda: self._toggle_master_mode(master_chk))
-        master_chk.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        master_chk = ttk.Checkbutton(scrollable_frame, text="Use Master Model for All Pipelines", variable=use_master_var, command=lambda: self._toggle_master_mode(master_chk))
+        master_chk.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=4)
         row += 1
 
-        master_model_var = tk.StringVar(value=self.config_data.get("master_model", model_choices[0]))
+        ttk.Label(scrollable_frame, text="Master Model Override").grid(row=row, column=0, sticky=tk.W, pady=6, padx=(15, 10))
+        master_model_var = tk.StringVar(value=self.config_data.get("master_model", model_choices[0] if model_choices else ""))
         self.vars["master_model"] = master_model_var
-        master_combo = ttk.Combobox(scrollable_frame, textvariable=master_model_var, values=model_choices, state="readonly", width=25)
-        master_combo.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        master_combo = ttk.Combobox(scrollable_frame, textvariable=master_model_var, values=model_choices, state="readonly", width=30)
+        master_combo.grid(row=row, column=1, sticky=tk.W, pady=6, padx=5)
         row += 1
-        
+
         ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky="ew", pady=15)
         row += 1
 
-        ttk.Label(scrollable_frame, text="Individual LLM Overrides", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
+        # Subsection: Individual LLM Overrides
+        ttk.Label(scrollable_frame, text="Individual LLM Overrides", style='Heading.TLabel').grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 8))
         row += 1
 
         models = [
@@ -108,28 +193,29 @@ class SettingsWindow(tk.Toplevel):
 
         self.model_combos = []
         for label_text, key in models:
-            ttk.Label(scrollable_frame, text=label_text).grid(row=row, column=0, sticky=tk.W, pady=5, padx=5)
-            var = tk.StringVar(value=self.config_data.get(key, model_choices[0]))
+            ttk.Label(scrollable_frame, text=label_text).grid(row=row, column=0, sticky=tk.W, pady=6, padx=(15, 10))
+            var = tk.StringVar(value=self.config_data.get(key, model_choices[0] if model_choices else ""))
             self.vars[key] = var
-            combo = ttk.Combobox(scrollable_frame, textvariable=var, values=model_choices, state="readonly", width=25)
-            combo.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+            combo = ttk.Combobox(scrollable_frame, textvariable=var, values=model_choices, state="readonly", width=30)
+            combo.grid(row=row, column=1, sticky=tk.W, pady=6, padx=5)
             self.model_combos.append(combo)
             row += 1
-            
-        self._toggle_master_mode(None) # Initialize state
+
+        self._toggle_master_mode(None)  # Initialize state
 
         ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky="ew", pady=15)
         row += 1
 
-        ttk.Label(scrollable_frame, text="Companion Settings", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
+        # Subsection: Companion Settings
+        ttk.Label(scrollable_frame, text="Companion Settings", style='Heading.TLabel').grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(0, 8))
         row += 1
 
-        ttk.Label(scrollable_frame, text="Default Personality").grid(row=row, column=0, sticky=tk.W, pady=5, padx=5)
+        ttk.Label(scrollable_frame, text="Default Personality").grid(row=row, column=0, sticky=tk.W, pady=6, padx=(15, 10))
         personality_choices = list(PERSONALITIES.keys())
         p_var = tk.StringVar(value=self.config_data.get("default_personality", "Scout"))
         self.vars["default_personality"] = p_var
-        p_combo = ttk.Combobox(scrollable_frame, textvariable=p_var, values=personality_choices, state="readonly", width=25)
-        p_combo.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        p_combo = ttk.Combobox(scrollable_frame, textvariable=p_var, values=personality_choices, state="readonly", width=30)
+        p_combo.grid(row=row, column=1, sticky=tk.W, pady=6, padx=5)
         row += 1
 
     def _toggle_master_mode(self, event):
@@ -139,9 +225,9 @@ class SettingsWindow(tk.Toplevel):
             combo.configure(state=state)
 
     def _build_advanced_tab(self, parent: ttk.Frame):
-        canvas = tk.Canvas(parent, highlightthickness=0)
+        canvas = tk.Canvas(parent, bg="#1a1a1a", highlightthickness=0)
         scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, padding=10)
+        scrollable_frame = ttk.Frame(canvas, padding=15)
 
         scrollable_frame.bind(
             "<Configure>",
@@ -153,38 +239,48 @@ class SettingsWindow(tk.Toplevel):
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
+        scrollable_frame.columnconfigure(0, weight=0)
+        scrollable_frame.columnconfigure(1, weight=0)
+        scrollable_frame.columnconfigure(2, weight=1)
+
         row = 0
-        ttk.Label(scrollable_frame, text="Vision & Change Detection Thresholds", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=(0, 10))
-        row += 1
 
-        sliders = [
-            ("Change Threshold %", "threshold_percent", 0.1, 50.0, 0.1),
-            ("Pixel Diff Threshold", "pixel_diff_threshold", 1, 255, 1),
-            ("Major Change Threshold %", "major_change_threshold", 1.0, 100.0, 0.5),
-            ("Cooldown Seconds", "cooldown_seconds", 0.1, 10.0, 0.1),
-            ("Stability Threshold %", "stability_threshold_percent", 0.1, 20.0, 0.1),
-            ("Screen Match Threshold", "match_threshold", 0.5, 1.0, 0.01),
-            ("Draft Match Threshold", "draft_match_threshold", 0.5, 1.0, 0.01),
-        ]
+        # Helper method to create a slider with entry and optional checkbox grouped right next to it
+        def add_slider_row(section_label_text, check_label_key_tuple, slider_key, label_text, min_val, max_val, resolution):
+            nonlocal row
+            # If section header is provided, create subsection header
+            if section_label_text:
+                ttk.Label(scrollable_frame, text=section_label_text, style='Heading.TLabel').grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=(10, 8))
+                row += 1
 
-        for label_text, key, min_val, max_val, resolution in sliders:
-            ttk.Label(scrollable_frame, text=label_text).grid(row=row, column=0, sticky=tk.W, pady=5, padx=5)
-            
-            val = self.config_data.get(key, min_val)
+            # Optional checkbox toggle row
+            if check_label_key_tuple:
+                chk_text, chk_key = check_label_key_tuple
+                c_var = tk.BooleanVar(value=bool(self.config_data.get(chk_key, False)))
+                self.vars[chk_key] = c_var
+                chk = ttk.Checkbutton(scrollable_frame, text=chk_text, variable=c_var)
+                chk.grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=4, padx=(15, 0))
+                row += 1
+
+            # Slider row
+            pad_left = 15
+            ttk.Label(scrollable_frame, text=label_text).grid(row=row, column=0, sticky=tk.W, pady=5, padx=(pad_left, 10))
+
+            val = self.config_data.get(slider_key, min_val)
             is_int = isinstance(min_val, int) and isinstance(max_val, int)
-            
+
             var = tk.IntVar(value=int(val)) if is_int else tk.DoubleVar(value=float(val))
-            self.vars[key] = var
+            self.vars[slider_key] = var
 
             entry = ttk.Entry(scrollable_frame, width=8)
             entry.insert(0, str(val))
             entry.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
 
-            scale = ttk.Scale(scrollable_frame, from_=min_val, to=max_val, orient=tk.HORIZONTAL, variable=var, length=200)
-            scale.grid(row=row, column=2, sticky=tk.W, pady=5, padx=5)
+            scale = ttk.Scale(scrollable_frame, from_=min_val, to=max_val, orient=tk.HORIZONTAL, variable=var, length=220)
+            scale.grid(row=row, column=2, sticky="ew", pady=5, padx=5)
 
             # Bi-directional sync between scale and entry box
-            def make_sync(v, e, res, integer_mode):
+            def make_sync(v, e, integer_mode):
                 def on_var_change(*args):
                     try:
                         new_v = v.get()
@@ -194,7 +290,7 @@ class SettingsWindow(tk.Toplevel):
                         pass
                 return on_var_change
 
-            var.trace_add("write", make_sync(var, entry, resolution, is_int))
+            var.trace_add("write", make_sync(var, entry, is_int))
 
             def make_entry_sync(v, e, min_v, max_v, integer_mode):
                 def on_entry_focus_out(event):
@@ -212,48 +308,66 @@ class SettingsWindow(tk.Toplevel):
 
             row += 1
 
-        ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=3, sticky="ew", pady=15)
+        # Subsection 1: Cooldown & Timing
+        add_slider_row("Cooldown & Timing Controls", ("Enable Cooldown Processing", "enable_cooldown"),
+                       "cooldown_seconds", "Cooldown Seconds", 0.1, 10.0, 0.1)
+
+        ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=3, sticky="ew", pady=12)
         row += 1
 
-        ttk.Label(scrollable_frame, text="Feature Toggles & Capacities", font=("Segoe UI", 10, "bold")).grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=(0, 10))
+        # Subsection 2: Stability & Change Detection Thresholds
+        add_slider_row("Stability & Change Detection", ("Enable Stability Check", "enable_stability_check"),
+                       "stability_threshold_percent", "Stability Threshold %", 0.1, 20.0, 0.1)
+        
+        # Additional sliders under Change Detection subsection
+        add_slider_row(None, None, "threshold_percent", "Change Threshold %", 0.1, 50.0, 0.1)
+        add_slider_row(None, None, "pixel_diff_threshold", "Pixel Diff Threshold", 1, 255, 1)
+        add_slider_row(None, None, "major_change_threshold", "Major Change Threshold %", 1.0, 100.0, 0.5)
+
+        ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=3, sticky="ew", pady=12)
         row += 1
 
-        toggles = [
-            ("Enable Cooldown", "enable_cooldown"),
-            ("Enable Stability Check", "enable_stability_check"),
-            ("Use SSIM", "use_ssim"),
-            ("Enable Downscaling", "enable_downscaling"),
-        ]
+        # Subsection 3: Vision Processing & Matching
+        add_slider_row("Vision Processing & Matching", ("Use Structural Similarity (SSIM)", "use_ssim"),
+                       "match_threshold", "Screen Match Threshold", 0.5, 1.0, 0.01)
+        add_slider_row(None, None, "draft_match_threshold", "Draft Match Threshold", 0.5, 1.0, 0.01)
 
-        for label_text, key in toggles:
-            var = tk.BooleanVar(value=bool(self.config_data.get(key, False)))
-            self.vars[key] = var
-            chk = ttk.Checkbutton(scrollable_frame, text=label_text, variable=var)
-            chk.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5, padx=5)
-            row += 1
+        # Downscaling checkbox + spinbox
+        c_downscale = tk.BooleanVar(value=bool(self.config_data.get("enable_downscaling", False)))
+        self.vars["enable_downscaling"] = c_downscale
+        ttk.Checkbutton(scrollable_frame, text="Enable Frame Downscaling", variable=c_downscale).grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=(8, 4), padx=(15, 0))
+        row += 1
 
-        # Thinking Level Dropdown
-        ttk.Label(scrollable_frame, text="Thinking Level").grid(row=row, column=0, sticky=tk.W, pady=5, padx=5)
+        ttk.Label(scrollable_frame, text="Max Downscale Size").grid(row=row, column=0, sticky=tk.W, pady=5, padx=(15, 10))
+        downscale_var = tk.IntVar(value=int(self.config_data.get("downscale_max_size", 300)))
+        self.vars["downscale_max_size"] = downscale_var
+        ttk.Spinbox(scrollable_frame, from_=300, to=3840, textvariable=downscale_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        row += 1
+
+        ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=3, sticky="ew", pady=12)
+        row += 1
+
+        # Subsection 4: AI Reasoning & Capacities
+        ttk.Label(scrollable_frame, text="AI Reasoning & Buffers", style='Heading.TLabel').grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=(5, 8))
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Thinking Level").grid(row=row, column=0, sticky=tk.W, pady=5, padx=(15, 10))
         thinking_choices = ["LOW", "MEDIUM", "HIGH"]
         t_var = tk.StringVar(value=self.config_data.get("thinking_level", "LOW"))
         self.vars["thinking_level"] = t_var
-        t_combo = ttk.Combobox(scrollable_frame, textvariable=t_var, values=thinking_choices, state="readonly", width=10)
-        t_combo.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ttk.Combobox(scrollable_frame, textvariable=t_var, values=thinking_choices, state="readonly", width=12).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         row += 1
 
-        # Integer spinboxes for capacities
         spinboxes = [
             ("Unknown Streak Threshold", "unknown_streak_threshold", 1, 10),
             ("Short-Term Buffer Capacity", "short_term_capacity", 2, 30),
-            ("Max Downscale Size", "downscale_max_size", 300, 3840),
         ]
 
         for label_text, key, min_v, max_v in spinboxes:
-            ttk.Label(scrollable_frame, text=label_text).grid(row=row, column=0, sticky=tk.W, pady=5, padx=5)
+            ttk.Label(scrollable_frame, text=label_text).grid(row=row, column=0, sticky=tk.W, pady=5, padx=(15, 10))
             var = tk.IntVar(value=int(self.config_data.get(key, min_v)))
             self.vars[key] = var
-            spin = ttk.Spinbox(scrollable_frame, from_=min_v, to=max_v, textvariable=var, width=10)
-            spin.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+            ttk.Spinbox(scrollable_frame, from_=min_v, to=max_v, textvariable=var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
             row += 1
 
     def _save_settings(self):
