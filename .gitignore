@@ -1,27 +1,24 @@
-image_test/
+# Python
+__pycache__/
+*.pyc
 .venv/
 .env
 
-__pycache__/
-*.pyc
+# Project Configuration
+configs/*
+!configs/template/
+.vscode/
 
+# Local/Test Data & Temporary Files
+image_test/
 images/
 logs/
 smoke_test_*
-
-# Ignore everything inside the configs folder
-configs/*
-# Do not ignore the template subdirectory
-!configs/template/
 state/memory.db
 docs/log-single-game.log
-.vscode/
-
 plans/archive/*
 
-# ==========================================
-# Local IDE AI Extensions (Zoo Code / Roo Code)
-# ==========================================
+# AI/Editor Configuration
 .roorules
 .zoorules
 .rooignore

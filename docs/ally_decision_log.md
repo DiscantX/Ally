@@ -440,3 +440,9 @@ This section supersedes prior claims regarding `flush_to_cross_session` and in-m
 - **Composite Trigger System:** Implemented via [`CompositeTrigger`](memory/triggers.py:1), combining turn count thresholds, salience events, and explicit checkpoint triggers, featuring a decoupled buffer size vs flush interval design.
 - **Monotonic Entry Counter in Narrative Memory:** [`NarrativeMemoryManager`](memory/narrative.py:1) maintains a monotonic entry counter protecting turn-based flush cadence from chat message corruption or out-of-order events.
 - **Run-Scoped Entity Registry Persistence:** [`EntityRegistry`](state/entity_registry.py:1) persistence scoped strictly to `(player_id, game_id, save_id)`. True cross-session entity carryover remains explicitly deferred.
+
+## Coarse-grained Synchronization (2026-08-25)
+
+Decided to use a coarse-grained `threading.Lock` (`STATE_LOCK`) to synchronize access to `sandbox`, `registry`, and `memory_manager` to fix identified data races. The project prefers simple, obviously-correct mechanisms over complex fine-grained locking, and this approach directly addresses the identified concurrency issues in `main.py` and the background GUI thread.
+
+Initial implementation left the slow ally.decide()/ally.chat() calls either fully unprotected or fully lock-held across the network round-trip; corrected to snapshot required context strings under the lock, release before the network call, then re-acquire only for the final write-back.

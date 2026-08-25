@@ -44,6 +44,7 @@ import argparse
 import sys
 import time
 import uuid
+import threading
 
 import cv2
 import numpy as np
@@ -60,6 +61,7 @@ from memory.db import MemoryDB
 from memory.save_tracker import SaveTracker
 from memory.triggers import resolve_run_ended
 from memory.narrative import NarrativeMemoryManager
+from schema.schema import AllyOutput
 from state.entity_registry import EntityRegistry
 from state.genre_tracker import GenreTracker
 from state.sandbox import StateSandbox
@@ -73,6 +75,8 @@ from tools.display import show_image
 # budget and per-call latency, especially once thinking mode is enabled
 # on the Scribe for dense scenes (see ally_decision_log.md).
 TURN_INTERVAL_SECONDS = 0.01
+
+STATE_LOCK = threading.Lock()
 
 
 def _debug_frame(observation: RawObservation, collector: GenericHudCollector | None) -> np.ndarray:
@@ -162,34 +166,37 @@ def run_turn(
     skip_ally = getattr(observation, 'skip_ally', False)
 
     if not skip_ally:
-        # Move Scribe/Ally calls to a separate thread
-        from concurrent.futures import ThreadPoolExecutor
-        executor = ThreadPoolExecutor(max_workers=1)
-
-        def _inference_task():
-            return scribe.extract(observation.image, include_ui=include_ui)
-
-        future = executor.submit(_inference_task)
-        scribe_output = future.result()
+        # Scribe call
+        scribe_output = scribe.extract(observation.image, include_ui=include_ui)
 
         if collector is not None and observation.bootstrap_ready:
             collector.bootstrap_screen(scribe_output.screen_elements, scribe_output.screen_name_guess)
 
-        sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
-        genre_estimate = genre_tracker.update(
-            scribe_output.genre_guess, scribe_output.genre_confidence
-        )
+        with STATE_LOCK:
+            sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
+            genre_estimate = genre_tracker.update(
+                scribe_output.genre_guess, scribe_output.genre_confidence
+            )
 
-        log("\n--- Confirmed facts (OCR, bypassed the Scribe) ---")
-        for fact in sandbox.confirmed_facts:
-            log("{key}: {value}  (source={source})", key=fact.key, value=fact.value, source=fact.source)
+            log("\n--- Confirmed facts (OCR, bypassed the Scribe) ---")
+            for fact in sandbox.confirmed_facts:
+                log("{key}: {value}  (source={source})", key=fact.key, value=fact.value, source=fact.source)
 
-        log("\n--- Screen elements ---")
-        for el in sandbox.current_elements:
-            log("[{id}] {label}: {description}  box={box}", id=el.id, label=el.label, description=el.description, box=el.box_2d)
+            log("\n--- Screen elements ---")
+            for el in sandbox.current_elements:
+                log("[{id}] {label}: {description}  box={box}", id=el.id, label=el.label, description=el.description, box=el.box_2d)
 
-        touched_entities = registry.resolve_or_create(cast(Any, scribe_output.screen_elements), sandbox.turn)
-        entities_context = registry.as_context(touched_entities, max_entities=20)
+            touched_entities = registry.resolve_or_create(cast(Any, scribe_output.screen_elements), sandbox.turn)
+            entities_context = registry.as_context(touched_entities, max_entities=20)
+
+            # Snapshot everything Ally needs while still holding the lock,
+            # so the slow ally.decide() network call below reads a
+            # consistent point-in-time view instead of racing the chat
+            # thread's concurrent mutations of these same objects.
+            elements_context = sandbox.as_context()
+            genre_context = genre_tracker.as_context()
+            memory_context = memory_manager.build_context()
+            personality_context = memory_manager.get_personality_context()
 
         log("\n--- Entity registry (accumulated across the run) ---")
         log("{}", entities_context)
@@ -202,40 +209,45 @@ def run_turn(
         )
 
         log("\n--- Ally (blind to the image) ---")
-        def _ally_task():
-            return ally.decide(
-                elements_context=sandbox.as_context(),
-                entities_context=entities_context,
-                genre_context=genre_tracker.as_context(),
-                memory_context=memory_manager.build_context(),
-                personality=memory_manager.get_personality_context(),
-            )
-        
-        ally_future = executor.submit(_ally_task)
-        ally_output = ally_future.result()
-        executor.shutdown()
+        # Deliberately outside STATE_LOCK -- this is the slow network call,
+        # and it only touches the snapshotted local strings above, never
+        # the shared objects themselves, so it's safe to run unlocked.
+        ally_output = ally.decide(
+            elements_context=elements_context,
+            entities_context=entities_context,
+            genre_context=genre_context,
+            memory_context=memory_context,
+            personality=personality_context,
+        )
         log("\nAnalysis:\n{analysis}", analysis=ally_output.analysis)
         log("\nActions:")
         for action in ally_output.actions:
             log("  - {text}", text=action.text)
     else:
         # Skip Scribe/Ally invocation but maintain state consistency
-        sandbox.update([], observation.confirmed_facts)
-        genre_estimate = genre_tracker.update("unknown", 0.0)
-        touched_entities = registry.resolve_or_create([], sandbox.turn)
-        entities_context = registry.as_context(touched_entities, max_entities=20)
+        with STATE_LOCK:
+            sandbox.update([], observation.confirmed_facts)
+            genre_estimate = genre_tracker.update("unknown", 0.0)
+            touched_entities = registry.resolve_or_create([], sandbox.turn)
+            entities_context = registry.as_context(touched_entities, max_entities=20)
         log("\n--- Entity registry (accumulated across the run) ---")
         log("{}", entities_context)
         log("--- Skipping Scribe/Ally (confirmed facts unchanged) ---")
+        ally_output = AllyOutput(
+            analysis="(confirmed facts unchanged this turn -- no new commentary)",
+            actions=[],
+            run_boundary="none",
+        )
 
-    memory_manager.record_turn(sandbox.turn, ally_output.analysis if not skip_ally else "skip_ally: confirmed facts unchanged")
+    with STATE_LOCK:
+        memory_manager.record_turn(sandbox.turn, ally_output.analysis if not skip_ally else "skip_ally: confirmed facts unchanged")
 
-    run_ended = resolve_run_ended(observation, ally_output)
-    if run_ended:
-        log("\n--- Run ended (boundary resolved) ---")
-        memory_manager.close_run()
-        if gui_app is not None:
-            gui_app.append_chat_message("coach", "Run ended! Closing session and saving cross-session memories.")
+        run_ended = resolve_run_ended(observation, ally_output)
+        if run_ended:
+            log("\n--- Run ended (boundary resolved) ---")
+            memory_manager.close_run()
+            if gui_app is not None:
+                gui_app.append_chat_message("coach", "Run ended! Closing session and saving cross-session memories.")
 
     if gui_app is not None:
         gui_app.update_debug_info(observation.screen_name, "turn")
@@ -318,36 +330,53 @@ if __name__ == "__main__":
 
     def on_send_message(text: str, message_type: str):
         def _handle():
-            mm = state["memory_manager"]
-            reg = state["registry"]
-            if not mm:
+            with STATE_LOCK:
+                mm = state["memory_manager"]
+                reg = state["registry"]
+                if not mm:
+                    not_started = True
+                else:
+                    not_started = False
+                    if message_type != "feedback":
+                        # Snapshot everything ally.chat() needs while
+                        # still holding the lock -- the network call
+                        # itself must not hold STATE_LOCK, or the main
+                        # capture loop stalls for the round-trip.
+                        entities_context = reg.as_context(list(reg._entities.values())) if reg else "(no known entities yet)"
+                        elements_context = sandbox.as_context()
+                        genre_context = genre_tracker.as_context()
+                        memory_context = mm.build_context()
+                        personality_context = mm.get_personality_context()
+                    else:
+                        mm.personality.record_reflection(f"Player feedback: {text}")
+
+            if not_started:
                 if gui_app:
                     gui_app.append_chat_message("coach", "Game loop hasn't started yet. Hang tight!")
                 return
 
             if message_type == "feedback":
-                mm.personality.record_reflection(f"Player feedback: {text}")
                 if gui_app:
                     gui_app.append_chat_message("coach", "Got it! I've noted that feedback and adjusted my approach.")
-            else:
-                try:
-                    entities_context = reg.as_context(list(reg._entities.values())) if reg else "(no known entities yet)"
-                    res = ally.chat(
-                        elements_context=sandbox.as_context(),
-                        entities_context=entities_context,
-                        genre_context=genre_tracker.as_context(),
-                        memory_context=mm.build_context(),
-                        personality=mm.get_personality_context(),
-                        question=text,
-                    )
-                    mm.record_turn(sandbox.turn, f"Player asked: '{text}' -> Ally answered: '{res.response}'", importance=5)
-                    if gui_app:
-                        gui_app.append_chat_message("coach", res.response)
-                except Exception as e:
-                    if gui_app:
-                        gui_app.append_chat_message("coach", f"(Error: {e})")
+                return
 
-        import threading
+            try:
+                res = ally.chat(
+                    elements_context=elements_context,
+                    entities_context=entities_context,
+                    genre_context=genre_context,
+                    memory_context=memory_context,
+                    personality=personality_context,
+                    question=text,
+                )
+                with STATE_LOCK:
+                    mm.record_turn(sandbox.turn, f"Player asked: '{text}' -> Ally answered: '{res.response}'", importance=5)
+                if gui_app:
+                    gui_app.append_chat_message("coach", res.response)
+            except Exception as e:
+                if gui_app:
+                    gui_app.append_chat_message("coach", f"(Error: {e})")
+
         threading.Thread(target=_handle, daemon=True).start()
 
     if args.gui:
