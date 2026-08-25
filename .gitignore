@@ -8,6 +8,7 @@ __pycache__/
 configs/*
 !configs/template/
 .vscode/
+.githooks/
 
 # Local/Test Data & Temporary Files
 image_test/
@@ -17,6 +18,7 @@ smoke_test_*
 state/memory.db
 docs/log-single-game.log
 plans/archive/*
+!plans/archive/readme.md
 
 # AI/Editor Configuration
 .roorules
