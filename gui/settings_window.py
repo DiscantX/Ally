@@ -208,6 +208,15 @@ class SettingsWindow(tk.Toplevel):
             chk.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5, padx=5)
             row += 1
 
+        # Thinking Level Dropdown
+        ttk.Label(scrollable_frame, text="Thinking Level").grid(row=row, column=0, sticky=tk.W, pady=5, padx=5)
+        thinking_choices = ["LOW", "MEDIUM", "HIGH"]
+        t_var = tk.StringVar(value=self.config_data.get("thinking_level", "LOW"))
+        self.vars["thinking_level"] = t_var
+        t_combo = ttk.Combobox(scrollable_frame, textvariable=t_var, values=thinking_choices, state="readonly", width=10)
+        t_combo.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        row += 1
+
         # Integer spinboxes for capacities
         spinboxes = [
             ("Unknown Streak Threshold", "unknown_streak_threshold", 1, 10),

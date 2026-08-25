@@ -158,51 +158,77 @@ def run_turn(
     )
 
     log("--- Scribe extracting ({mode}) ---", mode="NO_UI" if not include_ui else "UI")
-    scribe_output = scribe.extract(observation.image, include_ui=include_ui)
+    # Semantic diff guard: if confirmed facts haven't changed, skip Scribe/Ally
+    skip_ally = getattr(observation, 'skip_ally', False)
 
-    if collector is not None and observation.bootstrap_ready:
-        collector.bootstrap_screen(scribe_output.screen_elements, scribe_output.screen_name_guess)
+    if not skip_ally:
+        # Move Scribe/Ally calls to a separate thread
+        from concurrent.futures import ThreadPoolExecutor
+        executor = ThreadPoolExecutor(max_workers=1)
 
-    sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
-    genre_estimate = genre_tracker.update(
-        scribe_output.genre_guess, scribe_output.genre_confidence
-    )
+        def _inference_task():
+            return scribe.extract(observation.image, include_ui=include_ui)
 
-    log("\n--- Confirmed facts (OCR, bypassed the Scribe) ---")
-    for fact in sandbox.confirmed_facts:
-        log("{key}: {value}  (source={source})", key=fact.key, value=fact.value, source=fact.source)
+        future = executor.submit(_inference_task)
+        scribe_output = future.result()
 
-    log("\n--- Screen elements ---")
-    for el in sandbox.current_elements:
-        log("[{id}] {label}: {description}  box={box}", id=el.id, label=el.label, description=el.description, box=el.box_2d)
+        if collector is not None and observation.bootstrap_ready:
+            collector.bootstrap_screen(scribe_output.screen_elements, scribe_output.screen_name_guess)
 
-    touched_entities = registry.resolve_or_create(cast(Any, scribe_output.screen_elements), sandbox.turn)
-    entities_context = registry.as_context(touched_entities)
+        sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
+        genre_estimate = genre_tracker.update(
+            scribe_output.genre_guess, scribe_output.genre_confidence
+        )
 
-    log("\n--- Entity registry (accumulated across the run) ---")
-    log("{}", entities_context)
+        log("\n--- Confirmed facts (OCR, bypassed the Scribe) ---")
+        for fact in sandbox.confirmed_facts:
+            log("{key}: {value}  (source={source})", key=fact.key, value=fact.value, source=fact.source)
 
-    log(
-        "\n--- Genre: {guess} (confidence={confidence:.2f}, locked={locked}) ---",
-        guess=genre_estimate.guess,
-        confidence=genre_estimate.confidence,
-        locked=genre_estimate.locked
-    )
+        log("\n--- Screen elements ---")
+        for el in sandbox.current_elements:
+            log("[{id}] {label}: {description}  box={box}", id=el.id, label=el.label, description=el.description, box=el.box_2d)
 
-    log("\n--- Ally (blind to the image) ---")
-    ally_output = ally.decide(
-        elements_context=sandbox.as_context(),
-        entities_context=entities_context,
-        genre_context=genre_tracker.as_context(),
-        memory_context=memory_manager.build_context(),
-        personality=memory_manager.get_personality_context(),
-    )
-    log("\nAnalysis:\n{analysis}", analysis=ally_output.analysis)
-    log("\nActions:")
-    for action in ally_output.actions:
-        log("  - {text}", text=action.text)
+        touched_entities = registry.resolve_or_create(cast(Any, scribe_output.screen_elements), sandbox.turn)
+        entities_context = registry.as_context(touched_entities, max_entities=20)
 
-    memory_manager.record_turn(sandbox.turn, ally_output.analysis)
+        log("\n--- Entity registry (accumulated across the run) ---")
+        log("{}", entities_context)
+
+        log(
+            "\n--- Genre: {guess} (confidence={confidence:.2f}, locked={locked}) ---",
+            guess=genre_estimate.guess,
+            confidence=genre_estimate.confidence,
+            locked=genre_estimate.locked
+        )
+
+        log("\n--- Ally (blind to the image) ---")
+        def _ally_task():
+            return ally.decide(
+                elements_context=sandbox.as_context(),
+                entities_context=entities_context,
+                genre_context=genre_tracker.as_context(),
+                memory_context=memory_manager.build_context(),
+                personality=memory_manager.get_personality_context(),
+            )
+        
+        ally_future = executor.submit(_ally_task)
+        ally_output = ally_future.result()
+        executor.shutdown()
+        log("\nAnalysis:\n{analysis}", analysis=ally_output.analysis)
+        log("\nActions:")
+        for action in ally_output.actions:
+            log("  - {text}", text=action.text)
+    else:
+        # Skip Scribe/Ally invocation but maintain state consistency
+        sandbox.update([], observation.confirmed_facts)
+        genre_estimate = genre_tracker.update("unknown", 0.0)
+        touched_entities = registry.resolve_or_create([], sandbox.turn)
+        entities_context = registry.as_context(touched_entities, max_entities=20)
+        log("\n--- Entity registry (accumulated across the run) ---")
+        log("{}", entities_context)
+        log("--- Skipping Scribe/Ally (confirmed facts unchanged) ---")
+
+    memory_manager.record_turn(sandbox.turn, ally_output.analysis if not skip_ally else "skip_ally: confirmed facts unchanged")
 
     run_ended = resolve_run_ended(observation, ally_output)
     if run_ended:

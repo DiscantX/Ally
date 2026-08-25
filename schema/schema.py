@@ -13,6 +13,7 @@ class ScreenElement(BaseModel):
     label: str
     description: str
     box_2d: list[int]  # [y_min, x_min, y_max, x_max], normalized 0-1000
+    is_decorative: bool = False
 
 
 class ScribeOutput(BaseModel):

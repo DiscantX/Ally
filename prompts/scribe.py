@@ -87,6 +87,11 @@ SCRIBE_PROMPT_UI = (
     "or number -- exclude the icon entirely. This box will be used to "
     "crop exactly this region for text recognition, so a loose box that "
     "includes non-text pixels will hurt accuracy.\n\n"
+    "If an element is purely decorative (e.g., background art, non-interactive "
+    "icon, ambient decoration) with no text, no clickable action, and no role "
+    "in gameplay, set `is_decorative` to `true`. Decorative elements will be "
+    "filtered out by the pipeline before Ally sees them, but nothing an action "
+    "could reference will be marked decorative.\n\n"
     "Do not interpret what anything means. Do not suggest actions."
     + "\n\n" + SCRIBE_PROMPT_GENRE_GUESS
     + "\n\n" + SCRIBE_PROMPT_SCREEN_NAME_GUESS

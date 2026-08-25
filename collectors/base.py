@@ -36,6 +36,12 @@ class RawObservation:
     bootstrap_ready: bool = False
     run_started: bool = False
     run_ended: bool = False
+    skip_ally: bool = False
+    """Semantic diff guard: when True, the main loop should bypass the
+    Scribe/Ally LLM calls this turn because the confirmed facts are
+    identical to last turn's (pixel-level motion detected, but no
+    semantic change). State updates still happen so the sandbox stays
+    consistent."""
 
 
 class Collector(Protocol):

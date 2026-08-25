@@ -14,14 +14,15 @@ from llm.gemini_provider import GeminiProvider
 from schema.schema import AllyOutput, AllyChatOutput
 from ally.personalities import PERSONALITIES
 from prompts.ally import ALLY_PROMPT_TEMPLATE, ALLY_CHAT_PROMPT_TEMPLATE
-
-ALLY_MODEL = "gemini-3.5-flash-lite"
+from configs.config_manager import load_user_config
 
 class Ally:
-    def __init__(self, provider: GeminiProvider, base_personality: str = PERSONALITIES["Scout"], model: str = "gemini-3.5-flash-lite"):
+    def __init__(self, provider: GeminiProvider, base_personality: str = PERSONALITIES["Scout"], model: str | None = None, thinking_level: str | None = None):
+        config = load_user_config()
         self.provider = provider
         self.base_personality = base_personality
-        self.model = model
+        self.model = model or config["ally_model"]
+        self.thinking_level = thinking_level or config["thinking_level"]
 
     def decide(
         self,
@@ -42,7 +43,7 @@ class Ally:
             model=self.model,
             contents=[prompt],
             schema=AllyOutput,
-            thinking_level="HIGH"
+            thinking_level=self.thinking_level
         )
 
     def chat(

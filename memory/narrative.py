@@ -12,6 +12,7 @@ from llm.gemini_provider import GeminiProvider
 from memory.db import MemoryDB
 from memory.triggers import Trigger, TurnCountTrigger, CompositeTrigger, SalienceEventTrigger, ExplicitAllyTrigger
 from prompts.narrative import NARRATIVE_MEDIUM_TERM_PROMPT, NARRATIVE_LONG_TERM_PROMPT, CROSS_SESSION_SUMMARY_PROMPT
+from configs.config_manager import load_user_config
 
 
 class TextSummary(BaseModel):
@@ -32,20 +33,22 @@ class NarrativeMemoryManager:
         save_id: str,
         provider: GeminiProvider,
         db: MemoryDB,
-        short_term_capacity: int = 8,
+        short_term_capacity: int | None = None,
         medium_flush_interval: int = 8,
         flush_trigger: Trigger | None = None,
-        model: str = "gemini-3.5-flash-lite",
+        model: str | None = None,
         save_tracker: Any | None = None,
     ):
+        config = load_user_config()
         self.player_id = player_id
         self.game_id = game_id
         self.save_id = save_id
         self.provider = provider
         self.db = db
-        self.short_term_capacity = short_term_capacity
+        self.short_term_capacity = short_term_capacity or config["short_term_capacity"]
         self.medium_flush_interval = medium_flush_interval
-        self.model = model
+        self.model = model or config["narrative_model"]
+        self.thinking_level = config["thinking_level"]
         self.save_tracker = save_tracker
         self._short_term: deque[ShortTermEntry] = deque(maxlen=short_term_capacity)
         self.flush_trigger = flush_trigger or CompositeTrigger([
@@ -94,8 +97,19 @@ class NarrativeMemoryManager:
         if self._medium_term_summaries:
             parts.append("Recent Situational Summaries:\n" + "\n".join([f"- {s}" for s in self._medium_term_summaries[-3:]]))
         if self._short_term:
-            lines = [f"- (turn {e.turn}) {e.summary}" for e in self._short_term]
-            parts.append("Recent Turns:\n" + "\n".join(lines))
+            # If we have more entries than capacity, summarize the oldest
+            if self._entry_count > self.short_term_capacity:
+                # Calculate how many entries to show directly
+                entries_to_show = min(self.short_term_capacity - 1, len(self._short_term))
+                shown_entries = list(self._short_term)[-entries_to_show:]
+                oldest_turn = shown_entries[0].turn
+                dropped_count = self._entry_count - self.short_term_capacity
+                lines = [f"- (turn {e.turn}) {e.summary}" for e in shown_entries]
+                lines.append(f"- ...and {dropped_count} earlier turns (summarized)")
+                parts.append("Recent Turns:\n" + "\n".join(lines))
+            else:
+                lines = [f"- (turn {e.turn}) {e.summary}" for e in self._short_term]
+                parts.append("Recent Turns:\n" + "\n".join(lines))
         
         if not parts:
             return "(no memory yet -- this is the first turn)"
@@ -111,6 +125,7 @@ class NarrativeMemoryManager:
                 model=self.model,
                 contents=[prompt],
                 schema=TextSummary,
+                thinking_level=self.thinking_level,
             )
             summary = result.summary
         except Exception:
@@ -130,6 +145,7 @@ class NarrativeMemoryManager:
                 model=self.model,
                 contents=[prompt],
                 schema=TextSummary,
+                thinking_level=self.thinking_level,
             )
             summary = result.summary
         except Exception:
@@ -162,6 +178,7 @@ class NarrativeMemoryManager:
                 model=self.model,
                 contents=[prompt],
                 schema=TextSummary,
+                thinking_level=self.thinking_level,
             )
             new_summary = result.summary
         except Exception:

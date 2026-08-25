@@ -263,7 +263,7 @@ class EntityRegistry:
 
         return touched
 
-    def as_context(self, entities: list[Entity]) -> str:
+    def as_context(self, entities: list[Entity], max_entities: int = 20) -> str:
         """Compact text form for injecting into Ally's prompt."""
         if not entities:
             return "(no known entities yet)"
@@ -275,4 +275,11 @@ class EntityRegistry:
             seen.add(ent.entity_id)
             times = ent.last_seen_turn - ent.first_seen_turn + 1
             lines.append(f"- [{ent.entity_id}] {ent.canonical_name} (seen {times}x)")
+        
+        # Truncate if too many entities
+        if len(lines) > max_entities:
+            dropped = len(lines) - max_entities
+            lines = lines[-max_entities:]
+            lines.append(f"- ...and {dropped} earlier entities")
+        
         return "\n".join(lines)

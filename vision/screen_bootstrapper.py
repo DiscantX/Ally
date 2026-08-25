@@ -16,6 +16,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
+from configs.config_manager import load_user_config
 
 import numpy as np
 
@@ -37,9 +38,10 @@ class BootstrapResult:
 
 
 class ScreenBootstrapper:
-    def __init__(self, layout_dir: str, unknown_streak_threshold: int = 3):
+    def __init__(self, layout_dir: str, unknown_streak_threshold: int | None = None):
+        config = load_user_config()
         self.layout_dir = layout_dir
-        self.unknown_streak_threshold = unknown_streak_threshold
+        self.unknown_streak_threshold = unknown_streak_threshold if unknown_streak_threshold is not None else config["unknown_streak_threshold"]
         self._unknown_streak = 0
         self._drafted_names: set[str] = set()
 

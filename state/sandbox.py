@@ -103,8 +103,16 @@ class StateSandbox:
             if parts:
                 parts.append("")
             parts.append("Scene elements (Scribe's interpretation):")
+            # Filter out decorative elements, but preserve anything referenced by target_entity_ids
+            # Note: We don't have access to previous turn's AllyOutput here, so we filter based on is_decorative flag
+            # The safety check for target_entity_ids must be done elsewhere (e.g., in main.py or Scribe)
+            filtered_elements = []
+            for el in self.current_elements:
+                if hasattr(el, 'is_decorative') and el.is_decorative:
+                    continue
+                filtered_elements.append(el)
             parts.extend(
-                f"- [{el.id}] {el.label}: {el.description}" for el in self.current_elements
+                f"- [{el.id}] {el.label}: {el.description}" for el in filtered_elements
             )
 
         return "\n".join(parts) if parts else "(no elements on screen)"

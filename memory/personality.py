@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from llm.gemini_provider import GeminiProvider
 from memory.db import MemoryDB
 from prompts.personality import PERSONALITY_DIGEST_PROMPT, PERSONALITY_MICRO_PROMPT
+from configs.config_manager import load_user_config
 
 
 class TextSummary(BaseModel):
@@ -15,12 +16,14 @@ class TextSummary(BaseModel):
 
 
 class PersonalityMemoryManager:
-    def __init__(self, player_id: str, provider: GeminiProvider, db: MemoryDB, base_personality: str, model: str = "gemini-3.5-flash-lite"):
+    def __init__(self, player_id: str, provider: GeminiProvider, db: MemoryDB, base_personality: str, model: str | None = None):
+        config = load_user_config()
         self.player_id = player_id
         self.provider = provider
         self.db = db
         self.base_personality = base_personality
-        self.model = model
+        self.model = model or config["personality_model"]
+        self.thinking_level = config["thinking_level"]
         self._master_journal: list[str] = []
         self._digest: str = ""
         self._micro: str = ""
@@ -61,6 +64,7 @@ class PersonalityMemoryManager:
                 model=self.model,
                 contents=[digest_prompt],
                 schema=TextSummary,
+                thinking_level=self.thinking_level,
             )
             self._digest = digest_res.summary.strip()
         except Exception:
@@ -72,6 +76,7 @@ class PersonalityMemoryManager:
                 model=self.model,
                 contents=[micro_prompt],
                 schema=TextSummary,
+                thinking_level=self.thinking_level,
             )
             self._micro = micro_res.summary.strip()
         except Exception:

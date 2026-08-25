@@ -94,6 +94,7 @@ class GenericHudCollector:
         self.readers, self.classifier = build_screen_layouts(config.layout_dir, config.source_tag)
         self.bootstrapper = ScreenBootstrapper(config.layout_dir, unknown_streak_threshold=3)
         self._last_frame_bgr = None
+        self._last_confirmed_facts: list[ConfirmedFact] = []
 
         # Union of ignore_motion regions across every known screen -- we
         # don't know which screen we're on until *after* the change
@@ -118,12 +119,31 @@ class GenericHudCollector:
         reader = self.readers.get(match.screen_name)
         confirmed_facts = reader.read(frame_bgr) if reader else []
 
+        # Semantic diff guard: if confirmed facts are identical to last turn,
+        # skip Scribe/Ally invocation even if SSIM detected pixel-level motion.
+        skip_ally = False
+        if (self._last_confirmed_facts and confirmed_facts and
+                len(self._last_confirmed_facts) == len(confirmed_facts)):
+            facts_match = True
+            for last_fact, curr_fact in zip(self._last_confirmed_facts, confirmed_facts):
+                if last_fact.key != curr_fact.key or last_fact.value != curr_fact.value:
+                    facts_match = False
+                    break
+            if facts_match:
+                skip_ally = True
+
+        # Update last confirmed facts for next comparison
+        self._last_confirmed_facts = confirmed_facts.copy()
+
         image = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
-        return RawObservation(
+        obs = RawObservation(
             image=image, confirmed_facts=confirmed_facts, changed=changed,
             screen_name=match.screen_name, screen_confidence=match.confidence,
             bootstrap_ready=bootstrap_ready,
         )
+        # Attach skip_ally flag to observation
+        obs.skip_ally = skip_ally
+        return obs
 
     def bootstrap_screen(self, screen_elements: list, screen_name_guess: str):
         """Called from main.py right after Scribe runs, only when capture()

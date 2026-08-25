@@ -8,6 +8,7 @@ import time
 import cv2
 import numpy as np
 from logger import log
+from configs.config_manager import load_user_config
 
 try:
     from skimage.metrics import structural_similarity as ssim
@@ -39,33 +40,35 @@ class ChangeDetector:
 
     def __init__(
         self,
-        threshold_percent: float = 5.0,
-        pixel_diff_threshold: int = 30,
-        enable_cooldown: bool = False,
-        cooldown_seconds: float = 1.0,
-        major_change_threshold: float = 20.0,
-        enable_stability_check: bool = False,
-        stability_threshold_percent: float = 5.0,
-        use_ssim: bool = True,
+        threshold_percent: float | None = None,
+        pixel_diff_threshold: int | None = None,
+        enable_cooldown: bool | None = None,
+        cooldown_seconds: float | None = None,
+        major_change_threshold: float | None = None,
+        enable_stability_check: bool | None = None,
+        stability_threshold_percent: float | None = None,
+        use_ssim: bool | None = None,
         ignore_regions: list[tuple[int, int, int, int]] | None = None,
         gui_app = None,
     ):
-        self.threshold_percent = threshold_percent
-        self.pixel_diff_threshold = pixel_diff_threshold
+        config = load_user_config()
+        self.threshold_percent = threshold_percent if threshold_percent is not None else config["threshold_percent"]
+        self.pixel_diff_threshold = pixel_diff_threshold if pixel_diff_threshold is not None else config["pixel_diff_threshold"]
         self._last_frame_gray: np.ndarray | None = None
         self.gui_app = gui_app
 
-        self.enable_cooldown = enable_cooldown
-        self.cooldown_seconds = cooldown_seconds
-        self.major_change_threshold = major_change_threshold
+        self.enable_cooldown = enable_cooldown if enable_cooldown is not None else config["enable_cooldown"]
+        self.cooldown_seconds = cooldown_seconds if cooldown_seconds is not None else config["cooldown_seconds"]
+        self.major_change_threshold = major_change_threshold if major_change_threshold is not None else config["major_change_threshold"]
         self._last_trigger_timestamp: float = 0.0
 
-        self.enable_stability_check = enable_stability_check
-        self.stability_threshold_percent = stability_threshold_percent
+        self.enable_stability_check = enable_stability_check if enable_stability_check is not None else config["enable_stability_check"]
+        self.stability_threshold_percent = stability_threshold_percent if stability_threshold_percent is not None else config["stability_threshold_percent"]
         self._in_transition: bool = False
 
-        self.use_ssim = use_ssim and _SSIM_AVAILABLE
-        if use_ssim and not _SSIM_AVAILABLE:
+        use_ssim_val = use_ssim if use_ssim is not None else config["use_ssim"]
+        self.use_ssim = use_ssim_val and _SSIM_AVAILABLE
+        if use_ssim_val and not _SSIM_AVAILABLE:
             log(
                 "[SuperiorColliculus] scikit-image not installed -- falling back "
                 "to absdiff. `pip install scikit-image` to enable SSIM."

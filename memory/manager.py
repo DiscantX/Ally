@@ -4,6 +4,7 @@ drop-in compatible with the existing MemoryManager class.
 """
 
 from typing import Any
+import threading
 from llm.gemini_provider import GeminiProvider
 from memory.db import MemoryDB
 from memory.narrative import NarrativeMemoryManager
@@ -26,6 +27,7 @@ class MemorySystem:
         db_path: str = "state/memory.db",
         save_tracker: SaveTracker | None = None,
     ):
+        self.lock = threading.Lock()
         self.player_id = player_id
         self.game_id = game_id
         self.save_id = save_id
@@ -51,19 +53,24 @@ class MemorySystem:
         )
 
     def record_turn(self, turn: int, ally_analysis: str, importance: int = 0, explicit_checkpoint: bool = False) -> None:
-        self.narrative.record_turn(turn, ally_analysis, importance=importance, explicit_checkpoint=explicit_checkpoint)
+        with self.lock:
+            self.narrative.record_turn(turn, ally_analysis, importance=importance, explicit_checkpoint=explicit_checkpoint)
 
     def build_context(self) -> str:
-        return self.narrative.build_context()
+        with self.lock:
+            return self.narrative.build_context()
 
     def get_personality_context(self) -> str:
-        return self.personality.get_prompt_context()
+        with self.lock:
+            return self.personality.get_prompt_context()
 
     def flush_to_cross_session(self) -> None:
-        self.narrative.flush_to_cross_session()
+        with self.lock:
+            self.narrative.flush_to_cross_session()
 
     def close_run(self) -> None:
-        self.narrative.close_run()
+        with self.lock:
+            self.narrative.close_run()
 
 
 # Drop-in alias for backwards compatibility

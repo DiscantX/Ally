@@ -35,6 +35,7 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
+from configs.config_manager import load_user_config
 
 try:
     from skimage.metrics import structural_similarity as ssim
@@ -50,9 +51,10 @@ class ScreenMatch:
 
 
 class ScreenClassifier:
-    def __init__(self, match_threshold: float = 0.85, draft_match_threshold: float = 0.93, draft_frame_size: tuple[int, int] = (160, 90), gui_app = None):
-        self.match_threshold = match_threshold
-        self.draft_match_threshold = draft_match_threshold
+    def __init__(self, match_threshold: float | None = None, draft_match_threshold: float | None = None, draft_frame_size: tuple[int, int] = (160, 90), gui_app = None):
+        config = load_user_config()
+        self.match_threshold = match_threshold if match_threshold is not None else config["match_threshold"]
+        self.draft_match_threshold = draft_match_threshold if draft_match_threshold is not None else config["draft_match_threshold"]
         self.draft_frame_size = draft_frame_size
         self._anchors: dict[str, tuple[tuple[int, int, int, int], np.ndarray]] = {}
         self._draft_frames: dict[str, np.ndarray] = {}
