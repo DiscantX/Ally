@@ -1,3 +1,16 @@
+> **Status: Archived — historical reference only.**
+> This is the original project scope document, written before implementation
+> began. Nearly everything in it has since been superseded by real decisions
+> recorded in [`docs/ally_decision_log.md`](../ally_decision_log.md) and the
+> current [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md). Notably: the
+> Scribe/Ally naming (this doc calls them "Agent A"/"Agent B: The Player"),
+> the plugin-vs-config-first resolution, screen-aware layouts, and the
+> memory-tier design all post-date this document and differ from what's
+> proposed here. Kept for project-archaeology value — the founding intent
+> ("a friend that remembers," generalizability as a first-class goal) is
+> genuine and still holds, even though the mechanisms described below
+> mostly don't reflect what was actually built.
+
 # "Ally" Project Scope
 
 ## Purpose
