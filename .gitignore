@@ -17,6 +17,8 @@ state/memory.db
 docs/log-single-game.log
 .vscode/
 
+plans/archive/*
+
 # ==========================================
 # Local IDE AI Extensions (Zoo Code / Roo Code)
 # ==========================================
