@@ -326,10 +326,15 @@ if __name__ == "__main__":
     genre_tracker = GenreTracker()
 
     gui_app = None
-    state = {"memory_manager": None, "registry": None}
+    state: dict[str, Any] = {"memory_manager": None, "registry": None}
 
     def on_send_message(text: str, message_type: str):
         def _handle():
+            memory_context = ""
+            personality_context = ""
+            entities_context = "(no known entities yet)"
+            elements_context = ""
+            genre_context = ""
             with STATE_LOCK:
                 mm = state["memory_manager"]
                 reg = state["registry"]
@@ -370,7 +375,9 @@ if __name__ == "__main__":
                     question=text,
                 )
                 with STATE_LOCK:
-                    mm.record_turn(sandbox.turn, f"Player asked: '{text}' -> Ally answered: '{res.response}'", importance=5)
+                    mm = state["memory_manager"]
+                    if mm is not None:
+                        mm.record_turn(sandbox.turn, f"Player asked: '{text}' -> Ally answered: '{res.response}'", importance=5)
                 if gui_app:
                     gui_app.append_chat_message("coach", res.response)
             except Exception as e:
