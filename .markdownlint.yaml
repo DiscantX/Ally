@@ -1,0 +1,66 @@
+# .markdownlint.yaml
+# Complete markdownlint rule list with custom settings for local linting and Claude GitHub sync.
+
+# Start by enabling every rule in the list
+default: true
+
+# ==========================================
+# 🛑 DISABLED RULES (Optimized for AI Generation)
+# ==========================================
+MD013: false # line-length - Disabled so Claude can write long natural sentences without rigid limits.
+MD024: false # no-duplicate-heading - Disabled so Claude can repeat section names (like "Setup", "Examples") safely.
+MD029: false # ol-prefix - Disabled so Claude can use natural number increments (1., 2., 3.) instead of forcing 1., 1., 1.
+MD033: false # no-inline-html - Disabled to allow basic custom formatting like center tags or table layouts.
+MD041: false # first-line-heading/first-line-h1 - Disabled so files can start with front-matter metadata if needed.
+MD043: false # required-headings - Disabled because custom mandatory layouts restrict AI creativity across different files.
+
+# ==========================================
+#  STRICTLY ENFORCED RULES (What Claude and VS Code will enforce)
+# ==========================================
+MD001: true # heading-increment - Heading levels must only increment by one level at a time.
+MD003: true # heading-style - Consistent heading styles (atx hash marks vs setext underline).
+MD004: true # ul-style - Consistent unordered list style asterisks, dashes, or pluses.
+MD005: true # list-indent - Inconsistent indentation for list items at the same level.
+MD007: true # ul-indent - Unordered list indentation spacing.
+MD009: true # no-trailing-spaces - Trailing spaces are strictly banned.
+MD010: true # no-hard-tabs - Forces spaces instead of hard tabs.
+MD011: true # no-reversed-links - Catches reversed link syntax mistake [link](text).
+MD012: true # no-multiple-blanks - Forbids consecutive multiple blank lines to keep files concise.
+MD014: true # commands-show-output - Forbids isolated dollar signs before terminal commands.
+MD018: true # no-missing-space-atx - Forces a single space after # symbol in titles.
+MD019: true # no-multiple-space-atx - Forbids double spacing after # symbol.
+MD020: true # no-missing-space-closed-atx - Space inside hashes on closed style headings.
+MD021: true # no-multiple-space-closed-atx - Multiple spaces inside hashes on closed style headings.
+MD022: true # blanks-around-headings - Headings must be isolated by empty lines above and below.
+MD023: true # heading-start-left - Headings must not start with an indent space.
+MD025: true # single-title/single-h1 - Only one top-level # Title permitted per document.
+MD026: true # no-trailing-punctuation - Headings cannot end with periods or colons.
+MD027: true # no-multiple-space-blockquote - Fixes extra spacing inside blockquotes.
+MD028: true # no-blanks-blockquote - Forbids blank lines breaking up a single blockquote.
+MD030: true # list-marker-space - Standardizes single space after list item markers.
+MD031: true # blanks-around-fences - Fenced code blocks must be isolated by empty lines.
+MD032: true # blanks-around-lists - Lists must be isolated by empty lines.
+MD034: true # no-bare-urls - All raw links must be wrapped in angle brackets or brackets.
+MD035: true # hr-style - Consistent horizontal rule drawing style.
+MD036: true # no-emphasis-as-heading - Forbids bolded paragraphs pretending to be titles.
+MD037: true # no-space-in-emphasis - Catches broken spaces like ** this **.
+MD038: true # no-space-in-code - Catches broken spaces like ` code `.
+MD039: true # no-space-in-links - Catches broken spaces like [ link ].
+MD040: true # fenced-code-language - Every code block must declare its language syntax (e.g., ```yaml).
+MD042: true # no-empty-links - Link paths cannot be left completely empty.
+MD044: true # proper-names - Verifies accurate capitalization of known tech terms.
+MD045: true # no-alt-text - Images must contain alt-text for accessibility.
+MD046: true # code-block-style - Consistent code block design choices.
+MD047: true # single-trailing-newline - Code file must end with one final empty line break.
+MD048: true # code-fence-style - Consistent code fence markers (backticks vs tildes).
+MD049: true # emphasis-style - Consistent emphasis style choices (underscores vs asterisks).
+MD050: true # strong-style - Consistent bold formatting symbols.
+MD051: true # link-fragments - Enforces that internal document anchor fragments are valid.
+MD052: true # reference-links-images - Reference links and images must point to valid definitions.
+MD053: true # link-image-reference-definitions - Unused references must be cleaned up.
+MD054: true # link-image-style - Standardizes link design style choice.
+MD055: true # table-pipe-style - Tables must be constructed with clean pipe walls.
+MD056: true # table-column-count - Catches asymmetric column mapping in tables.
+MD058: true # blanks-around-tables - Tables must be isolated by empty lines.
+MD059: true # descriptive-link-text - Forbids lazy link language like "click here".
+MD060: true # table-column-style - Ensures consistent column alignments inside tables.

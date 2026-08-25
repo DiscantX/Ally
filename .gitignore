@@ -16,3 +16,10 @@ configs/*
 state/memory.db
 docs/log-single-game.log
 .vscode/
+
+# ==========================================
+# Local IDE AI Extensions (Zoo Code / Roo Code)
+# ==========================================
+.roorules
+.zoorules
+.rooignore
