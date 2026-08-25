@@ -113,7 +113,7 @@ against real current logs).
 
 Every GRE/client message is exactly **two physical lines**:
 
-```
+``` GRE
 [UnityCrossThreadLogger]8/21/2026 6:03:37 PM: Match to <userId>: GreToClientEvent
 { "transactionId": "...", "requestId": 2, "timestamp": "...", "greToClientEvent": { ... } }
 ```
@@ -200,7 +200,7 @@ and both agree.
 
 ### 4.1 Confirmed enums (safe to hardcode in the parser)
 
-```
+``` Python
 enum Phase {
   None=0, Beginning=1, Main1=2, Combat=3, Main2=4, Ending=5
 }
@@ -376,7 +376,7 @@ itself" if that distinction ever matters downstream.
 ### Verification: two tiers, not one pile
 
 | Script | Proves | Needs Arena installed? |
-|---|---|---|
+| --- | --- | --- |
 | `test_log_framing.py`, `test_annotations.py`, `test_accumulator.py` | Parser structure vs. a fixed fixture log | No |
 | `test_resolver.py` (synthetic-DB cases) | Resolver logic vs. a synthetic DB | No |
 | `test_resolver.py::...local_arena_schema...` | Real column/table names match assumptions | Yes |
@@ -462,7 +462,7 @@ that produced it is structurally guaranteed to be meaningful, not just
 ### Verification tiers (feeds into plan step 8)
 
 | Script | Proves | Needs Arena installed? |
-|---|---|---|
+| --- | --- | --- |
 | `test_log_framing.py`, `test_annotations.py`, `test_accumulator.py` | Parser structure vs. a fixed fixture log | No |
 | `test_resolver.py` (synthetic-DB cases) | Resolver logic vs. a synthetic DB | No |
 | `test_resolver.py::...local_arena_schema...` | Real column/table names match assumptions | Yes |

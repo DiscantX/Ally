@@ -440,4 +440,3 @@ This section supersedes prior claims regarding `flush_to_cross_session` and in-m
 - **Composite Trigger System:** Implemented via [`CompositeTrigger`](memory/triggers.py:1), combining turn count thresholds, salience events, and explicit checkpoint triggers, featuring a decoupled buffer size vs flush interval design.
 - **Monotonic Entry Counter in Narrative Memory:** [`NarrativeMemoryManager`](memory/narrative.py:1) maintains a monotonic entry counter protecting turn-based flush cadence from chat message corruption or out-of-order events.
 - **Run-Scoped Entity Registry Persistence:** [`EntityRegistry`](state/entity_registry.py:1) persistence scoped strictly to `(player_id, game_id, save_id)`. True cross-session entity carryover remains explicitly deferred.
-

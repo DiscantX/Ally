@@ -23,7 +23,8 @@ CREATE TABLE IF NOT EXISTS save_sessions (
 )
 ```
 
-### New `MemoryDB` Methods:
+### New `MemoryDB` Methods
+
 - `get_latest_open_session(player_id: str, game_id: str) -> dict[str, Any] | None`:
   Queries the most recent open session for `(player_id, game_id)` where `status = 'open'`, ordered by `last_active_at DESC` (limit 1).
 - `create_save_session(player_id: str, game_id: str, save_id: str) -> None`:
@@ -112,9 +113,11 @@ class SaveTracker:
    Instantiate `MemoryDB` and `SaveTracker` in `main.py`'s `execute_run()`.
 2. **Replace `uuid.uuid4()`**:
    Instead of `save_id=f"session_{uuid.uuid4().hex[:8]}"`, call:
+
    ```python
    save_id, is_new = save_tracker.resolve_save_id(player_id="default_player", game_id=game_id)
    ```
+
 3. **Wire `touch` activity**:
    Pass `save_tracker` (or inject it) into `MemoryManager` / `NarrativeMemoryManager`. In `NarrativeMemoryManager.record_turn()` (which is called on every turn and every chat message), invoke `self.save_tracker.touch(self.player_id, self.game_id, self.save_id)`.
 

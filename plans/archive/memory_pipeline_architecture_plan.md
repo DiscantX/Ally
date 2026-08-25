@@ -15,7 +15,8 @@ graph TD
     Pers --> LLM
 ```
 
-### Module Breakdown:
+### Module Breakdown
+
 1. **`memory/coordinator.py` (or extending `memory/manager.py`)**:
    - Master [`MemorySystem`](memory/manager.py:58) class holding references to `NarrativeMemoryManager`, `PersonalityMemoryManager`, and `EntityRegistry`.
    - Manages SQLite connection lifecycle and cross-run/cross-session flushing.
@@ -54,6 +55,7 @@ graph LR
 ## 3. SQLite Persistence Schema
 
 To ensure memories survive across runs and game sessions, SQLite will store records across three core tables:
+
 1. `narrative_turns`: Stores short, medium, and long-term entries keyed by `player_id`, `game_id`, `save_id`, `tier`, and `timestamp`.
 2. `personality_journal`: Stores Master reflection entries, Digest cache, and Micro prompt cache keyed by `player_id`.
 3. `entities`: Stores non-lossy entity facts keyed by `player_id`, `game_id`, and `entity_id`.

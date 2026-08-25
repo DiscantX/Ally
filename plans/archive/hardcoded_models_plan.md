@@ -29,6 +29,7 @@ The following files across the codebase contain hardcoded LLM model identifiers:
 ## 2. Configuration Strategy: Global User Config vs. Per-Game Config
 
 ### Separation of Concerns
+
 - **Per-Game Config (`configs/<game_id>/config.json`)**:
   - Contains parameters specific to capturing and running a particular game (`game_id`, `window_title`, `layout_dir`, `source_tag`).
 - **Global User Config (`configs/user_config.json`)**:
@@ -39,6 +40,7 @@ The following files across the codebase contain hardcoded LLM model identifiers:
 ## 3. Parameter Enumeration & Tiering (Standard vs. Advanced/Dev)
 
 ### Tier 1: Standard Settings (User-Friendly / General)
+
 - **LLM Models** (Dropdown selectors):
   - Scribe Model (`scribe_model`, choices: `gemini-3.5-flash-lite`, `gemini-3.5-flash`, `gemini-2.5-flash`, etc.)
   - Ally Model (`ally_model`, choices: `gemini-3.5-flash-lite`, `gemini-3.5-flash`, `gemini-2.5-flash`, etc.)
@@ -49,6 +51,7 @@ The following files across the codebase contain hardcoded LLM model identifiers:
   - Default Personality (`default_personality`, choices from `PERSONALITIES` dict: `Scout`, `Sage`, `Min-Maxer`, etc.)
 
 ### Tier 2: Advanced / Dev Settings (Fine-Tuning & Thresholds)
+
 - **Vision & Change Detection ([`vision/change_detector.py`](vision/change_detector.py))**:
   - Change threshold percent (`threshold_percent`, slider + entry box: `0.1` to `50.0`, default: `5.0`)
   - Pixel diff threshold (`pixel_diff_threshold`, slider + entry box: `1` to `255`, default: `30`)
@@ -81,6 +84,7 @@ graph TD
 ```
 
 ### UI Component Guidelines
+
 - **Separate Toplevel Window**: Launched via a dedicated settings button on the main overlay/drawer.
 - **Synced Sliders and Input Boxes**: For numeric/float tuning parameters (e.g., thresholds), sliding updates the entry box text and editing the entry box updates the slider position in real time.
 - **Dropdowns (`ttk.Combobox`)**: Used for discrete choices like LLM model names and personality archetypes.

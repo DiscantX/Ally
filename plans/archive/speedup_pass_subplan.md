@@ -85,12 +85,14 @@ This sub-plan addresses Pass 2 items 2.2 through 2.7 from the speedup plan, prov
 - Remove boilerplate that doesn't affect output behavior (e.g., introductory filler that models tend to ignore anyway).
 
 **Critical preservation** — must strictly preserve these FTL-observed behaviors (verify output after each change):
+
 1. **No brackets outside the actions list**: Analysis text must never contain `[`/`]` except in the designated actions list.
 2. **Proper names not "Crew Member X"**: People must be referred by their natural name (e.g., "Dolan"), not by UI labels or generic placeholders.
 3. **"Have an opinion, don't just list options neutrally"**: Ally must state what it would actually do and why, not present choices neutrally.
 4. **Natural naming instead of raw UI labels**: Elements referred to in analysis must use natural names, not screen element labels.
 
 **Change process**:
+
 1. Create a trimmed version of `ALLY_PROMPT_TEMPLATE` with only the non-redundant portions.
 2. Run existing FTL test cases (or mock-provider tests) against both the original and trimmed prompts.
 3. Compare outputs for each of the 4 critical behaviors above.
@@ -115,11 +117,13 @@ This sub-plan addresses Pass 2 items 2.2 through 2.7 from the speedup plan, prov
 - **Existing chat thread** (`main.py` `on_send_message`): The GUI chat handler already runs `ally.chat()` on a background `threading.Thread`. This thread must acquire the same lock before reading/writing shared state.
 
 **Step 1 — Locking** (complete and test in isolation):
+
 1. Add `self._state_lock = threading.Lock()` to `MemorySystem.__init__`.
 2. Wrap all read-modify-write operations on `sandbox`, `registry`, and `memory_manager` with `with self._state_lock:`.
 3. Test: Create a unit test that spawns two threads — one simulating the main loop `run_turn()` and one simulating the chat `on_send_message` — both accessing the same `MemorySystem` instance through the lock. Verify no corruption.
 
 **Step 2 — ThreadPoolExecutor** (after locking is verified):
+
 1. Create a `ThreadPoolExecutor` (max_workers=2 or reasonable) within `MemorySystem` or the main loop.
 2. Offload `scribe.extract()` and `ally.decide()` / `ally.chat()` calls to the executor.
 3. On completion (via `future.add_done_callback` or `future.result()`), acquire the same lock and update shared state (`sandbox`, `registry`, `memory_manager`).
@@ -174,7 +178,7 @@ This sub-plan addresses Pass 2 items 2.2 through 2.7 from the speedup plan, prov
 ## Summary of All 2.2–2.7 Items
 
 | Item | Core Focus | Key Files |
-|------|-----------|-----------|
+| ------ | ----------- | ----------- |
 | **2.2** | Context & memory token limits | `memory/manager.py`, `memory/narrative.py`, `memory/personality.py` |
 | **2.3** | Element filtering in State Sandbox | `schema/schema.py`, `prompts/scribe.py`, `state/sandbox.py`, `ally/ally_agent.py` |
 | **2.4** | Semantic diff guard | `collectors/configured_collector.py`, `main.py` |

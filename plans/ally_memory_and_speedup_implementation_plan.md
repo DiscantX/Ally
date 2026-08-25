@@ -40,7 +40,7 @@ style of docstring-as-design-rationale).
 
 ---
 
-# PASS 1 — Memory System Correctness
+## PASS 1 — Memory System Correctness
 
 ## Context (read before starting)
 
@@ -71,7 +71,7 @@ starts a clean new one.
 
 **New DB table** (add to `memory/db.py`, `MemoryDB._init_db`):
 
-```
+```text
 save_sessions:
     id INTEGER PRIMARY KEY AUTOINCREMENT
     player_id TEXT NOT NULL
@@ -126,7 +126,8 @@ entirely, following the same optional-field pattern already used for
 
 **Edit `collectors/base.py`**: add two fields to `RawObservation`,
 both defaulting to `False`:
-```
+
+```python
 run_started: bool = False
 run_ended: bool = False
 ```
@@ -153,6 +154,7 @@ existing air-gap rule (`docs/ally_decision_log.md` "Air-gap" section).
 Do not add this to Scribe's schema or prompts.
 
 **Edit `schema/schema.py`** — add to `AllyOutput`:
+
 ```python
 run_boundary: Literal["none", "run_ended"] = "none"
 ```
@@ -167,6 +169,7 @@ or dialogue that merely sounds final. When in doubt, use 'none'."
 **Wire the priority rule in `main.py` (`run_turn`)**: after both the
 observation and the Ally response are available for a turn, determine
 whether the run ended using this priority:
+
 1. If `observation.run_ended` is `True` (a collector's native signal,
    Step 2) — use that. Ally's own `run_boundary` field is not even
    consulted this turn.
@@ -198,7 +201,8 @@ scoped memory independent of `save_id`. This step builds that real
 fourth tier per the original decision log design.
 
 **New DB table** (`memory/db.py`):
-```
+
+```text
 cross_session_memory:
     id INTEGER PRIMARY KEY AUTOINCREMENT
     player_id TEXT NOT NULL
@@ -207,6 +211,7 @@ cross_session_memory:
     save_id_closed TEXT NOT NULL   -- which run produced this entry
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 ```
+
 Append-only, like `personality_journal` — never overwritten, only added
 to. `NarrativeMemoryManager.build_context()` reads the single most
 recent row for `(player_id, game_id)` and surfaces it first (it's the
@@ -226,6 +231,7 @@ not a blow-by-blow of the just-finished run.
 **New method on `NarrativeMemoryManager`**: `close_run()` (name it
 whatever fits, but it should be the single entry point Step 3 calls
 into). Responsibilities, in order:
+
 1. If there's no long-term summary yet for the current run, call the
    existing `flush_to_long_term()` first so there's something to
    synthesize from.
@@ -263,6 +269,7 @@ prior summary as input (mock the provider call and check its `contents`).
 without the other.
 
 **Add a `CompositeTrigger`** to `memory/triggers.py`:
+
 ```python
 class CompositeTrigger(Trigger):
     def __init__(self, triggers: list[Trigger]):
@@ -349,6 +356,7 @@ add a comment explaining why the guard exists, since a naive reader
 might think it's dead code.
 
 **`EntityRegistry` changes** (`state/entity_registry.py`):
+
 - Constructor needs `player_id`, `game_id`, `save_id`, and a `MemoryDB`
   reference (or an injected repository object — your call, but don't
   give `EntityRegistry` raw SQL, keep that in `memory/db.py` per the
@@ -396,7 +404,7 @@ the Entity Registry persistence status, etc.) and say so explicitly.
 
 ---
 
-# PASS 2 — Speedup Plan (separate pass, do not start until Pass 1 is verified)
+## PASS 2 — Speedup Plan (separate pass, do not start until Pass 1 is verified)
 
 Source: `ally_speedup_plan.md` (already provided). Implement all 7
 items, but note the constraints below for each — these came out of
@@ -404,15 +412,18 @@ review and should be treated as amendments to that plan, not
 suggestions to skip.
 
 ## 2.1: Reduce thinking level
+
 Straightforward. Make `Ally.decide()`'s `thinking_level` a constructor
 parameter with a sane default, don't hardcode `"HIGH"` in the method
 body. Low risk, do this first.
 
 ## 2.2: Context & memory token limits
+
 Now simpler after Pass 1 Step 5/6 decoupled `short_term_capacity` from
 flush cadence — tune buffer size and flush interval independently.
 
 ## 2.3: Element filtering in State Sandbox
+
 **Caution**: Scribe's UI-mode prompt (`prompts/scribe.py`) deliberately
 extracts every interactable element, including ones Ally may reference
 by `target_entity_ids` in its actions. Filtering must not drop anything
@@ -423,6 +434,7 @@ this in your own sub-plan) over a generic heuristic applied after the
 fact with no signal from Scribe about what's safe to drop.
 
 ## 2.4: Semantic diff guard
+
 This is the concrete mechanism already flagged as deferred in
 `docs/ally_decision_log.md` ("Turn-gating" section, last paragraph) —
 implement that specific idea, don't invent a new one. Concretely:
@@ -437,6 +449,7 @@ a no-op for uncalibrated screens and for MTGA's `structured_state` path
 which is a separate, not-yet-scoped piece of work — don't build it here).
 
 ## 2.5: Streamline prompts and schemas
+
 **Caution**: several specific clauses in `ALLY_PROMPT_TEMPLATE`
 (no brackets outside the actions list, natural naming instead of raw UI
 labels, "have an opinion, don't just list options neutrally") were added
@@ -450,6 +463,7 @@ analysis text, proper names not "Crew Member X", etc.) before
 considering this done.
 
 ## 2.6: Asynchronous pipeline execution
+
 **Highest risk item — do this last, and treat locking as a blocking
 prerequisite, not a nice-to-have.** There is already an unguarded
 concurrent writer today: the GUI chat handler
@@ -461,6 +475,7 @@ threaded on top of this doubles the race surface on `StateSandbox` and
 `EntityRegistry`, neither of which is currently thread-safe.
 
 Before touching the main loop:
+
 1. Add a single lock (a plain `threading.Lock` is fine) guarding every
    read-modify-write sequence against `sandbox`, `registry`, and
    `memory_manager` from *any* thread, including the existing chat
@@ -478,6 +493,7 @@ easier to verify correct and matches this project's general preference
 for simple, obviously-correct mechanisms over clever ones.
 
 ## 2.7: GUI settings integration
+
 Before adding new controls, fix the existing gap: `gui/settings_window.py`
 already writes a full settings dict to `configs/user_config.json` via
 `save_user_config()`, but only `enable_downscaling` /
@@ -496,7 +512,7 @@ control on top of a settings panel that actually does something.
 
 ---
 
-# APPENDIX — Review notes (for the project owner / future reference; not implementation instructions)
+## APPENDIX — Review notes (for the project owner / future reference; not implementation instructions)
 
 *Implementing AI: everything below this line is background context for
 a later human/AI review pass and is not part of your task list. Skip

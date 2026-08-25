@@ -31,6 +31,7 @@ class CompositeTrigger(Trigger):
 - **[`NarrativeMemoryManager.__init__`](memory/narrative.py:28)**:
   - Add parameter `medium_flush_interval: int = 8`.
   - Update default `flush_trigger` to:
+
     ```python
     self.flush_trigger = flush_trigger or CompositeTrigger([
         TurnCountTrigger(interval=medium_flush_interval),
@@ -38,6 +39,7 @@ class CompositeTrigger(Trigger):
         ExplicitAllyTrigger()
     ])
     ```
+
 - **[`MemorySystem.__init__`](memory/manager.py:16)** (`memory/manager.py`):
   - Add parameter `medium_flush_interval: int = 8`.
   - Pass `medium_flush_interval=medium_flush_interval` down into [`NarrativeMemoryManager.__init__`](memory/narrative.py:28).
@@ -45,11 +47,13 @@ class CompositeTrigger(Trigger):
 ### 3. Context Passing in `record_turn()`
 
 In [`NarrativeMemoryManager.record_turn()`](memory/narrative.py:66):
+
 ```python
 context = {"turn": turn, "importance": importance, "explicit_checkpoint": explicit_checkpoint}
 if self.flush_trigger.should_trigger(context):
     self._flush_to_medium_term()
 ```
+
 This dictionary ensures that [`TurnCountTrigger`](memory/triggers.py:15), [`SalienceEventTrigger`](memory/triggers.py:28), and [`ExplicitAllyTrigger`](memory/triggers.py:37) all receive their required evaluation inputs (`turn`, `importance`, `explicit_checkpoint`).
 
 ---
@@ -57,6 +61,7 @@ This dictionary ensures that [`TurnCountTrigger`](memory/triggers.py:15), [`Sali
 ## Unit Test Design
 
 Create or extend unit tests (e.g., [`memory/test_triggers.py`](memory/test_triggers.py:1)) covering:
+
 1. **Individual Triggers**:
    - [`TurnCountTrigger`](memory/triggers.py:15) triggers only on multiples of interval.
    - [`SalienceEventTrigger`](memory/triggers.py:28) triggers when `importance >= threshold`.

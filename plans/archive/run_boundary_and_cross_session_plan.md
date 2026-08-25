@@ -22,13 +22,17 @@ class AllyOutput(BaseModel):
 ## 2. Prompt Additions (`prompts/ally.py` & `prompts/narrative.py`)
 
 ### A. Ally Prompt (`prompts/ally.py`)
+
 Add instructions to `ALLY_PROMPT_TEMPLATE`:
+
 ```text
 "If the current screen is an unambiguous end-of-run screen — victory, defeat, game over, run complete — set run_boundary to 'run_ended'. Only do this for a genuine terminal screen, not a story beat, cutscene, or dialogue that merely sounds final. When in doubt, use 'none'."
 ```
 
 ### B. Cross-Session Summary Prompt (`prompts/narrative.py`)
+
 Add `CROSS_SESSION_SUMMARY_PROMPT`:
+
 ```python
 CROSS_SESSION_SUMMARY_PROMPT = (
     "You are Ally. Review the previous cross-session summary and the just-completed run's long-term overview to synthesize an updated, high-level cross-session summary for this game.\n\n"
@@ -75,6 +79,7 @@ CREATE TABLE IF NOT EXISTS cross_session_memory (
 ```
 
 Add database methods on `MemoryDB`:
+
 - `get_latest_cross_session(player_id: str, game_id: str) -> dict[str, Any] | None`
 - `insert_cross_session(player_id: str, game_id: str, summary: str, save_id_closed: str) -> None`
 
@@ -83,7 +88,9 @@ Add database methods on `MemoryDB`:
 ## 5. `close_run()` Method on `NarrativeMemoryManager` and `MemorySystem`
 
 ### A. `NarrativeMemoryManager` (`memory/narrative.py`)
+
 Add `close_run()`:
+
 1. Ensure the current run has a long-term summary (if not, call `flush_to_long_term()` first).
 2. Fetch the latest cross-session summary from `cross_session_memory` (if any, else note `"this is the first recorded run"`).
 3. Invoke LLM with `CROSS_SESSION_SUMMARY_PROMPT`.
@@ -91,6 +98,7 @@ Add `close_run()`:
 5. Call `self.save_tracker.close(self.player_id, self.game_id, self.save_id)`.
 
 ### B. `MemorySystem` (`memory/manager.py`)
+
 Delegate `close_run()` to `NarrativeMemoryManager`. Also update `flush_to_cross_session()` safety net to call `close_run()` if the session is still open.
 
 ---
@@ -98,6 +106,7 @@ Delegate `close_run()` to `NarrativeMemoryManager`. Also update `flush_to_cross_
 ## 6. Wiring in `main.py`
 
 In the main turn loop:
+
 1. After receiving `observation` and `ally_output`, call `resolve_run_ended(observation, ally_output)`.
 2. If `True`, trigger `memory_system.close_run()`, log the run closure, and optionally start a new run session or handle gracefully.
 

@@ -5,14 +5,19 @@ This document details how to run verification commands for [`plugins/mtga/`](plu
 ## Verification Commands
 
 ### 1. Fast Suite (Always Run, No External Dependencies)
+
 Runs all unit and integration test files (`test_*.py`) in [`plugins/mtga/tests/`](plugins/mtga/tests/):
+
 ```bash
 python -m unittest discover plugins/mtga/tests -p "test_*.py"
 ```
+
 *Note:* The real-environment-guarded test cases (such as those in [`plugins/mtga/tests/test_integration_resolution.py`](plugins/mtga/tests/test_integration_resolution.py:1) and local schema tests in [`plugins/mtga/tests/test_resolver.py`](plugins/mtga/tests/test_resolver.py:1) which use `skipTest` when Arena or the sample log aren't present) are folded into this fast suite command automatically — they execute successfully or skip cleanly depending on whether local Arena installation files and sample logs are present on the machine.
 
 ### 2. Pure Diagnostics (Human Review, Needs Local Arena Install / Sample Log)
+
 Pure diagnostic scripts located in [`plugins/mtga/tests/diagnostics/`](plugins/mtga/tests/diagnostics/) that print human-readable reports without assertions:
+
 ```bash
 python plugins/mtga/tests/diagnostics/verify_name_resolution.py
 python plugins/mtga/tests/diagnostics/inspect_unresolved.py

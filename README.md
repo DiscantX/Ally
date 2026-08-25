@@ -17,6 +17,7 @@ A minimal end-to-end pass through the pipeline discussed in planning:
 ## What's real vs. stubbed
 
 Real:
+
 - Scribe: structured extraction via response_schema (no more hoping the
   model returns clean JSON)
 - State Sandbox: holds the current turn's facts
@@ -26,6 +27,7 @@ Real:
   text
 
 Stubbed, with the seam marked in code:
+
 - Personality (ally/ally_agent.py: PERSONALITY_STUB) -- swap for
   MemoryManager.build_context() later
 - Entity matching (state/entity_registry.py: marked TODO) -- swap difflib
