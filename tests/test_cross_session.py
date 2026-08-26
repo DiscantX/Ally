@@ -39,6 +39,7 @@ class TestCrossSessionMemory(unittest.TestCase):
 
         cross = self.db.get_latest_cross_session("player1", "game1")
         self.assertIsNotNone(cross)
+        assert cross is not None
         self.assertEqual(cross["summary"], "Synthesized cross-session summary for game.")
         self.assertEqual(cross["save_id_closed"], save_id)
 
@@ -93,6 +94,7 @@ class TestCrossSessionMemory(unittest.TestCase):
         self.assertIn("First run summary.", prompt_text)
 
         cross = self.db.get_latest_cross_session("player1", "game1")
+        assert cross is not None
         self.assertEqual(cross["summary"], "Updated meta knowledge from run 1 and run 2.")
 
 
