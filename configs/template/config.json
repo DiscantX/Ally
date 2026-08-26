@@ -2,5 +2,11 @@
   "game_id": "my_game",
   "window_title": "My Game",
   "layout_dir": "configs/my_game/layouts",
-  "source_tag": "ocr:my_game"
+  "source_tag": "ocr:my_game",
+  "clip_enabled": true,
+  "clip_image_model": "Qdrant/clip-ViT-B-32-vision",
+  "clip_text_model": "Qdrant/clip-ViT-B-32-text",
+  "clip_skip_confidence_threshold": 0.5,
+  "clip_skip_margin_threshold": 0.15,
+  "clip_category_dedup_threshold": 0.75
 }

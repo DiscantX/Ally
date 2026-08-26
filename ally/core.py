@@ -25,6 +25,8 @@ from state.genre_tracker import GenreTracker
 from state.sandbox import StateSandbox
 from tools.init_config import init_config
 from vision.debug_overlay import draw_layout_overlay
+from vision.clip_classifier import ClipClassifier
+from vision.screen_category_store import ScreenCategoryStore
 from logger import log
 from tools.display import show_image
 
@@ -57,6 +59,8 @@ class AllyCore:
 
         self.db = MemoryDB()
         self.save_tracker = SaveTracker(self.db)
+        self.clip_classifier = ClipClassifier()
+        self.category_store = ScreenCategoryStore(db=self.db, clip=self.clip_classifier)
         self.memory_manager: Optional[MemoryManager] = None
         self.registry: Optional[EntityRegistry] = None
         self.collector: Optional[GenericHudCollector] = None
@@ -123,10 +127,14 @@ class AllyCore:
         )
 
         log("--- Scribe extracting ({mode}) ---", mode="NO_UI" if not include_ui else "UI")
-        skip_ally = getattr(observation, 'skip_ally', False)
+        skip_scribe_reason = getattr(observation, 'skip_scribe_reason', 'none')
+        skip_ally = getattr(observation, 'skip_ally', False) or skip_scribe_reason != 'none'
 
         if not skip_ally:
             scribe_output = self.scribe.extract(observation.image, include_ui=include_ui)
+
+            if self.category_store is not None and self.collector is not None:
+                self.category_store.maybe_learn(scribe_output.screen_name_guess, self.collector.config.game_id)
 
             if self.collector is not None and observation.bootstrap_ready:
                 self.collector.bootstrap_screen(scribe_output.screen_elements, scribe_output.screen_name_guess)
@@ -189,18 +197,24 @@ class AllyCore:
                     entities_context = "(no registry)"
             log("\n--- Entity registry (accumulated across the run) ---")
             log("{}", entities_context)
-            log("--- Skipping Scribe/Ally (confirmed facts unchanged) ---")
+            skip_messages = {
+                "off_game": f"(CLIP recognized this as off-game content: '{observation.screen_category}' -- pausing commentary)",
+                "low_value": f"(CLIP recognized this as a low-value screen: '{observation.screen_category}' -- skipping commentary)",
+                "none": "(confirmed facts unchanged this turn -- no new commentary)",
+            }
+            reason_label = skip_scribe_reason if skip_scribe_reason != "none" else "facts_unchanged"
+            log("--- Skipping Scribe/Ally (reason={reason}) ---", reason=reason_label)
             ally_output = AllyOutput(
-                analysis="(confirmed facts unchanged this turn -- no new commentary)",
+                analysis=skip_messages.get(skip_scribe_reason, skip_messages["none"]),
                 actions=[],
                 run_boundary="none",
             )
 
         with self.state_lock:
-            if self.memory_manager is not None:
+            if self.memory_manager is not None and skip_scribe_reason != "off_game":
                 self.memory_manager.record_turn(
                     self.sandbox.turn,
-                    ally_output.analysis if not skip_ally else "skip_ally: confirmed facts unchanged"
+                    ally_output.analysis if not skip_ally else f"skip_ally: {reason_label}"
                 )
 
             run_ended = resolve_run_ended(observation, ally_output)
@@ -354,7 +368,11 @@ class AllyCore:
         else:
             if not self.config_path:
                 self.config_path = init_config(game_id=self.game_id)
-            self.collector = build_collector(self.config_path)
+            self.collector = build_collector(
+                self.config_path,
+                clip_classifier=self.clip_classifier,
+                category_store=self.category_store,
+            )
             game_id = self.collector.config.game_id
             save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id=game_id)
             self.memory_manager = MemoryManager(

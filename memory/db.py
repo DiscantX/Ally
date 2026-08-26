@@ -98,6 +98,17 @@ class MemoryDB:
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS screen_categories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    game_id TEXT,
+                    kind TEXT NOT NULL,
+                    text TEXT NOT NULL,
+                    embedding BLOB NOT NULL,
+                    source TEXT NOT NULL DEFAULT 'learned',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             conn.commit()
         finally:
             conn.close()
@@ -261,5 +272,41 @@ class MemoryDB:
                     ent.get("external_id"),
                 ))
             conn.commit()
+        finally:
+            conn.close()
+
+    def get_screen_categories(self, game_id: str) -> list[dict[str, Any]]:
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                "SELECT * FROM screen_categories WHERE game_id IS NULL OR game_id = ?",
+                (game_id,)
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        finally:
+            conn.close()
+
+    def insert_screen_category(
+        self, game_id: str | None, kind: str, text: str, embedding: bytes, source: str = "learned"
+    ) -> None:
+        conn = self._connect()
+        try:
+            conn.execute(
+                "INSERT INTO screen_categories (game_id, kind, text, embedding, source) VALUES (?, ?, ?, ?, ?)",
+                (game_id, kind, text, embedding, source)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def count_screen_categories(self, source: str | None = None) -> int:
+        conn = self._connect()
+        try:
+            if source:
+                cursor = conn.execute("SELECT COUNT(*) as c FROM screen_categories WHERE source = ?", (source,))
+            else:
+                cursor = conn.execute("SELECT COUNT(*) as c FROM screen_categories")
+            row = cursor.fetchone()
+            return row["c"] if row else 0
         finally:
             conn.close()

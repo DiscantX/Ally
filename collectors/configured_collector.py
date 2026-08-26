@@ -32,6 +32,8 @@ from collectors.screen_collector import ScreenCollector
 from vision.layout_reader import LayoutOCRReader
 from vision.screen_classifier import ScreenClassifier
 from vision.screen_bootstrapper import ScreenBootstrapper
+from vision.clip_classifier import ClipClassifier
+from vision.screen_category_store import ScreenCategoryStore
 from logger import log
 
 
@@ -88,13 +90,20 @@ def build_screen_layouts(layout_dir: str, source_tag_prefix: str) -> tuple[dict[
 
 
 class GenericHudCollector:
-    def __init__(self, config: CollectorConfig):
+    def __init__(
+        self,
+        config: CollectorConfig,
+        clip_classifier: "ClipClassifier | None" = None,
+        category_store: "ScreenCategoryStore | None" = None,
+    ):
         self.config = config
         self.screen = ScreenCollector(config.window_title)
         self.readers, self.classifier = build_screen_layouts(config.layout_dir, config.source_tag)
         self.bootstrapper = ScreenBootstrapper(config.layout_dir, unknown_streak_threshold=3)
         self._last_frame_bgr = None
         self._last_confirmed_facts: list[ConfirmedFact] = []
+        self.clip_classifier = clip_classifier
+        self.category_store = category_store
 
         # Union of ignore_motion regions across every known screen -- we
         # don't know which screen we're on until *after* the change
@@ -108,12 +117,33 @@ class GenericHudCollector:
         self.screen.change_detector.set_ignore_regions(ignore_regions)
 
     def capture(self) -> RawObservation:
+        self.screen.rect.refresh()
+        if not self.screen.rect.is_foreground():
+            return RawObservation(image=None, changed=False, skip_scribe_reason="not_foreground")
+
         frame_bgr = self.screen.capture_bgr()
         if frame_bgr is None:
             return RawObservation(image=None, changed=False)
 
         self._last_frame_bgr = frame_bgr
         changed = self.screen.change_detector.has_changed(frame_bgr)
+
+        screen_category: str | None = None
+        skip_scribe_reason = "none"
+
+        # CLIP semantic gate -- only worth running on frames that actually
+        # changed (no point re-classifying a frame ChangeDetector already
+        # said is unchanged from last turn).
+        if changed and self.clip_classifier is not None and self.category_store is not None and self.clip_classifier.enabled:
+            image_embedding = self.clip_classifier.encode_image(frame_bgr)
+            if image_embedding is not None:
+                view = self.category_store.for_game(self.config.game_id)
+                match = view.classify(image_embedding)
+                if match is not None:
+                    screen_category = match.text
+                    if match.confident and match.kind in ("off_game", "low_value"):
+                        skip_scribe_reason = match.kind
+
         match = self.classifier.classify(frame_bgr)
         bootstrap_ready = self.bootstrapper.note_classification(match.screen_name)
         reader = self.readers.get(match.screen_name)
@@ -140,6 +170,8 @@ class GenericHudCollector:
             image=image, confirmed_facts=confirmed_facts, changed=changed,
             screen_name=match.screen_name, screen_confidence=match.confidence,
             bootstrap_ready=bootstrap_ready,
+            screen_category=screen_category,
+            skip_scribe_reason=skip_scribe_reason,
         )
         # Attach skip_ally flag to observation
         obs.skip_ally = skip_ally
@@ -159,11 +191,15 @@ class GenericHudCollector:
         return result
 
 
-def build_collector(config_path: str) -> GenericHudCollector:
+def build_collector(
+    config_path: str,
+    clip_classifier: "ClipClassifier | None" = None,
+    category_store: "ScreenCategoryStore | None" = None,
+) -> GenericHudCollector:
     config = load_collector_config(config_path)
     if config.collector_type != "screen_ocr":
         raise NotImplementedError(
             f"collector_type '{config.collector_type}' not implemented -- only "
             f"'screen_ocr' exists today."
         )
-    return GenericHudCollector(config)
+    return GenericHudCollector(config, clip_classifier=clip_classifier, category_store=category_store)

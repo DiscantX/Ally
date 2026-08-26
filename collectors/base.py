@@ -42,6 +42,16 @@ class RawObservation:
     identical to last turn's (pixel-level motion detected, but no
     semantic change). State updates still happen so the sandbox stays
     consistent."""
+    screen_category: str | None = None
+    """Best-matched CLIP category text for this frame, if any confident
+    match was found (regardless of whether it caused a skip). None if CLIP
+    is disabled/unavailable or nothing matched confidently."""
+
+    skip_scribe_reason: str = "none"
+    """One of 'none', 'not_foreground', 'off_game', 'low_value'. Distinct
+    from the existing skip_ally flag (which is the OCR-facts-unchanged
+    guard) -- this is the new CLIP/focus-driven guard. See ally/core.py's
+    run_turn() for how the two combine."""
 
 
 class Collector(Protocol):

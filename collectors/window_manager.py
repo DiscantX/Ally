@@ -54,6 +54,34 @@ class ClientRect:
                 win32gui.ShowWindow(self.handle, win32con.SW_RESTORE)
             win32gui.SetForegroundWindow(self.handle)
 
+    def refresh(self) -> bool:
+        """Re-resolve this window's client-area geometry from its live handle.
+        Call this every turn (it's a couple of cheap win32 calls) so a window
+        that's been dragged to another monitor or resized after startup gets
+        picked up -- capture_bgr() otherwise keeps reading whatever pixel
+        region it was first calibrated to, forever, silently.
+
+        Returns False (without raising) if the handle is no longer valid --
+        e.g. the game was closed -- so callers can treat "window is gone" the
+        same way they already treat "window was never found."
+        """
+        if not self.handle or not win32gui.IsWindow(self.handle):
+            return False
+        try:
+            self._set_rect_properties()
+            return True
+        except Exception:
+            return False
+
+    def is_foreground(self) -> bool:
+        """True if this window is currently the OS-level focused window.
+        Cheap (one win32 call, no frame capture) -- meant to be checked
+        before doing any capture work at all, not just before commenting on
+        a captured frame."""
+        if not self.handle:
+            return False
+        return win32gui.GetForegroundWindow() == self.handle
+
     def set_always_on_top(self, enable=True):
         if self.handle:
             insert_after = win32con.HWND_TOPMOST if enable else win32con.HWND_NOTOPMOST
