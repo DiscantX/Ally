@@ -45,6 +45,7 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         if core is not None:
             if self._on_send_message is None:
                 self._on_send_message = core.send_message
+            core.gui_app = self
             core.on_pipeline_image = self.update_pipeline_image
             core.on_debug_overlay = self.update_debug_image
             core.on_status_update = lambda screen, event: (self.update_debug_info(screen, event), self.start_eta_countdown(15))

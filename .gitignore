@@ -9,6 +9,7 @@ configs/*
 !configs/template/
 .vscode/
 .githooks/
+Ally.code-workspace
 
 # Local/Test Data & Temporary Files
 image_test/
@@ -24,3 +25,5 @@ plans/archive/*
 .roorules
 .zoorules
 .rooignore
+storage/
+.qdrant-initialized

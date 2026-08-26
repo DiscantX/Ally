@@ -60,6 +60,7 @@ class AllyCore:
         self.memory_manager: Optional[MemoryManager] = None
         self.registry: Optional[EntityRegistry] = None
         self.collector: Optional[GenericHudCollector] = None
+        self.gui_app: Optional[Any] = None
 
         self.state_lock = threading.Lock()
         self.running = False
@@ -75,6 +76,12 @@ class AllyCore:
         self.on_chat_message: Optional[Callable[[str, str], None]] = None
         self.on_eta_ready: Optional[Callable[[], None]] = None
         self.on_connection_status: Optional[Callable[[bool], None]] = None
+
+    def update_pipeline_image(self, key: str, image, title: Optional[str] = None):
+        if self.gui_app is not None and hasattr(self.gui_app, "update_pipeline_image"):
+            self.gui_app.update_pipeline_image(key, image, title)
+        elif self.on_pipeline_image is not None:
+            self.on_pipeline_image(key, image, title)
 
     def _debug_frame(self, observation: RawObservation) -> np.ndarray:
         if observation.image is None:
@@ -96,12 +103,13 @@ class AllyCore:
             self.on_pipeline_image("observation", observation.image, "RGB PIL Image Observation")
             if self.collector is not None:
                 c_any = cast(Any, self.collector)
+                target_gui = self.gui_app or self
                 if hasattr(c_any, "change_detector") and c_any.change_detector:
-                    c_any.change_detector.gui_app = self
+                    c_any.change_detector.gui_app = target_gui
                 if hasattr(c_any, "screen") and c_any.screen and hasattr(c_any.screen, "change_detector"):
-                    c_any.screen.change_detector.gui_app = self
+                    c_any.screen.change_detector.gui_app = target_gui
                 if hasattr(c_any, "classifier") and c_any.classifier:
-                    c_any.classifier.gui_app = self
+                    c_any.classifier.gui_app = target_gui
 
         debug_frame = self._debug_frame(observation)
         if self.on_debug_overlay is not None:
