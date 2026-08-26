@@ -64,7 +64,6 @@ if __name__ == "__main__":
         config_path=args.config,
         game_id=args.game,
         image_path=args.image,
-        personality_name="Scout",
     )
     core.initialize_run()
 

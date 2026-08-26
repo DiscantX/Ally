@@ -36,6 +36,7 @@ REGISTRY = {
     "db.py": {"name": "MemoryDB", "color": "bright_green"},
     "update_docs.py": {"name": "UpdateDocs", "color": "red"},
     "init_config.py": {"name": "InitConfig", "color": "bright_yellow"},
+    "core.py": {"name": "AllyCore", "color": "bright_magenta"},
 }
 
 DEFAULT_BRAIN = {"name": "General", "color": "white"}

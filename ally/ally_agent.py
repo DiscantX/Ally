@@ -17,10 +17,14 @@ from prompts.ally import ALLY_PROMPT_TEMPLATE, ALLY_CHAT_PROMPT_TEMPLATE
 from configs.config_manager import load_user_config, get_model
 
 class Ally:
-    def __init__(self, provider: GeminiProvider, base_personality: str = PERSONALITIES["Scout"], model: str | None = None, thinking_level: str | None = None):
+    def __init__(self, provider: GeminiProvider, base_personality: str | None = None, model: str | None = None, thinking_level: str | None = None):
         config = load_user_config()
         self.provider = provider
-        self.base_personality = base_personality
+        if base_personality is None:
+            default_p = config.get("default_personality", "Scout")
+            self.base_personality = PERSONALITIES.get(default_p, PERSONALITIES["Scout"])
+        else:
+            self.base_personality = PERSONALITIES.get(base_personality, base_personality)
         self.model = model or get_model("ally_model", config)
         self.thinking_level = thinking_level or config["thinking_level"]
 

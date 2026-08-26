@@ -23,6 +23,7 @@ from schema.schema import AllyOutput
 from state.entity_registry import EntityRegistry
 from state.genre_tracker import GenreTracker
 from state.sandbox import StateSandbox
+from configs.config_manager import load_user_config
 from tools.init_config import init_config
 from vision.debug_overlay import draw_layout_overlay
 from vision.clip_classifier import ClipClassifier
@@ -44,16 +45,17 @@ class AllyCore:
         config_path: Optional[str] = None,
         game_id: Optional[str] = None,
         image_path: Optional[str] = None,
-        personality_name: str = "Scout",
+        personality_name: Optional[str] = None,
     ):
+        config = load_user_config()
         self.config_path = config_path
         self.game_id = game_id
         self.image_path = image_path
-        self.personality_name = personality_name
+        self.personality_name = personality_name or config.get("default_personality", "Scout")
 
         self.provider = GeminiProvider()
         self.scribe = Scribe(self.provider)
-        self.ally = Ally(self.provider, PERSONALITIES.get(personality_name, PERSONALITIES["Scout"]))
+        self.ally = Ally(self.provider, base_personality=self.personality_name)
         self.sandbox = StateSandbox()
         self.genre_tracker = GenreTracker()
 
