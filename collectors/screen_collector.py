@@ -20,6 +20,7 @@ from collectors.base import RawObservation
 from collectors.window_manager import ClientRect
 from vision.change_detector import ChangeDetector  # This was added/changed as a part of the ZOO CODE idle safeguard pass
 from configs.config_manager import load_user_config
+from logger import log
 
 
 class ScreenCollector:
@@ -79,7 +80,7 @@ class ScreenCollector:
         so OpenCV-based readers -- e.g. a plugin's HUD OCR -- can reuse the
         same grab without going through PIL and back."""
         if not self.rect.handle or self.rect.width <= 0 or self.rect.height <= 0:
-            print(f"[ScreenCollector] '{self.window_title}' not found or minimized.")
+            log("'{window_title}' not found or minimized.", window_title=self.window_title)
             return None
 
         monitor = {

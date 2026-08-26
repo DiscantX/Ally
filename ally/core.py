@@ -100,7 +100,7 @@ class AllyCore:
 
     def run_turn(self, observation: RawObservation, include_ui: bool = True) -> bool:
         if observation.image is None:
-            log("No image captured -- is the game window open?")
+            # log("No image captured -- is the game window open?")
             return False
 
         if self.on_pipeline_image is not None:

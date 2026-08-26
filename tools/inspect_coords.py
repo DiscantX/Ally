@@ -49,7 +49,7 @@ def save_to_disk():
     os.makedirs(os.path.dirname(CONFIG_FILE) or ".", exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
         json.dump(layouts, f, indent=4)
-    print(f"[Neow's Eye] Layout changes successfully saved to {CONFIG_FILE}")
+    log("Layout changes successfully saved to {config_file}", config_file=CONFIG_FILE)
 
 
 def get_box_handles(x, y, w, h):

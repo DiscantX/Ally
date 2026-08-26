@@ -6,6 +6,7 @@ care what's in it. Calibrated with tools/inspect_coords.py.
 
 import json
 import os
+from logger import log
 
 
 class UIElement:
@@ -47,16 +48,16 @@ class LayoutManager:
 
     def load_layouts(self):
         if not os.path.exists(self.filepath):
-            print(f"[Layout] Warning: {self.filepath} not found.")
+            log("Warning: {filepath} not found.", filepath=self.filepath)
             return
 
         with open(self.filepath, "r") as f:
             try:
                 raw_data = json.load(f)
                 self.elements = {name: UIElement(name, data) for name, data in raw_data.items()}
-                print(f"[Layout] Loaded {len(self.elements)} UI elements from {self.filepath}")
+                log("Loaded {count} UI elements from {filepath}", count=len(self.elements), filepath=self.filepath)
             except json.JSONDecodeError:
-                print(f"[Layout] Error parsing {self.filepath}.")
+                log("Error parsing {filepath}.", filepath=self.filepath)
 
     def get(self, name):
         return self.elements.get(name)

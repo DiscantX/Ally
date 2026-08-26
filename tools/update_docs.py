@@ -14,6 +14,7 @@ import ast
 import os
 import re
 import sys
+from logger import log
 
 
 def parse_existing_readme(readme_path: str) -> dict[str, str]:
@@ -66,7 +67,7 @@ def extract_file_description(file_path: str, file_ext: str = ".md") -> str:
 def update_readme(target_dir: str, readme_path: str, file_ext: str = ".md", header_lines: list[str] | None = None, footer_lines: list[str] | None = None) -> None:
     """Scans target_dir for files with file_ext and updates readme_path."""
     if not os.path.exists(target_dir):
-        print(f"[UpdateDocs] Target directory {target_dir} does not exist.")
+        log("Target directory {target_dir} does not exist.", target_dir=target_dir)
         return
 
     existing_descs = parse_existing_readme(readme_path)
@@ -124,14 +125,14 @@ def update_readme(target_dir: str, readme_path: str, file_ext: str = ".md", head
     with open(readme_path, "w", encoding="utf-8") as f:
         f.write(new_content)
 
-    print(f"[UpdateDocs] Successfully updated {readme_path} with {len(items)} items.")
+    log("Successfully updated {readme_path} with {count} items.", readme_path=readme_path, count=len(items))
 
 
 def install_git_hook() -> None:
     """Installs a git pre-commit hook that automatically runs update_docs.py."""
     git_dir = ".git"
     if not os.path.exists(git_dir):
-        print("[UpdateDocs] No .git directory found. Skipping git hook installation.")
+        log("No .git directory found. Skipping git hook installation.")
         return
 
     hooks_dir = os.path.join(git_dir, "hooks")
@@ -158,7 +159,7 @@ git add plans/archive/readme.md tests/README.md
     except Exception:
         pass
 
-    print(f"[UpdateDocs] Installed git pre-commit hook at {hook_path}")
+    log("Installed git pre-commit hook at {hook_path}", hook_path=hook_path)
 
 
 if __name__ == "__main__":

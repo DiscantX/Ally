@@ -6,6 +6,7 @@ stored in configs/user_config.json.
 import json
 import os
 from typing import Any
+from logger.logger import log
 
 DEFAULT_USER_CONFIG = {
     # LLM Models
@@ -59,7 +60,7 @@ def load_user_config() -> dict[str, Any]:
                 if isinstance(user_data, dict):
                     config.update(user_data)
         except Exception as e:
-            print(f"[ConfigManager] Error loading {CONFIG_PATH}: {e}")
+            log("Error loading {}: {}", CONFIG_PATH, e)
     else:
         save_user_config(config)
     return config
@@ -72,7 +73,7 @@ def save_user_config(config: dict[str, Any]) -> None:
         with open(CONFIG_PATH, "w") as f:
             json.dump(config, f, indent=4)
     except Exception as e:
-        print(f"[ConfigManager] Error saving {CONFIG_PATH}: {e}")
+        log("Error saving {}: {}", CONFIG_PATH, e)
 
 def get_model(component_name: str, config: dict) -> str:
     """Get the correct model for a component based on master/individual settings."""

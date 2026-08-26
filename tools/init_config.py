@@ -117,4 +117,4 @@ def init_config(game_id: str | None = None, window_title: str | None = None) -> 
 if __name__ == "__main__":
     arg_game_id = sys.argv[1] if len(sys.argv) > 1 else None
     path = init_config(game_id=arg_game_id)
-    print(f"Config ready at: {path}")
+    log("Config ready at: {path}", path=path)

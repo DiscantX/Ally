@@ -7,6 +7,7 @@ Linux/macOS capture backend can drop in without touching callers.
 
 import win32con
 import win32gui
+from logger import log
 
 
 class ClientRect:
@@ -20,7 +21,7 @@ class ClientRect:
     def _get_window_handle(self, window_title):
         handle = win32gui.FindWindow(None, window_title)
         if not handle:
-            print(f"[Collector] Window not found: {window_title}")
+            log("Window not found: {window_title}", window_title=window_title)
             return None
         return handle
 

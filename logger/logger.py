@@ -26,12 +26,16 @@ REGISTRY = {
     "inspect_coords.py": {"name": "Neow's Eye", "color": "green"},
     "screen_collector.py": {"name": "ScreenCollector", "color": "blue"},
     "window_manager.py": {"name": "WindowManager", "color": "blue"},
+    "config_manager.py": {"name": "ConfigManager", "color": "bright_blue"},
     "scribe.py": {"name": "Scribe", "color": "yellow"},
     "ally_agent.py": {"name": "Ally", "color": "bright_cyan"},
     "manager.py": {"name": "MemoryManager", "color": "bright_magenta"},
     "main.py": {"name": "Main", "color": "magenta"},
     "layout.py": {"name": "Layout", "color": "green"},
     "gemini_provider.py": {"name": "GeminiProvider", "color": "bright_yellow"},
+    "db.py": {"name": "MemoryDB", "color": "bright_green"},
+    "update_docs.py": {"name": "UpdateDocs", "color": "red"},
+    "init_config.py": {"name": "InitConfig", "color": "bright_yellow"},
 }
 
 DEFAULT_BRAIN = {"name": "General", "color": "white"}
