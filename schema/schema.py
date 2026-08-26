@@ -5,7 +5,7 @@ screen element without importing each other's modules.
 """
 
 from typing import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ScreenElement(BaseModel):
@@ -30,7 +30,9 @@ class ActionItem(BaseModel):
 
 
 class AllyOutput(BaseModel):
-    analysis: str
+    analysis: str = Field(
+        description="The exact direct spoken dialogue that Ally speaks out loud to the player in first/second person ('you', 'we'). MUST NOT be internal meta-thoughts, plans, or third-person summaries."
+    )
     actions: list[ActionItem]
     run_boundary: Literal["none", "run_ended"] = "none"
 
