@@ -22,6 +22,8 @@ class MemoryDB:
     def _init_db(self) -> None:
         conn = self._connect()
         try:
+            cursor = conn.execute("PRAGMA index_list(entities)")
+            print(f"[LOG] entities indexes: {cursor.fetchall()}")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS save_sessions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -226,7 +228,9 @@ class MemoryDB:
     def upsert_entities(self, player_id: str, game_id: str, save_id: str, entities: list[dict[str, Any]]) -> None:
         conn = self._connect()
         try:
+            print(f"[LOG] upsert_entities: player_id={player_id}, game_id={game_id}, save_id={save_id}, count={len(entities)}")
             for ent in entities:
+                print(f"[LOG] Upserting entity: id={ent.get('entity_id')}, name={ent.get('canonical_name')}")
                 conn.execute("""
                     INSERT INTO entities (
                         player_id, game_id, save_id, entity_id, entity_type, canonical_name,

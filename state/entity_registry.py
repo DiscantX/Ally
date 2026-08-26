@@ -32,6 +32,7 @@ not attempt to infer type from Scribe's free-text labels.
 import difflib
 import json
 import sqlite3
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -130,6 +131,7 @@ class EntityRegistry:
         self._next_id = 1
         self.match_threshold = match_threshold
         self._external_id_index: dict[str, str] = {}  # NEW -- external_id -> entity_id
+        self._lock = threading.RLock()
 
         if self.db:
             rows = self.db.load_entities(self.player_id, self.game_id, self.save_id)
@@ -148,12 +150,13 @@ class EntityRegistry:
 
     def _name_lookup(self) -> dict[str, str]:
         """Every known name/alias -> entity_id, lowercased."""
-        lookup: dict[str, str] = {}
-        for ent in self._entities.values():
-            lookup[ent.canonical_name.lower()] = ent.entity_id
-            for alias in ent.aliases:
-                lookup[alias.lower()] = ent.entity_id
-        return lookup
+        with self._lock:
+            lookup: dict[str, str] = {}
+            for ent in self._entities.values():
+                lookup[ent.canonical_name.lower()] = ent.entity_id
+                for alias in ent.aliases:
+                    lookup[alias.lower()] = ent.entity_id
+            return lookup
 
     def resolve_or_create(
         self, elements: list[ScreenElement | ResolvableElement], turn: int
@@ -176,11 +179,12 @@ class EntityRegistry:
         recorded on creation and can refine an existing entity's type
         from "unknown" to something real on a later sighting.
         """
-        touched: list[Entity] = []
-        lookup = self._name_lookup()  # frozen snapshot of pre-call state
-        ext_lookup = dict(self._external_id_index)  # frozen snapshot
-        new_this_turn: dict[str, Entity] = {}
-        new_ext_ids: dict[str, str] = {}  # external_id -> entity_id, staged this batch
+        with self._lock:
+            touched: list[Entity] = []
+            lookup = self._name_lookup()  # frozen snapshot of pre-call state
+            ext_lookup = dict(self._external_id_index)  # frozen snapshot
+            new_this_turn: dict[str, Entity] = {}
+            new_ext_ids: dict[str, str] = {}  # external_id -> entity_id, staged this batch
 
         for el in elements:
             name = el.label.strip()

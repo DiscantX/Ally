@@ -15,6 +15,7 @@ This directory contains historical implementation plans, design strategies, and 
 - [`logging_module_plan.md`](plans/archive/logging_module_plan.md:1): Standardization plan for project-wide logging.
 - [`memory_pipeline_architecture_plan.md`](plans/archive/memory_pipeline_architecture_plan.md:1): Architecture design for the memory processing pipeline.
 - [`mtga_entity_resolver_plan.md`](plans/archive/mtga_entity_resolver_plan.md:1): Completed plan for the MTGA card entity and enum resolver, implemented in `plugins/mtga/resolver.py`.
+- [`plan_entity_registry_race_conditions.md`](plans/archive/plan_entity_registry_race_conditions.md:1): - **Deleting the DB**: Safely resolves the legacy schema mismatch error (`UNIQUE constraint failed: entities.
 - [`run_boundary_and_cross_session_plan.md`](plans/archive/run_boundary_and_cross_session_plan.md:1): Plan for managing run boundaries and cross-session state.
 - [`save_tracker_plan.md`](plans/archive/save_tracker_plan.md:1): Design for tracking game/application saves.
 - [`speedup_pass_subplan.md`](plans/archive/speedup_pass_subplan.md:1): Targeted subplan for performance optimization passes.
