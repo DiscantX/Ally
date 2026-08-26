@@ -1,0 +1,66 @@
+# Ally — Changelog
+
+Routine implementation passes, bug fixes, and refactors — kept separate
+from [`docs/ally_decision_log.md`](docs/ally_decision_log.md), which is
+reserved for genuine "why we chose X over Y" design rationale. If an entry
+here turns out to carry real architectural rationale in hindsight, move it
+to the decision log instead of leaving it here.
+
+---
+
+## 2026-08-25 — Memory System Correctness Pass (Pass 1)
+
+Audit pass confirming the memory system's actual behavior, correcting prior
+inaccurate claims about `flush_to_cross_session` and in-memory-only entity
+registry persistence.
+
+- **`save_id` semantics**: run-scoped identifiers are resolved via an
+  idle-window heuristic in [`memory/save_tracker.py`](memory/save_tracker.py),
+  with a collector-native override seam via `run_started`/`run_ended` flags
+  on `RawObservation`.
+- **Semantic run-boundary detection**: handled via
+  `AllyOutput.run_boundary` with deterministic priority resolution
+  (`memory/triggers.py`'s `resolve_run_ended`).
+- **Cross-session memory tier** confirmed genuinely operational — backed
+  by the `cross_session_memory` SQLite table, driven by
+  `CROSS_SESSION_SUMMARY_PROMPT`, executing automatically on run close.
+- **Composite trigger system** confirmed implemented via
+  `CompositeTrigger`, combining turn-count thresholds, salience events,
+  and explicit checkpoint triggers, with buffer size decoupled from flush
+  interval.
+- **Monotonic entry counter** in `NarrativeMemoryManager` confirmed
+  protecting turn-based flush cadence from chat-message corruption or
+  out-of-order events.
+- **Entity registry persistence** confirmed scoped strictly to
+  `(player_id, game_id, save_id)`. True cross-session entity carryover
+  remains explicitly out of scope for this pass.
+
+## 2026-08-25 — Coarse-Grained Synchronization: implementation notes
+
+(See the decision log's "Coarse-grained synchronization" entry for the
+rationale — a plain `threading.Lock` over fine-grained locking. This entry
+covers the fix that landed during implementation.)
+
+The initial implementation left the slow `ally.decide()`/`ally.chat()`
+network calls either fully unprotected or fully lock-held across the
+round-trip — neither is correct. Corrected to snapshot the required
+context strings under the lock, release the lock before the network call,
+then re-acquire only for the final write-back.
+
+## 2026-08-25 — Model Selection Refactor
+
+Moved Gemini model choices from a hardcoded list in
+`gui/settings_window.py` to a system-level config file,
+`configs/supported_models.json`.
+
+Added a "Master Model" toggle system in `user_config.json`:
+
+- `use_master_model`: boolean flag to enable/disable master-model
+  override.
+- `master_model`: the model used for every component when override is
+  active.
+
+Components now fetch their model via `configs/config_manager.py`'s
+`get_model()`, which resolves master-mode vs. individual per-component
+overrides — preserving component-level overrides while allowing a single
+unified config switch.

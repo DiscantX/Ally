@@ -1,12 +1,18 @@
 # Ally — Decision Log
 
-A running record of decisions made in design conversations, kept separate
-from `project_design_document_early.md` (the original scope doc). That
-doc describes the *space of options*; this doc tracks which ones we've
-actually picked, and why, so future threads don't have to re-litigate
-settled questions. Append new dated sections as decisions get made;
-don't rewrite history here — if a decision changes, add a new entry that
-supersedes the old one and say so explicitly.
+A running record of *why* decisions were made in design conversations —
+kept separate from [`ARCHITECTURE.md`](ARCHITECTURE.md) (which describes
+the system as it currently exists, not how it got there) and from
+[`CHANGELOG.md`](../CHANGELOG.md) (which tracks routine implementation
+passes and bug fixes, not design tradeoffs). This doc tracks which real
+options got chosen, and the reasoning behind it, so future threads don't
+have to re-litigate settled questions. Append new dated sections as
+decisions get made; don't rewrite history here — if a decision changes,
+add a new entry that supersedes the old one and say so explicitly.
+
+For current component descriptions, the pipeline diagram, and data-flow
+contracts, see [`ARCHITECTURE.md`](ARCHITECTURE.md). For open items and
+structural gaps, see [`roadmap.md`](roadmap.md).
 
 ---
 
@@ -24,27 +30,12 @@ supersedes the old one and say so explicitly.
 
 ## Overall architecture
 
-Pipeline, in order:
-
-``` Flowchart
-Collectors -> Interpretation layer (Scribe) -> State Sandbox
-    -> Memory Manager (parallel to Sandbox) -> Ally -> Output
-```
-
-- **Collectors** are pluggable (screen, `CommunicationMod`-style internal
-  APIs, player text input) behind a common interface.
-- **Interpretation layer** is where the Scribe and any OCR/CV
-  preprocessing live. Strictly "observe and normalize," never "decide."
-- **State Sandbox** is the authoritative, per-run fact store. Everything
-  downstream reads from here, not from raw observations.
-- **Memory Manager** persists across runs/sessions; sits alongside the
-  sandbox, not inside it, since the sandbox is wiped/archived at run end
-  and memory isn't.
-- **Ally** is the only component that makes decisions and talks to the
-  player.
-- **Plugin system** only supplies game-specific collectors and parsing
-  rules — it does not get to influence Ally's reasoning. This keeps the
-  "fresh eyes" firewall intact.
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the current pipeline diagram
+and component breakdown. One rationale worth preserving here: the plugin
+system was deliberately scoped to only ever supply game-specific
+collectors and parsing rules — it does not get to influence Ally's
+reasoning. This keeps the "fresh eyes" firewall (see Air-gap, below)
+intact regardless of how a given game's data gets collected.
 
 ## Air-gap: Scribe/Ally split confirmed
 
@@ -73,15 +64,12 @@ type, keyed by `(player_id, game_id)`.
 
 ### Narrative memory: tiered, lossy compression pipeline
 
-```Flowchart
-Short-term (rolling buffer)
-  -> Medium-term (situational summary)
-    -> Long-term (strategic summary, this run)
-      -> Cross-session summary (on run close)
-```
+Short-term → medium-term → long-term → cross-session, each tier populated
+by an LLM summarization call from the tier directly below it — nothing
+skips a tier (current implementation detail in
+[`ARCHITECTURE.md`](ARCHITECTURE.md)'s `NarrativeMemoryManager` entry).
+The flush cadence decisions:
 
-- Each tier is populated by an LLM summarization call from the tier
-  below it — nothing skips a tier.
 - **Short-term → medium-term:** flush every N events or N minutes,
   whichever comes first.
 - **Medium-term → long-term:** triggered by narrative beats (location
@@ -93,18 +81,12 @@ Short-term (rolling buffer)
 
 ### Personality: multi-resolution storage
 
-Same distillation pattern, applied to personality, on a slower clock:
-
-- **Master** — append-only journal, one entry per reflection pass, never
-  rewritten or compressed. Ground truth; not sent to prompts directly.
-- **Digest** (~200–400 words) — regenerated from master periodically;
-  used for high-stakes/personality-forward prompts.
-- **Micro** (<50 tokens) — regenerated from digest; injected into every
-  prompt cheaply to keep voice consistent.
-- Decided to start with **full regeneration** of digest/micro from
-  source on each redistill (simpler, avoids drift) rather than
-  incremental updates. Revisit only if token cost becomes a real problem
-  in playtesting.
+Same distillation pattern as narrative memory, applied to personality, on
+a slower clock (master journal → digest → micro — see ARCHITECTURE.md for
+the current tier sizes and regeneration mechanics). Decided to start with
+**full regeneration** of digest/micro from source on each redistill
+(simpler, avoids drift) rather than incremental updates. Revisit only if
+token cost becomes a real problem in playtesting.
 
 ### Retrieval: recency-based for now
 
@@ -118,17 +100,9 @@ upgrade path and the hooks already built for it.
 Added to solve a gap in the tiered memory design: lossy compression is
 fine for narrative gist but loses concrete pointer facts (item names,
 NPC identity) that must be recalled exactly. The registry is a second,
-parallel memory type:
-
-- **Non-lossy, append-only.** Facts about an entity are never rewritten
-  or summarized away, only added to. Status/`last_seen` update instead.
-- Persists for the whole run (not wiped like the short-term buffer);
-  candidate for its own cross-session ("game knowledge") treatment later.
-- Schema (see `state/entity_registry.py` in the vertical slice):
-  `entity_id`, `entity_type`, `canonical_name`, `aliases`, `status`,
-  `facts`, `first_seen`, `last_seen`, `importance`.
-- Prompt inclusion is filtered by status/recency/importance, not dumped
-  in full — a long RPG could accumulate hundreds of entities.
+parallel memory type — non-lossy and append-only, persisting for the
+whole run rather than being wiped like the short-term buffer. (See
+ARCHITECTURE.md for the current schema.)
 
 ### Entity resolution strategy
 
@@ -214,6 +188,9 @@ Explored as a way to find missing components and get shared vocabulary,
 *not* as a design constraint — biological fidelity is not a goal, and
 not everything has a clean 1:1 mapping. Where it's a strong structural
 match it's noted below; where it's just a fun label, that's noted too.
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the trimmed table covering
+only components that exist today; the full table below includes
+candidate components this analogy surfaced that aren't built yet.
 
 ### Mapping
 
@@ -221,7 +198,7 @@ match it's noted below; where it's just a fun label, that's noted too.
 | --- | --- | --- |
 | Screenshot capture | Retina | Strong — raw transduction, no interpretation |
 | Crop/filter before Scribe (Mitigation 4) | Thalamus | Strong — sensory gate, decides what reaches processing at all |
-| (not yet built) pre-Scribe change detection | Superior colliculus | Strong — fast pre-cortical filter for "did anything change enough to bother looking closer" |
+| Pre-Scribe change detection (built as `ChangeDetector`) | Superior colliculus | Strong — fast pre-cortical filter for "did anything change enough to bother looking closer" |
 | Scribe | V1 -> ventral stream (identity) + dorsal stream (location) | Strong — matches the `label`/`description` vs `box_2d` split in the schema exactly |
 | State Sandbox | Sensory buffer / iconic memory | Moderate — very short-lived holding area between perception and working memory, not IT cortex as originally guessed |
 | Short-term narrative memory | Dorsolateral prefrontal cortex | Strong — working memory: limited capacity, actively maintained |
@@ -252,7 +229,8 @@ slower, separate cadence from the active gameplay loop.
 ### New candidate components identified via this analogy
 
 These are real, concrete design proposals the brain analogy surfaced —
-not yet built, added to open questions below.
+not yet built. See [`roadmap.md`](roadmap.md) for current open items;
+these are recorded here for the reasoning trail, not as a live task list.
 
 - **Action Arbiter** (basal ganglia) — a fast, cheap action-selection
   layer between Ally's candidate actions and final output. Not an LLM
@@ -274,9 +252,9 @@ not yet built, added to open questions below.
   short-to-medium-term compression. This is the concrete mechanism for
   the original design doc's "tough battles and 'crazy' moments should
   persist."
-- **Superior colliculus** (pre-Scribe change detector) — a near-free
-  frame-diff style check deciding whether to invoke the Scribe at all
-  on a given frame, rather than running full extraction every tick.
+- **Superior colliculus** (pre-Scribe change detector) — since built as
+  `ChangeDetector`; see the Turn-gating section below and
+  `ARCHITECTURE.md`.
 - **Anterior cingulate cortex** (conflict/uncertainty detection) —
   flags contradictions (an entity's status changed unexpectedly, two
   actions score equally) and routes to "ask the player" instead of
@@ -296,31 +274,25 @@ confusion — e.g. `basal_ganglia/action_arbiter.py`.
 ## Turn-gating: tiered signals before invoking Scribe/Ally
 
 Problem: the flat capture-every-N-seconds timer was inducing needless
-latency, and the raw absdiff ChangeDetector both false-triggered on
+latency, and the raw absdiff `ChangeDetector` both false-triggered on
 ambient motion (title-screen background animation) and under-triggered
 on screen transitions (firing mid-transition instead of once settled).
 
 Decided on a tiered stack of local, free signals, evaluated before ever
-calling the Scribe:
+calling the Scribe (see `ARCHITECTURE.md`'s `ChangeDetector` entry for
+the current mechanics of each tier):
 
-1. **Stability check** (already built, was just never turned on) --
-   ChangeDetector now runs with `enable_stability_check=True` by default
-   from ScreenCollector, so a turn only fires once the screen stops
+1. **Stability check** — a turn only fires once the screen stops
    moving, not on the first frame of a transition.
-2. **ROI masking** -- layout.json elements can now carry an
-   `ignore_motion` flag (calibrated the same way as `requires_hover`, via
-   inspect_coords.py's new 'M' toggle). Plugins pass these regions into
-   ChangeDetector.set_ignore_regions() so known-animated areas (title
-   background, particle effects) are zeroed out of the diff entirely,
-   rather than tuning a global threshold around them.
-3. **SSIM over raw absdiff** -- ChangeDetector now defaults to
-   structural similarity (skimage) instead of pixel-count absdiff, since
-   it's far less sensitive to uniform texture/brightness churn while
-   staying sensitive to actual structural change. Falls back to absdiff
-   if scikit-image isn't installed.
+2. **ROI masking** — layout elements can carry an `ignore_motion` flag so
+   known-animated areas are zeroed out of the diff entirely, rather than
+   tuning a global threshold around them.
+3. **SSIM over raw absdiff** — far less sensitive to uniform
+   texture/brightness churn while staying sensitive to actual structural
+   change. Falls back to absdiff if scikit-image isn't installed.
    **Known gap, not yet resolved**: SSIM's percent scale is not
-   comparable to the old absdiff percent scale -- threshold_percent /
-   major_change_threshold / stability_threshold_percent were carried
+   comparable to the old absdiff percent scale — `threshold_percent` /
+   `major_change_threshold` / `stability_threshold_percent` were carried
    over from absdiff tuning and need to be re-measured against real
    capture sessions, not assumed correct.
 
@@ -329,12 +301,12 @@ gate (small ONNX encoder, cosine similarity between frame embeddings) as
 a further tier above SSIM+ROI, for catching semantically novel content
 (a popup outside any calibrated region) that masking can't. Follows the
 same "local model over API call" reasoning as the fastembed decision for
-text embeddings. Not built -- revisit if SSIM+ROI still under- or
+text embeddings. Not built — revisit if SSIM+ROI still under- or
 over-triggers in playtesting.
 
-Also noted but not yet wired: LayoutOCRReader's ConfirmedFacts are
+Also noted but not yet wired: `LayoutOCRReader`'s `ConfirmedFacts` are
 already computed locally every capture and currently discarded after
-use each turn. Diffing this turn's ConfirmedFacts against last turn's
+use each turn. Diffing this turn's `ConfirmedFacts` against last turn's
 would be a free additional gate (did any calibrated value actually
 change) but requires the collector to retain last turn's facts, which
 it doesn't do yet.
@@ -342,118 +314,81 @@ it doesn't do yet.
 Rejected direction, for now: replacing the Scribe itself with a local
 vision model. Larger scope than the gating problem, and matching
 Scribe's structured-output quality on target low-end-PC hardware is an
-open question -- kept separate from turn-gating so the two decisions
+open question — kept separate from turn-gating so the two decisions
 don't get coupled.
 
 ## Plugin system re-scoped: config-first, plugins as true fallback
 
-Reviewed what plugins/slay_the_spire/collector.py actually did and found
-it contributed zero game-specific *logic* -- every behavior (window
+Reviewed what `plugins/slay_the_spire/collector.py` actually did and found
+it contributed zero game-specific *logic* — every behavior (window
 capture, change detection, OCR, layout parsing) already lived in
-collectors/ and vision/. The plugin class was three configuration values
+`collectors/` and `vision/`. The plugin class was three configuration values
 (window title, layout path, source tag) wearing a Python-package
-costume. This was caught before any layout.json was ever calibrated --
+costume. This was caught before any `layout.json` was ever calibrated —
 the OCR path this wrapped had not been exercised at all.
 
 Decided: collapse per-game screen+OCR setup into a JSON config
-(configs/<game>.json) consumed by one generic factory
-(collectors/configured_collector.py: CollectorConfig, GenericHudCollector,
-build_collector). Adding a new screen-capture game now requires zero
-Python -- a config file and, whenever convenient, a calibrated
-layout.json via inspect_coords.py. A missing/uncalibrated layout.json is
-a non-fatal, logged state (empty ConfirmedFacts), not an error, since
-this is expected during early integration of any new game.
+(`configs/<game>.json`) consumed by one generic factory
+(`collectors/configured_collector.py`: `CollectorConfig`,
+`GenericHudCollector`, `build_collector`). Adding a new screen-capture game
+now requires zero Python — a config file and, whenever convenient, a
+calibrated `layout.json` via `inspect_coords.py`. A missing/uncalibrated
+`layout.json` is a non-fatal, logged state (empty `ConfirmedFacts`), not an
+error, since this is expected during early integration of any new game.
 
 This reaffirms and sharpens the earlier "plugins are a fallback, not the
 default extension mechanism" position: a plugin (a bespoke Collector
 class) is now reserved for a game that needs a structurally different
-data path -- the concrete motivating case, per the original design doc,
-is a CommunicationMod-style internal API returning exact GameState JSON
-instead of pixels. build_collector's collector_type field is the seam
+data path — the concrete motivating case, per the original design doc,
+is a `CommunicationMod`-style internal API returning exact GameState JSON
+instead of pixels. `build_collector`'s `collector_type` field is the seam
 for that when it's actually needed; no game currently needs it, so it's
-not built. plugins/slay_the_spire/ (including the dead duplicate
-layout.py, since removed) has been deleted -- Slay the Spire is
-currently just configs/slay_the_spire.json plus an as-yet-uncalibrated
-layout.json.
+not built. `plugins/slay_the_spire/` (including the dead duplicate
+`layout.py`, since removed) has been deleted — Slay the Spire is
+currently just `configs/slay_the_spire.json` plus an as-yet-uncalibrated
+`layout.json`.
 
 ## Screen-aware layouts + local screen classification
 
-Extended layout calibration from one flat layout.json per game to one
-per named screen (configs/<game>/layouts/<screen>.json), since HUD
+Extended layout calibration from one flat `layout.json` per game to one
+per named screen (`configs/<game>/layouts/<screen>.json`), since HUD
 element positions genuinely differ between e.g. combat and map screens
 in most games.
 
 Decided against having Scribe classify the current screen (rejected
-alongside the earlier genre_guess-style approach considered for this):
+alongside the earlier `genre_guess`-style approach considered for this):
 would require either an extra API call per turn or a one-turn lag
 reading last turn's classification. Instead: local anchor-based image
-matching (vision/screen_classifier.py) -- a designated stable box per
-screen, calibrated like any other box (inspect_coords.py's 'A' toggle),
+matching (`vision/screen_classifier.py`) — a designated stable box per
+screen, calibrated like any other box (`inspect_coords.py`'s 'A' toggle),
 compared via SSIM against the live frame each turn. No API call, no
 lag, since it runs before Scribe and determines both which layout to
 OCR against and which Scribe prompt to use.
 
-This also finally activates the previously-dead SCRIBE_PROMPT_NO_UI:
+This also finally activates the previously-dead `SCRIBE_PROMPT_NO_UI`:
 a screen with a calibrated layout uses NO_UI (OCR already owns HUD
 values, Scribe only extracts scene entities); an unrecognized/
-uncalibrated screen falls back to SCRIBE_PROMPT_UI, same as before this
-change, with box_2d now explicitly required to bound text only,
-excluding any icon, since these boxes are also what inspect_coords.py's
+uncalibrated screen falls back to `SCRIBE_PROMPT_UI`, same as before this
+change, with `box_2d` now explicitly required to bound text only,
+excluding any icon, since these boxes are also what `inspect_coords.py`'s
 Scribe-seeding path uses to draft new calibration.
 
 Corrected framing from an earlier discussion: a calibrated layout's
-ConfirmedFacts are trusted not because a human specifically verified
+`ConfirmedFacts` are trusted not because a human specifically verified
 them, but because they're trusted enough to skip an API call in favor
 of cheap local OCR. Human calibration is today's mechanism for
 establishing that trust; an automated confidence score would serve the
-same role if one existed later. StateSandbox's "confirmed exact
+same role if one existed later. `StateSandbox`'s "confirmed exact
 readings" framing should be read this way, not as a human-in-the-loop
 requirement.
 
-Deferred: calibration remains a manual, hidden-by-default fallback --
-RawObservation.screen_name/screen_confidence are threaded through every
-turn now so a "this screen is unrecognized" signal exists, but nothing
-yet surfaces it to Ally or auto-triggers calibration. Natural next step
-once real playtesting shows how often "unknown" actually comes up.
+## Coarse-grained synchronization
 
-## Open questions for future threads
-
-- `Collector` interface design (screen capture implementation, OCR/CV
-  pipeline for Mitigation 4 — visual masking).
-- SQLite schema for cross-run persistence of narrative memory, entity
-  registry, and personality tiers.
-- Concrete `MemoryManager` implementation (currently only designed on
-  paper) and wiring it into Ally in place of `PERSONALITY_STUB`.
-- Tuning the `difflib` match threshold, or replacing it with embeddings,
-  once real playtesting surfaces aliasing failures.
-- GUI/frontend stack — still undecided per the original scope doc
-  (Tkinter vs. local web frontend).
-- `entity_type` is hardcoded to "unknown" for every newly created entity since the Scribe doesn't currently classify type, that's expected, but it means your future importance/salience scoring (the Amygdala-analogy component) won't be able to distinguish "player character" from "background prop" without either the Scribe emitting a type field or a cheap heuristic in the registry.
-
-## Pass 1: Memory System Correctness Pass (2026-08-25)
-
-This section supersedes prior claims regarding `flush_to_cross_session` and in-memory-only entity registry persistence.
-
-- **`save_id` Semantics:** Run-scoped identifiers (`save_id`) are resolved via an idle-window heuristic implemented in [`memory/save_tracker.py`](memory/save_tracker.py:1), with a collector-native override seam via `run_started` and `run_ended` flags in [`RawObservation`](collectors/base.py:1).
-- **Semantic Run Boundary Detection:** Handled via [`AllyOutput.run_boundary`](schema/schema.py:1) with deterministic priority resolution determining when a game session or run concludes.
-- **Genuine Cross-Session Memory Tier:** Fully operational cross-session memory tier backed by the [`cross_session_memory`](memory/db.py:1) table in SQLite, driven by [`CROSS_SESSION_SUMMARY_PROMPT`](prompts/narrative.py:1), executing synthesis automatically upon run close.
-- **Composite Trigger System:** Implemented via [`CompositeTrigger`](memory/triggers.py:1), combining turn count thresholds, salience events, and explicit checkpoint triggers, featuring a decoupled buffer size vs flush interval design.
-- **Monotonic Entry Counter in Narrative Memory:** [`NarrativeMemoryManager`](memory/narrative.py:1) maintains a monotonic entry counter protecting turn-based flush cadence from chat message corruption or out-of-order events.
-- **Run-Scoped Entity Registry Persistence:** [`EntityRegistry`](state/entity_registry.py:1) persistence scoped strictly to `(player_id, game_id, save_id)`. True cross-session entity carryover remains explicitly deferred.
-
-## Coarse-grained Synchronization (2026-08-25)
-
-Decided to use a coarse-grained `threading.Lock` (`STATE_LOCK`) to synchronize access to `sandbox`, `registry`, and `memory_manager` to fix identified data races. The project prefers simple, obviously-correct mechanisms over complex fine-grained locking, and this approach directly addresses the identified concurrency issues in `main.py` and the background GUI thread.
-
-Initial implementation left the slow ally.decide()/ally.chat() calls either fully unprotected or fully lock-held across the network round-trip; corrected to snapshot required context strings under the lock, release before the network call, then re-acquire only for the final write-back.
-
-## Model Selection Refactor (2026-08-25)
-
-Decided to move Gemini model choices from a hardcoded list in `gui/settings_window.py` to a system-level configuration file `configs/supported_models.json`.
-
-Additionally, implemented a "Master Model" toggle system in `user_config.json`:
-
-- `use_master_model`: Boolean flag to enable/disable master model override.
-- `master_model`: The model used for all components when override is enabled.
-
-Components now use `configs/config_manager.py:get_model()` to fetch the correct model based on whether master mode is active, preserving individual component overrides while allowing for a unified configuration.
+Decided to use a coarse-grained `threading.Lock` (`STATE_LOCK`) to
+synchronize access to `sandbox`, `registry`, and `memory_manager`, rather
+than fine-grained per-object locking. The project prefers simple,
+obviously-correct mechanisms over complex fine-grained locking — this
+approach directly addresses the concurrency issues in `main.py` and the
+background GUI thread without the bug surface of finer-grained locking.
+See `CHANGELOG.md` for the specific bug this surfaced and how it was
+fixed during implementation.

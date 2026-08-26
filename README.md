@@ -29,11 +29,7 @@ Collectors -> Scribe -> State Sandbox -> Entity Registry -> Memory Manager -> Al
   This is deliberate — see the decision log for why.
 
 For the real architecture reference (current components, how they fit
-together) see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). If that file
-doesn't exist yet in your checkout, the pipeline above and
-[`docs/ally_decision_log.md`](docs/ally_decision_log.md) are the best
-current source of truth — ARCHITECTURE.md is a planned extraction from the
-decision log, not yet split out.
+together) see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Setup
 
@@ -72,7 +68,7 @@ HUD regions with `tools/inspect_coords.py`, or just keep playing — the
 screen bootstrapper will draft layouts automatically after a few
 unrecognized screens, with no manual step required. See
 [`docs/adding_a_new_game.md`](docs/adding_a_new_game.md) for the full
-walkthrough (also not yet split out — until then,
+walkthrough (not yet split out — until then,
 `tools/init_config.py`, `tools/inspect_coords.py`, and
 `collectors/configured_collector.py`'s module docstrings cover it).
 
@@ -89,13 +85,14 @@ MTGA-specific tests are separate — see
 ## Docs map
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current components and
-  how they fit together (planned; see note above if not present yet)
+  how they fit together
 - [`docs/ally_decision_log.md`](docs/ally_decision_log.md) — why things are
   built the way they are, append-only history of real decisions
 - [`docs/adding_a_new_game.md`](docs/adding_a_new_game.md) — onboarding a
   new game (planned)
-- [`docs/roadmap.md`](docs/roadmap.md) — open items (planned; until then,
-  the decision log's "Open questions" section is canonical)
+- [`docs/roadmap.md`](docs/roadmap.md) — open items and structural gaps
+- [`CHANGELOG.md`](CHANGELOG.md) — routine implementation passes and bug
+  fixes, separate from the decision log's design rationale
 - [`plugins/mtga/integration_notes.md`](plugins/mtga/integration_notes.md) —
   MTGA-specific research notes and gotchas
 - [`CLAUDE.md`](CLAUDE.md) — repo conventions for AI contributors
@@ -109,13 +106,6 @@ uncalibrated screens, tiered narrative memory with cross-session summaries,
 personality memory, the entity registry (fuzzy + exact-ID resolution), and
 the MTGA log-based Collector (parser, resolver, enum tables).
 
-Still in progress: MTGA's dispatch wiring into `main.py` and its
-Ally-facing prior-knowledge prompt question; SSIM threshold tuning;
-auto-selecting a discriminating anchor region for bootstrapped screens;
-medium/long-term memory flush is implemented but not yet extensively
-playtested at scale; knowledge-graph-style entity relationships; embedding-
-based entity resolution (the seam exists, nothing plugs into it yet).
-
-The decision log's "Open questions" section and the roadmap doc (once
-split out) are the canonical list — this section is a snapshot, not
-maintained turn-by-turn.
+For what's still in progress or open, see [`docs/roadmap.md`](docs/roadmap.md)
+— that's the maintained, canonical list. This section is a quick-glance
+snapshot of what's solid, not maintained turn-by-turn.

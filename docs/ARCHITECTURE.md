@@ -343,15 +343,140 @@ and [`plugins/mtga/README.md`](../plugins/mtga/README.md).
 
 ## 4. Data Flow Contracts
 
-*(drafting next)*
+### The Collector contract
+
+Every Collector (`collectors/base.py`) — screen-capture or structured-log —
+produces a `RawObservation`: a PIL image (or `None`, e.g. when the window
+isn't focused) plus zero or more `ConfirmedFact`s. A `ConfirmedFact` is a
+`(key, value, source)` triple representing something read with certainty,
+bypassing the Scribe entirely — calibrated OCR is the common case today, but
+the contract doesn't care how the fact was obtained. This is what lets
+`StateSandbox` treat OCR-derived values and Scribe-derived values with
+different trust levels without knowing anything about how either was
+produced.
+
+### Two bounding-box formats, one conversion point
+
+Two incompatible box formats exist in the pipeline, and every call site
+converts explicitly through `vision/geometry.py` rather than assuming one
+means the other:
+
+- **Scribe's format** (`ScreenElement.box_2d`): `[y_min, x_min, y_max,
+  x_max]`, normalized 0–1000, relative to the full frame — Gemini's native
+  output shape.
+- **Calibrated layout format** (`vision.layout.UIElement`, `layout.json`):
+  absolute pixel `x, y, w, h`, relative to the captured window's client
+  area — what Tesseract needs for an exact crop.
+
+`normalized_box_to_pixels()` and `pixels_to_normalized_box()` are the only
+two functions that cross this boundary. Both `ScreenBootstrapper` (Scribe
+boxes → draft layout boxes) and `tools/inspect_coords.py`'s Scribe-seeding
+path go through here.
+
+### Three kinds of per-turn data, three trust framings
+
+`StateSandbox` (`state/sandbox.py`) is deliberately dumb — it holds what was
+handed to it, decides nothing. What it holds falls into three categories
+with different lifecycle and trust semantics, and `as_context()` presents
+each to Ally with language that reflects that difference:
+
+| Field | Source | Lifecycle | Trust framing |
+| --- | --- | --- | --- |
+| `current_elements` | Scribe's `screen_elements` | Fully overwritten every turn | An LLM's interpretation of an image — presented as such |
+| `confirmed_facts` | Calibrated OCR, or any Collector-supplied exact reading | Fully overwritten every turn | "Confirmed exact readings... trust these" |
+| `structured_state` | A Collector's own accumulated state (e.g. MTGA's parsed `game_state`) | **Persists across turns** when a turn's `update()` call omits it | At least as trustworthy as confirmed facts — not a crop-and-recognize step over pixels at all |
+
+The `structured_state` persistence rule is the one non-obvious part: unlike
+the other two fields, it is *not* reset to `None` just because a given
+turn's `update()` call didn't pass one. This is what lets a Collector like
+`MTGALogParser` hand `StateSandbox` a reference to its running accumulation
+only when something actually changed, rather than replaying the full game
+state every single turn the way Scribe's elements are replayed.
+
+A calibrated `ConfirmedFact` being "trusted" is a statement about
+cost/reliability, not about human verification specifically — see
+`LayoutOCRReader`/`vision/layout.py`'s `is_trusted` property. A
+human-calibrated box and a `scribe_auto` draft that self-confirmed via
+`looks_like_real_text()` are both trusted the same way; calibration is
+today's mechanism for establishing that trust, not a requirement baked into
+the data model itself.
 
 ## 5. Extension Points
 
-*(drafting next)*
+### Adding a screen-capture game: config-first, zero Python
+
+The default and preferred path for any new game that's played by looking at
+a window:
+
+1. **`tools/init_config.py`** — run against the game's focused window (or
+   invoked automatically by `main.py --game <id>` when no config exists
+   yet). Auto-generates `configs/<game_id>/config.json` (window title,
+   layout directory, source tag) purely from convention — no manual editing
+   required to get a game running for the first time.
+2. **Play.** With no calibrated layout yet, every screen runs Scribe in
+   full-UI mode and produces no `ConfirmedFact`s — this is an expected,
+   non-fatal state, not an error condition.
+3. **Calibration happens automatically or manually, at your discretion.**
+   `ScreenBootstrapper` drafts layouts on its own after a few consecutive
+   unrecognized screens (see §3). `tools/inspect_coords.py` remains
+   available any time for a human to hand-calibrate a screen or clean up a
+   bootstrapped draft, but nothing in the pipeline blocks on that happening.
+
+No custom Python class is required anywhere in this path.
+
+### Adding a structurally different game: the plugin fallback
+
+A plugin (`plugins/<game>/`, a bespoke `Collector` implementation) is
+reserved for a game whose data doesn't fit "screenshot + calibrated OCR" at
+all — the concrete case is a game with its own structured log or API
+(MTGA's `Player.log`, or the original design doc's `CommunicationMod`-style
+example). `collectors/configured_collector.py`'s `build_collector()`
+dispatches on a `collector_type` field in the config (`"screen_ocr"` today;
+a future `"mtga_log"` value routes to a plugin's Collector once that wiring
+is complete) — this is the seam a new structurally-different game hooks
+into. A plugin only ever supplies data through the same
+`Collector`/`RawObservation` contract every other Collector uses (see §4);
+it gets no special access to Ally's reasoning. See §3's Plugins entry and
+`plugins/mtga/integration_notes.md` for the worked example.
+
+### Experimental, not part of the core pipeline
+
+`goodies/geneology.py` is a standalone experiment that breeds new
+`PERSONALITIES` entries together via an LLM call, producing fused
+personas across simulated generations. It is not wired into `AllyCore` or
+any live turn loop — nothing in the pipeline currently consumes its output.
 
 ## 6. Brain Analogy (trimmed)
 
-*(drafting next)*
+Explored during design as a way to find missing components and get shared
+vocabulary — not a design constraint. Biological fidelity was never a goal,
+and not every component has a clean 1:1 mapping. Kept here only for
+components that actually exist today; see `ally_decision_log.md` if you
+want the fuller exploration, including the components this analogy
+motivated that haven't been built.
+
+| Ally component | Brain analogue | Fit |
+| --- | --- | --- |
+| Screenshot capture | Retina | Strong — raw transduction, no interpretation |
+| Pre-Scribe change detection (`ChangeDetector`) | Superior colliculus | Strong — fast pre-cortical filter for "did anything change enough to bother looking closer" |
+| Scribe | V1 → ventral stream (identity) + dorsal stream (location) | Strong — matches the `label`/`description` vs `box_2d` split exactly |
+| State Sandbox | Sensory buffer / iconic memory | Moderate — a short-lived holding area between perception and working memory |
+| Short-term narrative memory | Dorsolateral prefrontal cortex | Strong — working memory: limited capacity, actively maintained |
+| `flush_*` compression calls | Hippocampus | Strong — the consolidation *mechanism*, not the storage site |
+| Cross-session / long-term storage | Cerebral cortex (distributed) | Moderate — the resting place of consolidated memory |
+| Entity Registry | Semantic memory | Moderate — facts about what things are, independent of the episode learned in |
+| Ally | Prefrontal cortex | Strong — integrates perception, memory, and goals into decisions |
+| Personality reflection/redistill | Default Mode Network + medial PFC | Strong — self-referential, autobiographical synthesis that runs "at rest," not during active play |
+
+**Online vs. offline.** Task-Positive Network and Default Mode Network are
+anti-correlated brain states, and that split maps cleanly onto a real
+division the pipeline already has: **TPN ("online")** covers everything
+that runs during a live turn — Scribe, Sandbox, short-term buffer, Ally
+actively deciding. **DMN ("offline")** covers everything that runs between
+turns or at session boundaries — the `flush_*` consolidation calls and
+personality reflection/redistillation. This is why reflection and
+redistillation deliberately run on a slower, separate cadence from the
+active gameplay loop rather than inline with every turn.
 
 ## 7. Known Limitations
 
