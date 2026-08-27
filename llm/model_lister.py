@@ -18,10 +18,10 @@ def get_available_models() -> list[str]:
         ]
         return sorted(models)
     except Exception as e:
-        log("[ModelLister] Failed to fetch models dynamically: {e}. Falling back to static config.", e=e)
+        log("Failed to fetch models dynamically: {e}. Falling back to static config.", e=e)
         try:
             with open("configs/supported_models.json", "r") as f:
                 return json.load(f)["supported_models"]
         except Exception as e_static:
-            log("[ModelLister] Failed to load fallback static config: {e_static}", e_static=e_static)
+            log("Failed to load fallback static config: {e_static}", e_static=e_static)
             return ["gemini-3.5-flash-lite"] # Absolute minimal fallback

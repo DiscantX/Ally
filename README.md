@@ -1,8 +1,9 @@
 # Ally
 
-Ally is an AI game companion. It watches your screen (or reads a game's own
-log/API where one exists), and plays along like a friend sitting next to you
-on the couch — commentary, analysis, and suggestions, not a walkthrough.
+> **“The AI companion that turns solo gaming into a shared memory.”**
+> *Not a guide. A friend who stays with you through every run.*
+
+Ally is an AI game companion. It watches your screen (or reads a game's own log/API where one exists), and plays along like a friend sitting next to you on the couch — commentary, analysis, and suggestions, not a walkthrough. An AI sidekick built to play, laugh, and learn through every run.
 
 It's built to be genre- and game-agnostic: adding a new screen-capture game
 should require zero Python, just a config file and (optionally) a calibrated

@@ -24,7 +24,7 @@ class ClientRect:
         duration = time.perf_counter() - start_t
         if not ClientRect._first_setup_done:
             ClientRect._first_setup_done = True
-            log("[ColdStart] [WindowManagerSetup] Initialized window manager for '{title}' in {duration:.4f}s (handle={handle})", title=window_title, duration=duration, handle=self.handle)
+            log("Initialized window manager for '{title}' in {duration:.4f}s (handle={handle})", title=window_title, duration=duration, handle=self.handle)
 
     def _get_window_handle(self, window_title):
         handle = win32gui.FindWindow(None, window_title)

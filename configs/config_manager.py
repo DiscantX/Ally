@@ -80,7 +80,7 @@ def load_user_config(force_reload: bool = False) -> dict[str, Any]:
     else:
         save_user_config(config)
     duration = time.perf_counter() - start_t
-    log("[ConfigManager] [ConfigLoading] Loaded user config in {duration:.4f}s (path={path})", duration=duration, path=CONFIG_PATH)
+    log("Loaded user config in {duration:.4f}s (path={path})", duration=duration, path=CONFIG_PATH)
     _cached_config = config
     return config
 

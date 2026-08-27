@@ -35,7 +35,7 @@ class ClipClassifier:
         self.enabled = config.get("clip_enabled", True) and _FASTEMBED_AVAILABLE
         if not _FASTEMBED_AVAILABLE:
             log(
-                "[ClipClassifier] fastembed not installed -- CLIP screen gating "
+                "fastembed not installed -- CLIP screen gating "
                 "disabled, pipeline behaves as if this feature doesn't exist. "
                 "`pip install fastembed` to enable it."
             )
@@ -49,7 +49,7 @@ class ClipClassifier:
             self._image_model = ImageEmbedding(image_model_name)
             self._text_model = TextEmbedding(text_model_name)
         except Exception as e:
-            log("[ClipClassifier] Failed to load CLIP models ({e}) -- disabling CLIP gating.", e=e)
+            log("Failed to load CLIP models ({e}) -- disabling CLIP gating.", e=e)
             self.enabled = False
 
     def encode_image(self, frame_bgr: np.ndarray) -> np.ndarray | None:
@@ -66,7 +66,7 @@ class ClipClassifier:
             embedding = next(self._image_model.embed([pil_image]))
             return self._normalize(np.asarray(embedding))
         except Exception as e:
-            log("[ClipClassifier] Image encode failed: {e}", e=e)
+            log("Image encode failed: {e}", e=e)
             return None
 
     def encode_text(self, text: str) -> np.ndarray | None:
@@ -78,7 +78,7 @@ class ClipClassifier:
             embedding = next(self._text_model.embed([text]))
             return self._normalize(np.asarray(embedding))
         except Exception as e:
-            log("[ClipClassifier] Text encode failed: {e}", e=e)
+            log("Text encode failed: {e}", e=e)
             return None
 
     @staticmethod

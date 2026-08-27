@@ -82,7 +82,7 @@ def init_config(game_id: str | None = None, window_title: str | None = None) -> 
     # the focused window at all -- no need to require the game be
     # focused on a run that isn't actually creating anything.
     if config_path_hint and os.path.exists(config_path_hint):
-        log(f"[InitConfig] Config already exists at {config_path_hint} -- leaving it untouched.")
+        log(f"Config already exists at {config_path_hint} -- leaving it untouched.")
         return config_path_hint
 
     if window_title is None:
@@ -102,7 +102,7 @@ def init_config(game_id: str | None = None, window_title: str | None = None) -> 
     layout_dir = os.path.join(config_dir, "layouts")
 
     if os.path.exists(config_path):
-        log(f"[InitConfig] Config already exists at {config_path} -- leaving it untouched.")
+        log(f"Config already exists at {config_path} -- leaving it untouched.")
         return config_path
 
     os.makedirs(layout_dir, exist_ok=True)
@@ -110,7 +110,7 @@ def init_config(game_id: str | None = None, window_title: str | None = None) -> 
     with open(config_path, "w") as f:
         json.dump(config, f, indent=4)
 
-    log(f"[InitConfig] Wrote new config for '{game_id}' (window: '{window_title}') to {config_path}")
+    log(f"Wrote new config for '{game_id}' (window: '{window_title}') to {config_path}")
     return config_path
 
 

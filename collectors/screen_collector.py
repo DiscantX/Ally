@@ -80,7 +80,7 @@ class ScreenCollector:
         duration = time.perf_counter() - start_t
         if not ScreenCollector._first_capture_done:
             ScreenCollector._first_capture_done = True
-            log("[ColdStart] [FirstScreenCapture] Completed first screen capture in {duration:.4f}s", duration=duration)
+            log("Completed first screen capture in {duration:.4f}s", duration=duration)
         return RawObservation(image=image, changed=changed)
 
     def capture_bgr(self) -> np.ndarray | None:

@@ -28,6 +28,7 @@ from PIL import Image
 from ally.core import AllyCore
 from collectors.base import RawObservation
 from logger import log
+from tools.splash import show_splash
 
 STATE_LOCK = threading.Lock()
 
@@ -58,6 +59,7 @@ def parse_args() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
+    show_splash()
     args = parse_args()
 
     core = AllyCore(

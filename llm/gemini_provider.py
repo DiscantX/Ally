@@ -138,7 +138,7 @@ class GeminiProvider:
         duration = time.perf_counter() - start_t
         if not GeminiProvider._first_gen_done:
             GeminiProvider._first_gen_done = True
-            log("[ColdStart] [FirstLLMGeneration] Completed first LLM generation (model={model}) in {duration:.4f}s", model=model, duration=duration)
+            log("Completed first LLM generation (model={model}) in {duration:.4f}s", model=model, duration=duration)
 
         if not response.text:
             raise ValueError("Model returned empty response text")

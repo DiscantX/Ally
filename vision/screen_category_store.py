@@ -73,10 +73,10 @@ class ScreenCategoryStore:
         if self.db.count_screen_categories(source="seed") > 0:
             return
         if not os.path.exists(SEED_FILE):
-            log("[ScreenCategoryStore] No seed file at {path} -- starting with zero off_game categories.", path=SEED_FILE)
+            log("No seed file at {path} -- starting with zero off_game categories.", path=SEED_FILE)
             return
         if not self.clip.enabled:
-            log("[ScreenCategoryStore] CLIP unavailable -- cannot embed seed categories, skipping seed load.")
+            log("CLIP unavailable -- cannot embed seed categories, skipping seed load.")
             return
         with open(SEED_FILE, "r") as f:
             seeds = json.load(f)
@@ -88,7 +88,7 @@ class ScreenCategoryStore:
                 game_id=None, kind="off_game", text=entry["text"],
                 embedding=embedding.astype(np.float32).tobytes(), source="seed",
             )
-        log("[ScreenCategoryStore] Seeded {n} off_game categories.", n=len(seeds))
+        log("Seeded {n} off_game categories.", n=len(seeds))
 
     def _load_global(self) -> None:
         """Load every game_id IS NULL row (off_game seeds + all normal

@@ -51,7 +51,7 @@ class ScreenBootstrapper:
         duration = time.perf_counter() - start_t
         if not ScreenBootstrapper._first_setup_done:
             ScreenBootstrapper._first_setup_done = True
-            log("[ColdStart] [ScreenBootstrapperSetup] Initialized screen collector bootstrapper in {duration:.4f}s", duration=duration)
+            log("Initialized screen collector bootstrapper in {duration:.4f}s", duration=duration)
 
     def note_classification(self, screen_name: str) -> bool:
         """Call once per turn with this turn's classification. Returns
@@ -93,7 +93,7 @@ class ScreenBootstrapper:
             json.dump(layout, f, indent=4)
 
         log(
-            "[Bootstrapper] Drafted screen '{screen_name}' ({n} elements, {v} self-confirmed) "
+            "Drafted screen '{screen_name}' ({n} elements, {v} self-confirmed) "
             "at {path} -- no human step required.",
             screen_name=screen_name, n=len(layout), v=validated_count, path=layout_path,
         )

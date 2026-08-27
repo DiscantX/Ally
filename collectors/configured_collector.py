@@ -72,7 +72,7 @@ def build_screen_layouts(layout_dir: str, source_tag_prefix: str) -> tuple[dict[
     classifier = ScreenClassifier()
 
     if not os.path.isdir(layout_dir):
-        log(f"[Collector] No layout directory at {layout_dir} -- Scribe will run in full-UI mode until at least one screen is calibrated.")
+        log(f"No layout directory at {layout_dir} -- Scribe will run in full-UI mode until at least one screen is calibrated.")
         return readers, classifier
 
     for fname in os.listdir(layout_dir):
@@ -181,7 +181,7 @@ class GenericHudCollector:
         """Called from main.py right after Scribe runs, only when capture()
         flagged bootstrap_ready this turn."""
         if self._last_frame_bgr is None:
-            log("[Collector] bootstrap_screen called with no cached frame -- skipping.")
+            log("bootstrap_screen called with no cached frame -- skipping.")
             return None
         result = self.bootstrapper.bootstrap(self._last_frame_bgr, screen_elements, screen_name_guess)
         self.readers[result.screen_name] = LayoutOCRReader(

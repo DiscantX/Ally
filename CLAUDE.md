@@ -27,6 +27,11 @@ truth.
   a type to `Any`) to make a Pylance complaint go away — fix the actual
   type mismatch, or ask if the annotation itself is wrong.
 
+## Logging Guidelines
+
+- **Never manually add square bracket prefixes** (e.g. `[ModuleName]`, `[MethodName]`, `[ColdStart]`) to log messages.
+- [`logger/logger.py`](logger/logger.py) automatically inspects stack frames to prepend module and method/function names dynamically. Pass raw messages (e.g. `logger.log("Initializing...")` rather than `logger.log("[ColdStart] Initializing...")`).
+
 ## Markdown Formatting
 
 - You must follow all rules defined in the local `.markdownlint.yaml` file.
