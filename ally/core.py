@@ -84,6 +84,25 @@ class AllyCore:
         self.on_chat_message: Optional[Callable[[str, str], None]] = None
         self.on_eta_ready: Optional[Callable[[], None]] = None
         self.on_connection_status: Optional[Callable[[bool], None]] = None
+        self.on_medium_term: Optional[Callable[[str], None]] = None
+        self.on_personality_state: Optional[Callable[[str], None]] = None
+        self.on_strategic_memory: Optional[Callable[[str], None]] = None
+
+    def push_memory_states(self):
+        if self.memory_manager is not None:
+            if self.on_personality_state is not None:
+                digest = self.memory_manager.get_personality_digest()
+                base = self.memory_manager.get_base_personality()
+                self.on_personality_state(f"Archetype: {base}\n\nDigest:\n{digest}")
+            if self.on_strategic_memory is not None:
+                long_term = self.memory_manager.get_long_term_summary()
+                cross_session = self.memory_manager.get_cross_session_summary()
+                strat_text = []
+                if cross_session:
+                    strat_text.append(f"Cross-Session Summary:\n{cross_session}")
+                if long_term:
+                    strat_text.append(f"Strategic Long-Term Overview:\n{long_term}")
+                self.on_strategic_memory("\n\n".join(strat_text) if strat_text else "(no strategic memory recorded yet)")
 
     def update_pipeline_image(self, key: str, image, title: Optional[str] = None):
         if self.gui_app is not None and hasattr(self.gui_app, "update_pipeline_image"):
@@ -237,6 +256,7 @@ class AllyCore:
             self.on_prompt_update(self.sandbox.as_context()[:300])
         if self.on_feedback is not None:
             self.on_feedback(ally_output.analysis)
+        self.push_memory_states()
         if self.on_eta_ready is not None:
             self.on_eta_ready()
 

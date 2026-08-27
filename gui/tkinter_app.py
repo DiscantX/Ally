@@ -55,10 +55,14 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
             core.on_chat_message = self.append_chat_message
             core.on_eta_ready = self.set_eta_ready
             core.on_connection_status = self.set_connection_status
+            core.on_medium_term = self.update_medium_term_summary
+            core.on_personality_state = self.update_personality_state
+            core.on_strategic_memory = self.update_strategic_memory
 
         self._drawer_open = DEFAULT_DRAWER_OPEN
         self._prompt_collapsed = True
         self._summary_collapsed = False
+        self._strategic_collapsed = True
 
         self._setup_window()
         self._setup_fonts()
@@ -304,7 +308,7 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         summary_header_row.pack(fill=tk.X, pady=(0, 3))
 
         self.summary_toggle_btn = tk.Button(
-            summary_header_row, text="▼ STATE OF THE GAME", font=self.label_font,
+            summary_header_row, text="▼ COMPANION STATE", font=self.label_font,
             fg=cfg.summary_color, bg=cfg.bg_color,
             activebackground=cfg.bg_color, activeforeground=cfg.accent_color,
             relief=tk.FLAT, bd=0, cursor="hand2", anchor="w",
@@ -349,6 +353,7 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         feedback_box.pack(fill=tk.BOTH, expand=True)
         self.feedback_text.tag_configure('timestamp', foreground=cfg.dim_color, font=self.mini_font)
         self.feedback_text.tag_configure('body', foreground=cfg.feedback_color, font=self.text_font)
+        self.feedback_text.tag_configure('medium', foreground='#ffb74d', font=self.text_font)
 
         self._add_draggable_divider(lambda: self.feedback_text, lambda: self.prompt_text)
 
@@ -375,6 +380,30 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         )
         prompt_box.pack(fill=tk.X)
         self.prompt_content_frame.pack_forget()
+
+        # ── Strategic Memory Section ──
+        strategic_outer_container = tk.Frame(self.main_frame, bg=cfg.bg_color)
+        strategic_outer_container.pack(fill=tk.X, padx=10, pady=4)
+
+        strategic_header_row = tk.Frame(strategic_outer_container, bg=cfg.bg_color)
+        strategic_header_row.pack(fill=tk.X, pady=(0, 3))
+
+        self.strategic_toggle_btn = tk.Button(
+            strategic_header_row, text="▶ STRATEGIC MEMORY", font=self.label_font,
+            fg=cfg.accent_color, bg=cfg.bg_color,
+            activebackground=cfg.bg_color, activeforeground=cfg.accent_color,
+            relief=tk.FLAT, bd=0, cursor="hand2", anchor="w",
+            command=self._toggle_strategic_section
+        )
+        self.strategic_toggle_btn.pack(side=tk.LEFT, fill=tk.X)
+
+        self.strategic_content_frame = tk.Frame(strategic_outer_container, bg=cfg.bg_color)
+        strategic_box, self.strategic_text = self._make_scrollable_text(
+            self.strategic_content_frame, height=4,
+            fg_color=cfg.accent_color, font=self.small_font,
+        )
+        strategic_box.pack(fill=tk.X)
+        self.strategic_content_frame.pack_forget()
 
         self._add_divider()
 
@@ -437,12 +466,12 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
             if feedback_height - needed >= 2:
                 self.feedback_text.config(height=feedback_height - needed)
             self.summary_content_frame.pack(fill=tk.X, pady=(0, 3))
-            self.summary_toggle_btn.config(text="▼ STATE OF THE GAME")
+            self.summary_toggle_btn.config(text="▼ COMPANION STATE")
             self._summary_collapsed = False
         else:
             gained = summary_height
             self.summary_content_frame.pack_forget()
-            self.summary_toggle_btn.config(text="▶ STATE OF THE GAME")
+            self.summary_toggle_btn.config(text="▶ COMPANION STATE")
             self._summary_collapsed = True
             self.feedback_text.config(height=feedback_height + gained)
 
@@ -462,6 +491,24 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
             self.prompt_content_frame.pack_forget()
             self.prompt_toggle_btn.config(text="▶ LAST PROMPT")
             self._prompt_collapsed = True
+            self.feedback_text.config(height=feedback_height + gained)
+
+    def _toggle_strategic_section(self):
+        strategic_height = self.strategic_text.cget('height')
+        feedback_height = self.feedback_text.cget('height')
+
+        if self._strategic_collapsed:
+            needed = strategic_height
+            if feedback_height - needed >= 2:
+                self.feedback_text.config(height=feedback_height - needed)
+            self.strategic_content_frame.pack(fill=tk.X, pady=(0, 3))
+            self.strategic_toggle_btn.config(text="▼ STRATEGIC MEMORY")
+            self._strategic_collapsed = False
+        else:
+            gained = strategic_height
+            self.strategic_content_frame.pack_forget()
+            self.strategic_toggle_btn.config(text="▶ STRATEGIC MEMORY")
+            self._strategic_collapsed = True
             self.feedback_text.config(height=feedback_height + gained)
 
     def _add_divider(self):

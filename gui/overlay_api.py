@@ -117,6 +117,46 @@ class OverlayApiMixin:
             self.summary_text.see('1.0')
         self._dispatch(_update)
 
+    def update_personality_state(self, state_text: str):
+        """Update the Companion State display."""
+        def _update():
+            self.summary_text.config(state=tk.NORMAL)
+            self.summary_text.delete('1.0', tk.END)
+            self.summary_text.insert(tk.END, state_text)
+            self.summary_text.config(state=tk.DISABLED)
+            self.summary_text.see('1.0')
+        self._dispatch(_update)
+
+    def update_medium_term_summary(self, summary: str):
+        """Append a medium-term situational summary to the coaching history with amber coloring."""
+        def _update():
+            text = self.feedback_text
+            was_at_bottom = self._is_scrolled_to_bottom(text)
+            timestamp = datetime.now().strftime('%H:%M:%S')
+
+            text.config(state=tk.NORMAL)
+            if self._feedback_entry_count > 0:
+                text.insert(tk.END, "\n\n")
+            text.insert(tk.END, f"── {timestamp} [MEDIUM-TERM THOUGHT] ──\n", 'timestamp')
+            text.insert(tk.END, summary, 'medium')
+            text.config(state=tk.DISABLED)
+            self._feedback_entry_count += 1
+
+            if was_at_bottom:
+                text.see(tk.END)
+        self._dispatch(_update)
+
+    def update_strategic_memory(self, memory_text: str):
+        """Update the Strategic & Long-Term Memory display."""
+        def _update():
+            if hasattr(self, 'strategic_text'):
+                self.strategic_text.config(state=tk.NORMAL)
+                self.strategic_text.delete('1.0', tk.END)
+                self.strategic_text.insert(tk.END, memory_text)
+                self.strategic_text.config(state=tk.DISABLED)
+                self.strategic_text.see('1.0')
+        self._dispatch(_update)
+
     def start_eta_countdown(self, seconds: int):
         """Start the ETA countdown timer."""
         self._feedback_data.eta_seconds = seconds

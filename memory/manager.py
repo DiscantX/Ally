@@ -64,6 +64,27 @@ class MemorySystem:
         with self.lock:
             return self.personality.get_prompt_context()
 
+    def get_medium_term_summaries(self) -> list[str]:
+        with self.lock:
+            return list(self.narrative._medium_term_summaries)
+
+    def get_long_term_summary(self) -> str:
+        with self.lock:
+            return self.narrative._long_term_summary
+
+    def get_cross_session_summary(self) -> str:
+        with self.lock:
+            record = self.db.get_latest_cross_session(self.player_id, self.game_id)
+            return record["summary"] if record else ""
+
+    def get_personality_digest(self) -> str:
+        with self.lock:
+            return self.personality._digest or self.personality.base_personality
+
+    def get_base_personality(self) -> str:
+        with self.lock:
+            return self.personality.base_personality
+
     def flush_to_cross_session(self) -> None:
         with self.lock:
             self.narrative.flush_to_cross_session()
