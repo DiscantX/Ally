@@ -1,34 +1,13 @@
-"""Vertical slice: a continuous turn loop through the pipeline using AllyCore.
-
-     Collector (screen capture + calibrated OCR)
-         -> Scribe (sees image, extracts scene elements + genre guess)
-         -> State Sandbox (holds this turn's facts + OCR ConfirmedFacts)
-         -> Entity Registry (resolves facts against everything seen so far)
-         -> Genre Tracker (accumulates confidence across turns)
-         -> Memory Manager (short-term rolling buffer of recent turns)
-         -> Ally (blind to the image, reasons from facts + entities +
-                  genre + memory)
-
-Usage:
-    python main.py --game ftl            # auto-creates configs/ftl/config.json
-                                           # from the focused window if missing,
-                                           # then runs the live loop
-    python main.py                       # same, but derives game_id from
-                                           # whatever window is focused right now
-    python main.py --config path/to.json # explicit config path, skips --game
-                                           # lookup/auto-create entirely
-    python main.py images/monkey.png     # single file-backed run, no loop
-    python main.py --gui                 # launch live loop with Tkinter GUI overlay
-"""
+"""Vertical slice: a continuous turn loop through the pipeline using AllyCore."""
 
 import argparse
 import threading
 from PIL import Image
+import time
 
 from ally.core import AllyCore
 from collectors.base import RawObservation
 from logger import log
-from tools.splash import show_splash
 
 STATE_LOCK = threading.Lock()
 
@@ -58,8 +37,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-if __name__ == "__main__":
-    show_splash()
+def initialize_application():
+    """Application entry point invoked cleanly after splash screen processes terminate."""
     args = parse_args()
 
     core = AllyCore(
@@ -98,3 +77,7 @@ if __name__ == "__main__":
             core.stop()
         else:
             core.run_loop()
+
+# Allows main.py to still be run directly if needed during rapid headless testing
+if __name__ == "__main__":
+    initialize_application()

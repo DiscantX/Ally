@@ -11,8 +11,6 @@ COLORS = {
     "green": "32",
     "yellow": "33",
     "blue": "34",
-    "magenta": "35",
-    "cyan": "36",
     "white": "37",
     
     # High-Intensity / Bright Palette
@@ -41,11 +39,24 @@ COLORS = {
     "steel_blue": "38;5;67",
     "dark_grey": "38;5;238",
     
+    # Vertical & Horizontal Smooth Gradient Palette
+    "magenta": "38;2;255;45;220",    # Step 0: Vibrant Hot Pink / Magenta
+    "magenta_1": "38;2;205;36;186",  # Step 1: Rich Fuchsia
+    "magenta_2": "38;2;155;27;152",  # Step 2: Deep Violet
+    "magenta_3": "38;2;105;18;118",  # Step 3: Dark Purple
+    "magenta_4": "38;2;55;10;85",    # Step 4: Midnight Indigo
+
+    "cyan": "38;2;0;240;240",       # Step 0: Electric Neon Cyan
+    "cyan_1": "38;2;1;188;202",     # Step 1: Sky Teal
+    "cyan_2": "38;2;2;137;165",     # Step 2: Slate Ocean Blue
+    "cyan_3": "38;2;3;86;127",      # Step 3: Deep Marine Blue
+    "cyan_4": "38;2;5;35;90",       # Step 4: Cyber Midnight Blue
+    
     # Utility Codes
     "reset": "0",
     
     # Semantic Log Level Styles
-    "lvl_debug": "38;5;244",       # Gray
+    "lvl_debug": "38;5;240",       # Clean Charcoal Gray
     "lvl_info": "0",               # Default Terminal Text
     "lvl_warning": "1;38;5;226",   # Bright Bold Yellow
     "lvl_error": "1;31",           # Bold Red
@@ -69,9 +80,6 @@ REGISTRY = {
     "update_docs.py": {"name": "UpdateDocs", "color": "red"},
     "init_config.py": {"name": "InitConfig", "color": "bright_orange"},
     "core.py": {"name": "AllyCore", "color": "lavender"},
-    
-    # --- RESERVED COLORS FOR FUTURE ADDITIONS ---
-    # orange, bright_red, bright_yellow, bright_white, white, salmon, pink, purple, violet, teal, lime, olive, sky_blue
 }
 
 DEFAULT_BRAIN = {"name": "General", "color": "white"}
@@ -94,11 +102,7 @@ def _strip_ansi(text: str) -> str:
     return ansi_escape.sub('', text)
 
 def resolve_module_info(explicit_name: str | None = None) -> tuple[str, str, str]:
-    """
-    Resolves brain name, color, and calling function/method name.
-    Returns: (brain_name, color_key, callable_name)
-    """
-    # FIX: Only return the pure function/method name to avoid duplication
+    """Resolves brain name, color, and calling function/method name."""
     def get_callable_name(f):
         return f.f_code.co_name
 
@@ -114,7 +118,6 @@ def resolve_module_info(explicit_name: str | None = None) -> tuple[str, str, str
         while frame:
             filename = frame.f_code.co_filename
             
-            # Skip internal logger frame mechanics so we capture the true caller
             if "logger.py" in os.path.basename(filename).lower():
                 frame = frame.f_back
                 continue
@@ -140,28 +143,27 @@ def resolve_module_info(explicit_name: str | None = None) -> tuple[str, str, str
     return DEFAULT_BRAIN["name"], DEFAULT_BRAIN["color"], ""
 
 def log(message: str, *args, name: str | None = None, level: str = "info", **kwargs):
+    """Logs a message to terminal with ANSI colors and appends plain text to log file."""
+    # FIX: Intercept logic completely dropped because run.py completely handles 
+    # thread cleanup and clearing before handing control to the main core.
+
     brain_name, color_key, method_name = resolve_module_info(name)
     color_code = COLORS.get(color_key, "37")
     reset_code = COLORS["reset"]
     
     dim_code = "2"
-    ALIGN_WIDTH = 40  # Total character width reserved for the [Module][Method] block
-    padding_spacer = f"\033[{COLORS['dark_grey']}m.\033[{COLORS['reset']}m"
+    ALIGN_WIDTH = 32  # Total character width reserved for the [Module][Method] block
 
-    # 1. Build the Raw Strings (needed to calculate true text length without ANSI bloat)
+    # 1. Build the Raw Strings
     if method_name:
         raw_prefix = f"[{brain_name}][{method_name}]"
-        # Style with Dimmed Method
         terminal_prefix = f"\033[{color_code}m[{brain_name}]\033[{color_code};{dim_code}m[{method_name}]\033[{reset_code}m"
     else:
         raw_prefix = f"[{brain_name}]"
         terminal_prefix = f"\033[{color_code}m[{brain_name}]\033[{reset_code}m"
 
     # 2. Calculate the Padding Needed
-    # If the prefix is shorter than ALIGN_WIDTH, append the difference in spaces
-    padding_spaces = f"{padding_spacer}" * max(0, ALIGN_WIDTH - len(raw_prefix))
-    
-    # Apply padding outside the color zones so spaces don't inherit backgrounds/decorations
+    padding_spaces = " " * max(0, ALIGN_WIDTH - len(raw_prefix))
     terminal_output_prefix = f"{terminal_prefix}{padding_spaces}"
     file_output_prefix = f"{raw_prefix}{padding_spaces}"
 
@@ -177,27 +179,33 @@ def log(message: str, *args, name: str | None = None, level: str = "info", **kwa
     else:
         formatted_message = message
 
-        # 4. Construct Final Outputs (Handles multi-line messages gracefully)
+    # 4. Construct Final Outputs with Multi-line Indentation support
     terminal_body_code = f"\033[{level_code}m"
-    
-    # Split the message into lines
     lines = formatted_message.split("\n")
     
-    # First line gets the full prefix block
+    # First line maps the padded tag prefix
     terminal_lines = [f"{terminal_output_prefix} {terminal_body_code}{lines[0]}"]
     
-    # Calculate exactly how much blank padding to add to subsequent lines
-    # 1 spacer added for the gap between prefix and body
-    indent_space = f"{padding_spacer}" * (ALIGN_WIDTH + 1) 
-    
+    # Subsequent line padding alignment calculator
+    indent_space = " " * (ALIGN_WIDTH + 1) 
     for extra_line in lines[1:]:
         terminal_lines.append(f"{indent_space}{terminal_body_code}{extra_line}")
         
-    # Join everything back together with newlines and close with a single reset code
     terminal_output = "\n".join(terminal_lines) + f"\033[{reset_code}m"
 
     print(terminal_output)
 
+    # 5. File System Logging Persistence
+    _ensure_log_file()
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
+    file_line = f"{timestamp} - {level.upper()} - {file_output_prefix} {formatted_message}\n"
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(file_line)
+    except Exception:
+        pass
+
+# FIX: Re-added full Logger class definition structures that were clipped!
 class Logger:
     def __init__(self, name: str | None = None):
         self.name = name
@@ -218,7 +226,6 @@ class Logger:
         log(message, *args, name=self.name, level="critical", **kwargs)
 
     def __call__(self, message: str, *args, **kwargs):
-        """Defaults to info level for backward compatibility when calling logger directly."""
         log(message, *args, name=self.name, level="info", **kwargs)
 
 def get_logger(name: str | None = None) -> Logger:
