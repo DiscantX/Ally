@@ -46,8 +46,10 @@ class AllyCore:
         game_id: Optional[str] = None,
         image_path: Optional[str] = None,
         personality_name: Optional[str] = None,
+        player_id: str = "default_player",
     ):
-        config = load_user_config()
+        self.player_id = player_id
+        config = load_user_config(player_id=player_id)
         self.config_path = config_path
         self.game_id = game_id
         self.image_path = image_path
@@ -59,7 +61,7 @@ class AllyCore:
         self.sandbox = StateSandbox()
         self.genre_tracker = GenreTracker()
 
-        self.db = MemoryDB()
+        self.db = MemoryDB(player_id=player_id)
         self.save_tracker = SaveTracker(self.db)
         self.clip_classifier = ClipClassifier()
         self.category_store = ScreenCategoryStore(db=self.db, clip=self.clip_classifier)

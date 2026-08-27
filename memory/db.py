@@ -7,11 +7,12 @@ import os
 from typing import Any
 from logger import log
 
-DB_PATH = "state/memory.db"
+DB_PATH = os.path.join("data", "profiles", "default_player", "memory.db")
 
 class MemoryDB:
-    def __init__(self, db_path: str = DB_PATH):
-        self.db_path = db_path
+    def __init__(self, db_path: str | None = None, player_id: str = "default_player"):
+        self.player_id = player_id
+        self.db_path = db_path or os.path.join("data", "profiles", player_id, "memory.db")
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._init_db()
 
@@ -24,7 +25,7 @@ class MemoryDB:
         conn = self._connect()
         try:
             cursor = conn.execute("PRAGMA index_list(entities)")
-            log("entities indexes: {indexes}", indexes=cursor.fetchall())
+            log("Entities indexes: {indexes}", indexes=cursor.fetchall())
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS save_sessions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -17,7 +17,7 @@ image_test/
 images/
 logs/
 smoke_test_*
-state/memory.db
+data/profiles/
 docs/log-single-game.log
 plans/archive/*
 !plans/archive/readme.md

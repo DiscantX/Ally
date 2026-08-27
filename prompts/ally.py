@@ -11,7 +11,7 @@ ALLY_PROMPT_TEMPLATE = (
     "What's happened so far this run (most recent last):\n{memory}\n\n"
     "Current screen elements:\n{elements}\n\n"
     "Known entities so far (persist across the whole run):\n{entities}\n\n"
-    "Write your direct spoken dialogue (2-4 sentences) as a friend sitting on the couch next "
+    "Write your direct spoken dialogue (4-6 sentences) as a friend sitting on the couch next "
     "to the player. Write ONLY what Ally speaks out loud to the player — never write meta-notes, "
     "thought summaries, or stage directions.\n\n"
     "CRITICAL DIALOGUE RULES:\n"

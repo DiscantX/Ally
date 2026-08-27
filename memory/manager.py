@@ -24,14 +24,14 @@ class MemorySystem:
         short_term_capacity: int = 8,
         medium_flush_interval: int = 8,
         flush_trigger: Trigger | None = None,
-        db_path: str = "state/memory.db",
+        db_path: str | None = None,
         save_tracker: SaveTracker | None = None,
     ):
         self.lock = threading.Lock()
         self.player_id = player_id
         self.game_id = game_id
         self.save_id = save_id
-        self.db = MemoryDB(db_path)
+        self.db = MemoryDB(db_path=db_path, player_id=player_id)
         self.save_tracker = save_tracker or SaveTracker(self.db)
         
         self.narrative = NarrativeMemoryManager(

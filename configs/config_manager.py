@@ -1,6 +1,6 @@
 """Global User Configuration Manager.
 Manages loading, saving, and defaults for user-configurable settings and thresholds
-stored in configs/user_config.json.
+stored in state/user_config.json alongside the memory database.
 """
 
 import json
@@ -57,44 +57,48 @@ DEFAULT_USER_CONFIG = {
     "downscale_max_size": 950,
 }
 
-CONFIG_PATH = os.path.join("configs", "user_config.json")
+def get_config_path(player_id: str = "default_player") -> str:
+    return os.path.join("data", "profiles", player_id, "user_config.json")
+
 _cached_config: dict[str, Any] | None = None
 
 
-def load_user_config(force_reload: bool = False) -> dict[str, Any]:
-    """Load user configuration from configs/user_config.json, falling back to defaults, with in-memory caching."""
+def load_user_config(force_reload: bool = False, player_id: str = "default_player") -> dict[str, Any]:
+    """Load user configuration from data/profiles/{player_id}/user_config.json, falling back to defaults, with in-memory caching."""
     global _cached_config
     if _cached_config is not None and not force_reload:
         return _cached_config
 
+    config_path = get_config_path(player_id)
     start_t = time.perf_counter()
     config = DEFAULT_USER_CONFIG.copy()
-    if os.path.exists(CONFIG_PATH):
+    if os.path.exists(config_path):
         try:
-            with open(CONFIG_PATH, "r") as f:
+            with open(config_path, "r") as f:
                 user_data = json.load(f)
                 if isinstance(user_data, dict):
                     config.update(user_data)
         except Exception as e:
-            log("Error loading {}: {}", CONFIG_PATH, e)
+            log("Error loading {}: {}", config_path, e)
     else:
-        save_user_config(config)
+        save_user_config(config, player_id=player_id)
     duration = time.perf_counter() - start_t
-    log("Loaded user config in {duration:.4f}s (path={path})", duration=duration, path=CONFIG_PATH)
+    log("Loaded user config in {duration:.4f}s (path={path})", duration=duration, path=config_path)
     _cached_config = config
     return config
 
 
-def save_user_config(config: dict[str, Any]) -> None:
-    """Save user configuration to configs/user_config.json and update cache."""
+def save_user_config(config: dict[str, Any], player_id: str = "default_player") -> None:
+    """Save user configuration to data/profiles/{player_id}/user_config.json and update cache."""
     global _cached_config
-    os.makedirs("configs", exist_ok=True)
+    config_path = get_config_path(player_id)
+    os.makedirs(os.path.dirname(config_path), exist_ok=True)
     try:
-        with open(CONFIG_PATH, "w") as f:
+        with open(config_path, "w") as f:
             json.dump(config, f, indent=4)
         _cached_config = config.copy()
     except Exception as e:
-        log("Error saving {}: {}", CONFIG_PATH, e)
+        log("Error saving {}: {}", config_path, e)
 
 def get_model(component_name: str, config: dict) -> str:
     """Get the correct model for a component based on master/individual settings."""
