@@ -8,7 +8,7 @@ class TestAllyAgent(unittest.TestCase):
         provider = MagicMock()
         ally_default = Ally(provider)
         self.assertEqual(ally_default.thinking_level, "LOW")
-        self.assertIn("Scout", ally_default.base_personality)
+        self.assertIn("upbeat", ally_default.base_personality)
 
         ally_custom = Ally(provider, thinking_level="MEDIUM")
         self.assertEqual(ally_custom.thinking_level, "MEDIUM")

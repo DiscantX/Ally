@@ -147,12 +147,29 @@ class ChangeDetector:
             self.gui_app.update_pipeline_image("thresh", thresh, "Thresholded Binary Change Map")
 
         if self.use_ssim:
-            result = ssim(gray_normalized, self._last_frame_gray, full=True)
-            score = result[0] if isinstance(result, tuple) else result
-            changed_percent = max(0.0, (1.0 - float(score))) * 100.0
-            if self.gui_app and isinstance(result, tuple) and len(result) > 1:
-                diff_map = np.uint8(np.clip(result[1], 0, 1) * 255)
-                self.gui_app.update_pipeline_image("diff", diff_map, "Absolute Difference Image")
+            try:
+                # Only request full=True if GUI app is actively displaying the diff map
+                need_full = self.gui_app is not None
+                # Use float32 to avoid float64 memory overhead/fragmentation and specify data_range=255
+                img1 = gray_normalized.astype(np.float32)
+                img2 = self._last_frame_gray.astype(np.float32)
+                result = ssim(img1, img2, full=need_full, data_range=255)
+                score = result[0] if isinstance(result, tuple) else result
+                changed_percent = max(0.0, (1.0 - float(score))) * 100.0
+                if self.gui_app and isinstance(result, tuple) and len(result) > 1:
+                    diff_map = np.uint8(np.clip(result[1], 0, 1) * 255)
+                    self.gui_app.update_pipeline_image("diff", diff_map, "Absolute Difference Image")
+            except (MemoryError, Exception) as e:
+                log(f"SSIM calculation failed due to memory/allocation error ({e}), falling back to absdiff.")
+                diff = cv2.absdiff(gray_normalized, self._last_frame_gray)
+                if self.gui_app:
+                    self.gui_app.update_pipeline_image("diff", diff, "Absolute Difference Image")
+                _, thresh = cv2.threshold(diff, self.pixel_diff_threshold, 255, cv2.THRESH_BINARY)
+                if self.gui_app:
+                    self.gui_app.update_pipeline_image("thresh", thresh, "Thresholded Binary Change Map")
+                changed_pixels = cv2.countNonZero(thresh)
+                total_pixels = gray.shape[0] * gray.shape[1]
+                changed_percent = (changed_pixels / total_pixels) * 100.0
         else:
             changed_pixels = cv2.countNonZero(thresh)
             total_pixels = gray.shape[0] * gray.shape[1]
