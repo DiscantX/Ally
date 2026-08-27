@@ -212,6 +212,7 @@ candidate components this analogy surfaced that aren't built yet.
 | (not yet built) event importance tagging | Amygdala | See below |
 | (not yet built) contradiction/uncertainty detection | Anterior cingulate cortex | Noted, lower priority |
 
+
 ### Online vs. offline: Task Positive Network / Default Mode Network
 
 TPN and DMN are anti-correlated brain states — one suppresses the other.
