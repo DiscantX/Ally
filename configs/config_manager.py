@@ -58,10 +58,15 @@ DEFAULT_USER_CONFIG = {
 }
 
 CONFIG_PATH = os.path.join("configs", "user_config.json")
+_cached_config: dict[str, Any] | None = None
 
 
-def load_user_config() -> dict[str, Any]:
-    """Load user configuration from configs/user_config.json, falling back to defaults."""
+def load_user_config(force_reload: bool = False) -> dict[str, Any]:
+    """Load user configuration from configs/user_config.json, falling back to defaults, with in-memory caching."""
+    global _cached_config
+    if _cached_config is not None and not force_reload:
+        return _cached_config
+
     start_t = time.perf_counter()
     config = DEFAULT_USER_CONFIG.copy()
     if os.path.exists(CONFIG_PATH):
@@ -75,16 +80,19 @@ def load_user_config() -> dict[str, Any]:
     else:
         save_user_config(config)
     duration = time.perf_counter() - start_t
-    log("[ColdStart] [ConfigLoading] Loaded user config in {duration:.4f}s (path={path})", duration=duration, path=CONFIG_PATH)
+    log("[ConfigManager] [ConfigLoading] Loaded user config in {duration:.4f}s (path={path})", duration=duration, path=CONFIG_PATH)
+    _cached_config = config
     return config
 
 
 def save_user_config(config: dict[str, Any]) -> None:
-    """Save user configuration to configs/user_config.json."""
+    """Save user configuration to configs/user_config.json and update cache."""
+    global _cached_config
     os.makedirs("configs", exist_ok=True)
     try:
         with open(CONFIG_PATH, "w") as f:
             json.dump(config, f, indent=4)
+        _cached_config = config.copy()
     except Exception as e:
         log("Error saving {}: {}", CONFIG_PATH, e)
 
