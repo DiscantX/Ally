@@ -15,6 +15,7 @@ drafts a new screen entirely from data already produced that turn:
 import json
 import os
 import re
+import time
 from dataclasses import dataclass
 from configs.config_manager import load_user_config
 
@@ -38,12 +39,19 @@ class BootstrapResult:
 
 
 class ScreenBootstrapper:
+    _first_setup_done = False
+
     def __init__(self, layout_dir: str, unknown_streak_threshold: int | None = None):
+        start_t = time.perf_counter()
         config = load_user_config()
         self.layout_dir = layout_dir
         self.unknown_streak_threshold = unknown_streak_threshold if unknown_streak_threshold is not None else config["unknown_streak_threshold"]
         self._unknown_streak = 0
         self._drafted_names: set[str] = set()
+        duration = time.perf_counter() - start_t
+        if not ScreenBootstrapper._first_setup_done:
+            ScreenBootstrapper._first_setup_done = True
+            log("[ColdStart] [ScreenBootstrapperSetup] Initialized screen collector bootstrapper in {duration:.4f}s", duration=duration)
 
     def note_classification(self, screen_name: str) -> bool:
         """Call once per turn with this turn's classification. Returns

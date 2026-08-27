@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from ally.personalities import PERSONALITIES
 from llm.gemini_provider import GeminiProvider
+from configs.config_manager import load_user_config, get_model, get_thinking_level
 
 
 class PersonalityFusion(BaseModel):
@@ -58,11 +59,14 @@ class Geneology:
         self,
         provider: GeminiProvider,
         generations: int = 3,
-        model: str = "gemini-3.5-flash",
+        model: str | None = None,
+        thinking_level: str | None = None,
     ):
+        config = load_user_config()
         self.provider = provider
         self.generations = generations
-        self.model = model
+        self.model = model or get_model("geneology_model", config)
+        self.thinking_level = thinking_level or get_thinking_level("geneology", config)
         self.root: Optional[Person] = None
         self._all_members: List[Person] = []
 
@@ -115,6 +119,7 @@ class Geneology:
                 model=self.model,
                 contents=[prompt],
                 schema=PersonalityFusion,
+                thinking_level=self.thinking_level,
             )
 
             person = Person(

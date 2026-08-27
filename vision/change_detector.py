@@ -70,7 +70,7 @@ class ChangeDetector:
         self.use_ssim = use_ssim_val and _SSIM_AVAILABLE
         if use_ssim_val and not _SSIM_AVAILABLE:
             log(
-                "[SuperiorColliculus] scikit-image not installed -- falling back "
+                "scikit-image not installed -- falling back "
                 "to absdiff. `pip install scikit-image` to enable SSIM."
             )
 
@@ -168,7 +168,7 @@ class ChangeDetector:
         if self.enable_cooldown:
             if changed_percent >= self.major_change_threshold:
                 if current_time - self._last_trigger_timestamp < self.cooldown_seconds:
-                    log(f"[SuperiorColliculus] Cooldown active ({current_time - self._last_trigger_timestamp:.1f}s < {self.cooldown_seconds}s). Skipping trigger.")
+                    log(f"Cooldown active ({current_time - self._last_trigger_timestamp:.1f}s < {self.cooldown_seconds}s). Skipping trigger.")
                     self._last_frame_gray = gray_normalized
                     return False
 
@@ -177,13 +177,13 @@ class ChangeDetector:
             if changed_percent >= self.threshold_percent:
                 if not self._in_transition:
                     self._in_transition = True
-                    log("[SuperiorColliculus] Transition started. Waiting for screen to settle.")
+                    log("Transition started. Waiting for screen to settle.")
                 self._last_frame_gray = gray_normalized
                 return False
             elif self._in_transition:
                 if changed_percent <= self.stability_threshold_percent:
                     self._in_transition = False
-                    log(f"[SuperiorColliculus] Screen settled (delta {changed_percent:.3f}% <= {self.stability_threshold_percent}%). Triggering turn.")
+                    log(f"Screen settled (delta {changed_percent:.3f}% <= {self.stability_threshold_percent}%). Triggering turn.")
                     self._last_frame_gray = gray_normalized
                     if self.enable_cooldown:
                         self._last_trigger_timestamp = current_time

@@ -11,6 +11,7 @@ This is intentionally the only place that knows about win32/mss, so a
 future non-Windows capture backend is a one-file swap.
 """
 
+import time
 import cv2
 import mss
 import numpy as np
@@ -24,6 +25,8 @@ from logger import log
 
 
 class ScreenCollector:
+    _first_capture_done = False
+
     def __init__(self, window_title: str, always_on_top: bool = True):
         self.window_title = window_title
         self.rect = ClientRect(window_title)
@@ -65,6 +68,7 @@ class ScreenCollector:
         return image
 
     def capture(self) -> RawObservation:
+        start_t = time.perf_counter()
         if not self._prepared:
             self.prepare_window()
         frame = self.capture_bgr()
@@ -73,6 +77,10 @@ class ScreenCollector:
         changed = self.change_detector.has_changed(frame)  # This was added/changed as a part of the ZOO CODE idle safeguard pass
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         image = self._downscale_image(image)
+        duration = time.perf_counter() - start_t
+        if not ScreenCollector._first_capture_done:
+            ScreenCollector._first_capture_done = True
+            log("[ColdStart] [FirstScreenCapture] Completed first screen capture in {duration:.4f}s", duration=duration)
         return RawObservation(image=image, changed=changed)
 
     def capture_bgr(self) -> np.ndarray | None:

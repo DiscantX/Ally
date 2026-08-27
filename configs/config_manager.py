@@ -5,6 +5,7 @@ stored in configs/user_config.json.
 
 import json
 import os
+import time
 from typing import Any
 from logger.logger import log
 
@@ -20,6 +21,16 @@ DEFAULT_USER_CONFIG = {
     # Model Configuration
     "use_master_model": False,
     "master_model": "gemini-3.5-flash-lite",
+
+    # Thinking Level Configuration
+    "thinking_level": "LOW",
+    "use_master_thinking_level": False,
+    "master_thinking_level": "LOW",
+    "scribe_thinking_level": "LOW",
+    "ally_thinking_level": "LOW",
+    "narrative_thinking_level": "LOW",
+    "personality_thinking_level": "LOW",
+    "geneology_thinking_level": "LOW",
 
     # Vision & Change Detection
     "threshold_percent": 5.0,
@@ -40,7 +51,6 @@ DEFAULT_USER_CONFIG = {
 
     # Memory & Triggers
     "short_term_capacity": 8,
-    "thinking_level": "LOW",
 
     # Downscaling Settings
     "enable_downscaling": True,
@@ -52,6 +62,7 @@ CONFIG_PATH = os.path.join("configs", "user_config.json")
 
 def load_user_config() -> dict[str, Any]:
     """Load user configuration from configs/user_config.json, falling back to defaults."""
+    start_t = time.perf_counter()
     config = DEFAULT_USER_CONFIG.copy()
     if os.path.exists(CONFIG_PATH):
         try:
@@ -63,6 +74,8 @@ def load_user_config() -> dict[str, Any]:
             log("Error loading {}: {}", CONFIG_PATH, e)
     else:
         save_user_config(config)
+    duration = time.perf_counter() - start_t
+    log("[ColdStart] [ConfigLoading] Loaded user config in {duration:.4f}s (path={path})", duration=duration, path=CONFIG_PATH)
     return config
 
 
@@ -80,3 +93,11 @@ def get_model(component_name: str, config: dict) -> str:
     if config.get("use_master_model", False):
         return config.get("master_model", "gemini-3.5-flash-lite")
     return config.get(component_name, "gemini-3.5-flash-lite")
+
+
+def get_thinking_level(component_name: str, config: dict) -> str:
+    """Get the correct thinking level for a component based on master/individual settings."""
+    if config.get("use_master_thinking_level", False):
+        return config.get("master_thinking_level", config.get("thinking_level", "LOW"))
+    key = f"{component_name}_thinking_level"
+    return config.get(key, config.get("thinking_level", "LOW"))

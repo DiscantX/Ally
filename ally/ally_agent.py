@@ -14,7 +14,7 @@ from llm.gemini_provider import GeminiProvider
 from schema.schema import AllyOutput, AllyChatOutput
 from ally.personalities import PERSONALITIES
 from prompts.ally import ALLY_PROMPT_TEMPLATE, ALLY_CHAT_PROMPT_TEMPLATE
-from configs.config_manager import load_user_config, get_model
+from configs.config_manager import load_user_config, get_model, get_thinking_level
 
 class Ally:
     def __init__(self, provider: GeminiProvider, base_personality: str | None = None, model: str | None = None, thinking_level: str | None = None):
@@ -26,7 +26,7 @@ class Ally:
         else:
             self.base_personality = PERSONALITIES.get(base_personality, base_personality)
         self.model = model or get_model("ally_model", config)
-        self.thinking_level = thinking_level or config["thinking_level"]
+        self.thinking_level = thinking_level or get_thinking_level("ally", config)
 
     def decide(
         self,

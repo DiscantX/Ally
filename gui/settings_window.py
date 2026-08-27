@@ -11,6 +11,7 @@ from typing import Any, Callable
 from configs.config_manager import load_user_config, save_user_config
 from ally.personalities import PERSONALITIES
 from llm.model_lister import get_available_models
+from llm.gemini_provider import get_available_thinking_levels
 
 
 class SettingsWindow(tk.Toplevel):
@@ -375,12 +376,46 @@ class SettingsWindow(tk.Toplevel):
         ttk.Label(scrollable_frame, text="AI Reasoning & Buffers", style='Heading.TLabel').grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=(5, 8))
         row += 1
 
-        ttk.Label(scrollable_frame, text="Thinking Level").grid(row=row, column=0, sticky=tk.W, pady=5, padx=(15, 10))
-        thinking_choices = ["LOW", "MEDIUM", "HIGH"]
-        t_var = tk.StringVar(value=self.config_data.get("thinking_level", "LOW"))
+        thinking_choices = [lvl.upper() for lvl in get_available_thinking_levels()]
+
+        use_master_t_var = tk.BooleanVar(value=bool(self.config_data.get("use_master_thinking_level", False)))
+        self.vars["use_master_thinking_level"] = use_master_t_var
+        master_t_chk = ttk.Checkbutton(scrollable_frame, text="Use Master Thinking Level for All Components", variable=use_master_t_var, command=lambda: self._toggle_master_thinking_mode(master_t_chk))
+        master_t_chk.grid(row=row, column=0, columnspan=3, sticky=tk.W, pady=4, padx=(15, 0))
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Master Thinking Level").grid(row=row, column=0, sticky=tk.W, pady=5, padx=(15, 10))
+        master_t_var = tk.StringVar(value=str(self.config_data.get("master_thinking_level", "LOW")).upper())
+        self.vars["master_thinking_level"] = master_t_var
+        master_t_combo = ttk.Combobox(scrollable_frame, textvariable=master_t_var, values=thinking_choices, state="readonly", width=12)
+        master_t_combo.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Default Thinking Level").grid(row=row, column=0, sticky=tk.W, pady=5, padx=(15, 10))
+        t_var = tk.StringVar(value=str(self.config_data.get("thinking_level", "LOW")).upper())
         self.vars["thinking_level"] = t_var
         ttk.Combobox(scrollable_frame, textvariable=t_var, values=thinking_choices, state="readonly", width=12).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         row += 1
+
+        comp_thinking = [
+            ("Scribe Thinking Level", "scribe_thinking_level"),
+            ("Ally Thinking Level", "ally_thinking_level"),
+            ("Narrative Thinking Level", "narrative_thinking_level"),
+            ("Personality Thinking Level", "personality_thinking_level"),
+            ("Genealogy Thinking Level", "geneology_thinking_level"),
+        ]
+
+        self.thinking_combos = []
+        for label_text, key in comp_thinking:
+            ttk.Label(scrollable_frame, text=label_text).grid(row=row, column=0, sticky=tk.W, pady=5, padx=(15, 10))
+            var = tk.StringVar(value=str(self.config_data.get(key, "LOW")).upper())
+            self.vars[key] = var
+            combo = ttk.Combobox(scrollable_frame, textvariable=var, values=thinking_choices, state="readonly", width=12)
+            combo.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+            self.thinking_combos.append(combo)
+            row += 1
+
+        self._toggle_master_thinking_mode(None)
 
         spinboxes = [
             ("Unknown Streak Threshold", "unknown_streak_threshold", 1, 10),
@@ -393,6 +428,12 @@ class SettingsWindow(tk.Toplevel):
             self.vars[key] = var
             ttk.Spinbox(scrollable_frame, from_=min_v, to=max_v, textvariable=var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
             row += 1
+
+    def _toggle_master_thinking_mode(self, event):
+        enabled = self.vars["use_master_thinking_level"].get()
+        state = "disabled" if enabled else "readonly"
+        for combo in getattr(self, "thinking_combos", []):
+            combo.configure(state=state)
 
     def _save_settings(self):
         new_config = self.config_data.copy()
