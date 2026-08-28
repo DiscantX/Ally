@@ -24,8 +24,6 @@ class MemoryDB:
     def _init_db(self) -> None:
         conn = self._connect()
         try:
-            cursor = conn.execute("PRAGMA index_list(entities)")
-            log("Entities indexes: {indexes}", indexes=cursor.fetchall())
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS save_sessions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,6 +88,22 @@ class MemoryDB:
                 conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_entities_scope_id ON entities(player_id, game_id, save_id, entity_id)")
             except sqlite3.OperationalError:
                 pass
+            
+            cursor = conn.execute("PRAGMA index_list(entities)")
+            indexes_info = []
+            for row in cursor.fetchall():
+                idx_name = row["name"]
+                info_cursor = conn.execute(f"PRAGMA index_info({idx_name})")
+                columns = [info_row["name"] for info_row in info_cursor.fetchall()]
+                indexes_info.append({
+                    "table": "entities",
+                    "name": idx_name,
+                    "unique": bool(row["unique"]),
+                    "origin": row["origin"],
+                    "columns": columns
+                })
+            log("Entities indexes: {indexes}", indexes=indexes_info)
+
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS cross_session_memory (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
