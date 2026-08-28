@@ -65,13 +65,13 @@ python main.py images/monkey.png
 
 The first run against a new game will feel rough: screens aren't calibrated
 yet, so OCR runs uncalibrated and Scribe does more work per turn. Calibrate
-HUD regions with `tools/inspect_coords.py`, or just keep playing — the
+HUD regions with [`tooling/tools/inspect_coords.py`](tooling/tools/inspect_coords.py:1), or just keep playing — the
 screen bootstrapper will draft layouts automatically after a few
 unrecognized screens, with no manual step required. See
-[`docs/adding_a_new_game.md`](docs/adding_a_new_game.md) for the full
+[`docs/adding_a_new_game.md`](docs/adding_a_new_game.md:1) for the full
 walkthrough (not yet split out — until then,
-`tools/init_config.py`, `tools/inspect_coords.py`, and
-`collectors/configured_collector.py`'s module docstrings cover it).
+[`tooling/tools/init_config.py`](tooling/tools/init_config.py:1), [`tooling/tools/inspect_coords.py`](tooling/tools/inspect_coords.py:1), and
+[`ingestion/collectors/configured_collector.py`](ingestion/collectors/configured_collector.py:1)'s module docstrings cover it).
 
 ## Tests
 
@@ -79,22 +79,22 @@ walkthrough (not yet split out — until then,
 python -m unittest discover tests
 ```
 
-See [`tests/README.md`](tests/README.md) for what each module covers.
+See [`tests/README.md`](tests/README.md:1) for what each module covers.
 MTGA-specific tests are separate — see
-[`plugins/mtga/README.md`](plugins/mtga/README.md).
+[`ingestion/plugins/mtga/README.md`](ingestion/plugins/mtga/README.md:1).
 
 ## Docs map
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current components and
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md:1) — current components and
   how they fit together
-- [`docs/ally_decision_log.md`](docs/ally_decision_log.md) — why things are
+- [`docs/ally_decision_log.md`](docs/ally_decision_log.md:1) — why things are
   built the way they are, append-only history of real decisions
-- [`docs/adding_a_new_game.md`](docs/adding_a_new_game.md) — onboarding a
+- [`docs/adding_a_new_game.md`](docs/adding_a_new_game.md:1) — onboarding a
   new game (planned)
-- [`docs/roadmap.md`](docs/roadmap.md) — open items and structural gaps
-- [`CHANGELOG.md`](CHANGELOG.md) — routine implementation passes and bug
+- [`docs/roadmap.md`](docs/roadmap.md:1) — open items and structural gaps
+- [`docs/changelog.md`](docs/changelog.md:1) — routine implementation passes and bug
   fixes, separate from the decision log's design rationale
-- [`plugins/mtga/integration_notes.md`](plugins/mtga/integration_notes.md) —
+- [`ingestion/plugins/mtga/integration_notes.md`](ingestion/plugins/mtga/integration_notes.md:1) —
   MTGA-specific research notes and gotchas
 - [`CLAUDE.md`](CLAUDE.md) — repo conventions for AI contributors
   (typing/Pylance, markdownlint)

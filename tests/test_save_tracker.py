@@ -5,8 +5,8 @@ import tempfile
 import time
 import unittest
 
-from memory.db import MemoryDB
-from memory.save_tracker import SaveTracker
+from brain.memory.db import MemoryDB
+from brain.memory.save_tracker import SaveTracker
 
 
 class TestSaveTracker(unittest.TestCase):

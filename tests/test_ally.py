@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
-from ally.ally_agent import Ally
-from schema.schema import AllyOutput
+from brain.reasoning.ally_agent import Ally
+from brain.knowledge.schema.schema import AllyOutput
 
 class TestAllyAgent(unittest.TestCase):
     def test_ally_constructor_defaults_and_custom(self):

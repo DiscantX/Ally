@@ -7,7 +7,7 @@ try:
 except ImportError:
     _WIN32GUI_AVAILABLE = False
 
-from collectors.window_manager import ClientRect
+from ingestion.collectors.window_manager import ClientRect
 
 
 @unittest.skipUnless(_WIN32GUI_AVAILABLE, "win32gui required for window manager tests")

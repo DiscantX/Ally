@@ -3,11 +3,11 @@ import unittest
 from unittest.mock import MagicMock
 from PIL import Image
 
-from collectors.base import RawObservation, ConfirmedFact
-from state.sandbox import StateSandbox
-from state.entity_registry import EntityRegistry
-from state.genre_tracker import GenreTracker
-from ally.core import AllyCore
+from ingestion.collectors.base import RawObservation, ConfirmedFact
+from brain.state.sandbox import StateSandbox
+from brain.state.entity_registry import EntityRegistry
+from brain.state.genre_tracker import GenreTracker
+from brain.reasoning.core import AllyCore
 
 
 class TestRunTurnSkipAlly(unittest.TestCase):

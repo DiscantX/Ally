@@ -2,9 +2,9 @@ import os
 import tempfile
 import unittest
 
-from memory.db import MemoryDB
-from schema.schema import ScreenElement
-from state.entity_registry import EntityRegistry, ResolvableElement
+from brain.memory.db import MemoryDB
+from brain.knowledge.schema.schema import ScreenElement
+from brain.state.entity_registry import EntityRegistry, ResolvableElement
 
 
 class TestEntityRegistryPersistence(unittest.TestCase):

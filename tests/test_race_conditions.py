@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from main import STATE_LOCK
-from state.entity_registry import EntityRegistry, ResolvableElement
+from brain.state.entity_registry import EntityRegistry, ResolvableElement
 
 class TestRaceConditions(unittest.TestCase):
     def test_shared_state_locking(self):

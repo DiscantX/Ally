@@ -15,8 +15,8 @@ IS_HEADLESS = "--headless" in sys.argv
 
 def main():
     if not IS_HEADLESS:
-        import visuals.header
-        main_module = visuals.header.run_header_splash()
+        import interfaces.visuals.header
+        main_module = interfaces.visuals.header.run_header_splash()
     else:
         import main as main_module
         

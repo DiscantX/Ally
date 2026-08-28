@@ -2,14 +2,14 @@ import unittest
 from unittest.mock import MagicMock, patch
 from PIL import Image
 
-from collectors.configured_collector import GenericHudCollector, CollectorConfig
-from collectors.base import RawObservation
-from ally.core import AllyCore
-from vision.screen_category_store import CategoryMatch
+from ingestion.collectors.configured_collector import GenericHudCollector, CollectorConfig
+from ingestion.collectors.base import RawObservation
+from brain.reasoning.core import AllyCore
+from brain.perception.screen_category_store import CategoryMatch
 
 
 class TestClipGateIntegration(unittest.TestCase):
-    @patch("collectors.configured_collector.ScreenCollector")
+    @patch("ingestion.collectors.configured_collector.ScreenCollector")
     def test_capture_off_game_skip(self, mock_screen_collector_cls):
         mock_screen = mock_screen_collector_cls.return_value
         mock_screen.rect.is_foreground.return_value = True
@@ -34,7 +34,7 @@ class TestClipGateIntegration(unittest.TestCase):
         obs = collector.capture()
         self.assertEqual(obs.skip_scribe_reason, "off_game")
 
-    @patch("collectors.configured_collector.ScreenCollector")
+    @patch("ingestion.collectors.configured_collector.ScreenCollector")
     def test_capture_not_foreground(self, mock_screen_collector_cls):
         mock_screen = mock_screen_collector_cls.return_value
         mock_screen.rect.is_foreground.return_value = False
@@ -46,9 +46,9 @@ class TestClipGateIntegration(unittest.TestCase):
         self.assertEqual(obs.skip_scribe_reason, "not_foreground")
         mock_screen.capture_bgr.assert_not_called()
 
-    @patch("ally.core.MemoryDB")
-    @patch("ally.core.ClipClassifier")
-    @patch("ally.core.ScreenCategoryStore")
+    @patch("brain.reasoning.core.MemoryDB")
+    @patch("brain.reasoning.core.ClipClassifier")
+    @patch("brain.reasoning.core.ScreenCategoryStore")
     def test_ally_core_off_game_run_turn(self, mock_store_cls, mock_clip_cls, mock_db_cls):
         core = AllyCore(game_id="test_game")
         core.scribe = MagicMock()
@@ -61,9 +61,9 @@ class TestClipGateIntegration(unittest.TestCase):
         core.scribe.extract.assert_not_called()
         core.memory_manager.record_turn.assert_not_called()
 
-    @patch("ally.core.MemoryDB")
-    @patch("ally.core.ClipClassifier")
-    @patch("ally.core.ScreenCategoryStore")
+    @patch("brain.reasoning.core.MemoryDB")
+    @patch("brain.reasoning.core.ClipClassifier")
+    @patch("brain.reasoning.core.ScreenCategoryStore")
     def test_ally_core_normal_run_turn(self, mock_store_cls, mock_clip_cls, mock_db_cls):
         core = AllyCore(game_id="test_game")
         core.scribe = MagicMock()

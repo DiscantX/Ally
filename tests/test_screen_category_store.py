@@ -3,9 +3,9 @@ import unittest
 from unittest.mock import MagicMock
 import numpy as np
 
-from memory.db import MemoryDB
-from vision.screen_category_store import ScreenCategoryStore, CategoryMatch
-from vision.clip_classifier import ClipClassifier
+from brain.memory.db import MemoryDB
+from brain.perception.screen_category_store import ScreenCategoryStore, CategoryMatch
+from brain.perception.clip_classifier import ClipClassifier
 
 
 class TestScreenCategoryStore(unittest.TestCase):

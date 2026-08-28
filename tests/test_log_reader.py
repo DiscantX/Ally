@@ -8,7 +8,7 @@ import threading
 import time
 import unittest
 
-from collectors.log_reader import LogReader
+from ingestion.collectors.log_reader import LogReader
 
 
 class TestLogReaderReplay(unittest.TestCase):

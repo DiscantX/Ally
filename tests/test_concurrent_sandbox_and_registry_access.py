@@ -2,9 +2,9 @@
 import threading
 import unittest
 
-from state.sandbox import StateSandbox
-from state.entity_registry import EntityRegistry
-from schema.schema import ScreenElement
+from brain.state.sandbox import StateSandbox
+from brain.state.entity_registry import EntityRegistry
+from brain.knowledge.schema.schema import ScreenElement
 
 
 class TestConcurrentStateAccess(unittest.TestCase):

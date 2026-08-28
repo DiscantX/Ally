@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock
 
-from memory.db import MemoryDB
-from memory.narrative import NarrativeMemoryManager, TextSummary
+from brain.memory.db import MemoryDB
+from brain.memory.narrative import NarrativeMemoryManager, TextSummary
 
 
 class TestNarrativeMemoryManagerEntryCount(unittest.TestCase):

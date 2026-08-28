@@ -1,7 +1,7 @@
 import unittest
 from PIL import Image
-from ally.core import AllyCore
-from collectors.base import RawObservation, ConfirmedFact
+from brain.reasoning.core import AllyCore
+from ingestion.collectors.base import RawObservation, ConfirmedFact
 
 
 class TestAllyCore(unittest.TestCase):

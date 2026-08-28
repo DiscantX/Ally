@@ -1,9 +1,9 @@
 """Unit tests for run boundary resolution."""
 
 import unittest
-from collectors.base import RawObservation
-from schema.schema import AllyOutput
-from memory.triggers import resolve_run_ended
+from ingestion.collectors.base import RawObservation
+from brain.knowledge.schema.schema import AllyOutput
+from brain.memory.triggers import resolve_run_ended
 
 
 class TestRunBoundary(unittest.TestCase):

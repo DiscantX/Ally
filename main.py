@@ -5,9 +5,9 @@ import threading
 from PIL import Image
 import time
 
-from ally.core import AllyCore
-from collectors.base import RawObservation
-from logger import log
+from brain.reasoning.core import AllyCore
+from ingestion.collectors.base import RawObservation
+from infrastructure.logger import log
 
 STATE_LOCK = threading.Lock()
 
@@ -49,7 +49,7 @@ def initialize_application():
     core.initialize_run()
 
     if args.gui:
-        from gui.tkinter_app import AllyOverlay
+        from interfaces.gui.tkinter_app import AllyOverlay
         gui_app = AllyOverlay(core=core)
         gui_app.set_connection_status(True)
 

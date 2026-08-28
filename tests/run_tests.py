@@ -41,5 +41,8 @@ if __name__ == "__main__":
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestWindowManagerRefresh))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestClipGateIntegration))
 
-    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    with open("test_results.log", "w") as log_file:
+        runner = unittest.TextTestRunner(stream=log_file, verbosity=2)
+        result = runner.run(suite)
+    print("Tests finished. Result success:", result.wasSuccessful())
     sys.exit(0 if result.wasSuccessful() else 1)

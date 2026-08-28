@@ -139,14 +139,14 @@ exists.
 
 ### Collection
 
-**`ScreenCollector`** (`collectors/screen_collector.py`)
+**`ScreenCollector`** ([`ingestion/collectors/screen_collector.py`](../ingestion/collectors/screen_collector.py:1))
 Wraps window capture (`ClientRect`/`win32gui`) and `mss` screen-grabbing into
 a single `capture()` call. Returns a `RawObservation` with a PIL image, and
 runs the `ChangeDetector` internally to set `RawObservation.changed`.
 Windows-only today; deliberately the *only* place that knows about
 `win32`/`mss`, so a future non-Windows backend is a one-file swap.
 
-**`GenericHudCollector`** (`collectors/configured_collector.py`)
+**`GenericHudCollector`** ([`ingestion/collectors/configured_collector.py`](../ingestion/collectors/configured_collector.py:1))
 The default Collector for any screen-capture game. Composes
 `ScreenCollector` + `ScreenClassifier` + a dict of `LayoutOCRReader`s (one
 per named screen) + `ScreenBootstrapper`, all driven by a small
@@ -154,17 +154,17 @@ per named screen) + `ScreenBootstrapper`, all driven by a small
 `configs/<game_id>/config.json`. Adding a new screen-capture game requires
 zero custom Python — see §5, Extension Points.
 
-**`MTGALogParser`** (`plugins/mtga/parser.py`)
+**`MTGALogParser`** ([`ingestion/plugins/mtga/parser.py`](../ingestion/plugins/mtga/parser.py:1))
 The structured-log alternative to screen capture. Tails MTGA's `Player.log`
 via `LogReader`, parses framed GRE JSON payloads, and accumulates a running
 `game_state` dict by applying `GameStateType_Full`/`GameStateType_Diff`
 messages and their `annotations`. Resolves card/token identity through
-`plugins/mtga/resolver.py` (`EntityResolver`, `EnumResolver`) against
+[`ingestion/plugins/mtga/resolver.py`](../ingestion/plugins/mtga/resolver.py:1) (`EntityResolver`, `EnumResolver`) against
 Arena's own local SQLite card database. See
 [`plugins/mtga/integration_notes.md`](../plugins/mtga/integration_notes.md)
 for the full data-source evaluation and message-format details.
 
-**`LogReader`** (`collectors/log_reader.py`)
+**`LogReader`** ([`ingestion/collectors/log_reader.py`](../ingestion/collectors/log_reader.py:1))
 Generic, game-agnostic log-tailing utility — not MTGA-specific despite
 being introduced for it. Supports one-shot replay (`follow=False`, used for
 fixture-based tests) and live tailing (`follow=True`), with
@@ -173,7 +173,7 @@ first. Detects file truncation/restart via inode identity, so a Collector
 tailing a log that gets overwritten at session start (as MTGA's does)
 recovers cleanly instead of hanging or reading garbage.
 
-**`ChangeDetector`** ("Superior Colliculus", `vision/change_detector.py`)
+**`ChangeDetector`** ("Superior Colliculus", [`brain/perception/change_detector.py`](../brain/perception/change_detector.py:1))
 Pre-Scribe frame-diff gate deciding whether a turn is worth processing at
 all. Defaults to SSIM comparison (falls back to raw `absdiff` if
 scikit-image is unavailable) for reduced sensitivity to ambient

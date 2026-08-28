@@ -1,0 +1,1 @@
+# Ingestion domain (Collectors & Plugins)
