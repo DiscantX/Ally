@@ -34,7 +34,5 @@ class Scribe:
             thinking_level=self.thinking_level
         )
         duration = time.perf_counter() - start_t
-        if not Scribe._first_extract_done:
-            Scribe._first_extract_done = True
-            log("Completed first Scribe extraction in {duration:.4f}s (model={model})", duration=duration, model=self.model)
+        log("Completed Scribe extraction in {duration:.4f}s (model={model})", duration=duration, model=self.model)
         return res
