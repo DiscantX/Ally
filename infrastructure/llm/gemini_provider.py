@@ -114,6 +114,7 @@ class GeminiProvider:
         contents: list,
         schema: type[T],
         thinking_level: str | types.ThinkingLevel | None = None,
+        thinking_budget: int | None = None,
     ) -> T:
         """Call the model and parse the response straight into `schema`.
 
@@ -151,6 +152,7 @@ class GeminiProvider:
         contents: list,
         schema: type[T],
         thinking_level: str | types.ThinkingLevel | None = None,
+        thinking_budget: int | None = None,
         on_thought_chunk: Callable[[str], None] | None = None,
     ) -> T:
         """Streaming counterpart to generate_structured(). Requests
@@ -169,7 +171,7 @@ class GeminiProvider:
         only once the stream ends, exactly like generate_structured()'s
         non-streaming parse step.
         """
-        thinking_config = None
+        thinking_config = types.ThinkingConfig(include_thoughts=True)
         if thinking_level is not None:
             lvl = self._map_thinking_level(thinking_level)
             thinking_config = types.ThinkingConfig(thinking_level=lvl, include_thoughts=True)
@@ -185,13 +187,15 @@ class GeminiProvider:
             ),
         )
         for chunk in stream:
-            if not chunk.candidates:
+            if not chunk.candidates or not chunk.candidates[0].content or not chunk.candidates[0].content.parts:
                 continue
             for part in chunk.candidates[0].content.parts:
+                if not getattr(part, "text", None):
+                    continue
                 if getattr(part, "thought", False):
-                    if part.text and on_thought_chunk is not None:
+                    if on_thought_chunk is not None:
                         on_thought_chunk(part.text)
-                elif part.text:
+                else:
                     json_buffer += part.text
 
         if not json_buffer:
@@ -207,22 +211,28 @@ class GeminiProvider:
         on_field_chunk: Callable[[str], None] | None = None,
         on_stream_reset: Callable[[], None] | None = None,
         thinking_level: str | types.ThinkingLevel | None = None,
+        thinking_budget: int | None = None,
         max_retries: int = 5,
+        on_thought_chunk: Callable[[str], None] | None = None,
+        on_thought_begin: Callable[[], None] | None = None,
+        on_thought_finalize: Callable[[], None] | None = None,
+        on_thought_reset: Callable[[], None] | None = None,
     ) -> T:
         """Streams one named string field out of a structured-output response
         as it's generated, calling on_field_chunk with only the NEW text
         since the last call (never the whole buffer, never a repeat).
         """
-        thinking_config = None
+        thinking_config = types.ThinkingConfig(include_thoughts=True)
         if thinking_level is not None:
             lvl = self._map_thinking_level(thinking_level)
-            thinking_config = types.ThinkingConfig(thinking_level=lvl)
+            thinking_config = types.ThinkingConfig(thinking_level=lvl, include_thoughts=True)
 
         attempt = 0
         while True:
             attempt += 1
             json_buffer = ""
             emitted_so_far = ""
+            thought_begun = False
             try:
                 stream = self.client.models.generate_content_stream(
                     model=model,
@@ -234,28 +244,46 @@ class GeminiProvider:
                     ),
                 )
                 for chunk in stream:
-                    if not chunk.candidates:
+                    if not chunk.candidates or not chunk.candidates[0].content or not chunk.candidates[0].content.parts:
                         continue
-                    content = chunk.candidates[0].content
-                    if not content or not content.parts:
-                        continue
-                    for part in content.parts:
-                        text = getattr(part, "text", None)
-                        if not text:
+                    for part in chunk.candidates[0].content.parts:
+                        if not getattr(part, "text", None):
                             continue
-                        json_buffer += text
-                        if on_field_chunk is not None:
-                            new_text, emitted_so_far = self._extract_new_field_text(
-                                json_buffer, stream_field, emitted_so_far
-                            )
-                            if new_text:
-                                on_field_chunk(new_text)
+                        is_thought = getattr(part, "thought", False)
+                        if is_thought:
+                            if not thought_begun:
+                                thought_begun = True
+                                if on_thought_begin is not None:
+                                    on_thought_begin()
+                            if on_thought_chunk is not None:
+                                on_thought_chunk(part.text)
+                        else:
+                            if thought_begun:
+                                thought_begun = False
+                                if on_thought_finalize is not None:
+                                    on_thought_finalize()
+                            json_buffer += part.text
+                            if on_field_chunk is not None:
+                                new_text, emitted_so_far = self._extract_new_field_text(
+                                    json_buffer, stream_field, emitted_so_far
+                                )
+                                if new_text:
+                                    on_field_chunk(new_text)
+
+                if thought_begun:
+                    thought_begun = False
+                    if on_thought_finalize is not None:
+                        on_thought_finalize()
 
                 if not json_buffer:
                     raise ValueError("Streaming response produced no JSON content")
                 return schema.model_validate_json(json_buffer)
 
             except (errors.ClientError, errors.ServerError, ValueError) as e:
+                if thought_begun:
+                    thought_begun = False
+                    if on_thought_finalize is not None:
+                        on_thought_finalize()
                 if attempt > max_retries:
                     log(
                         "Gemini streaming error (max retries {max_retries} exceeded): {e}",
@@ -265,6 +293,8 @@ class GeminiProvider:
 
                 if on_stream_reset is not None:
                     on_stream_reset()
+                if on_thought_reset is not None:
+                    on_thought_reset()
 
                 delay = None
                 if isinstance(e, (errors.ClientError, errors.ServerError)):

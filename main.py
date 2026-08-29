@@ -116,6 +116,12 @@ def initialize_application():
 
         analysis_printer = TerminalStreamPrinter(prefix="\nAlly: ")
         chat_printer = TerminalStreamPrinter(prefix="\nAlly (chat): ")
+        thinking_printer = TerminalStreamPrinter(prefix="\nAlly (thinking): ")
+
+        core.on_thinking_stream_begin.connect(thinking_printer.begin)
+        core.on_thinking_stream_chunk.connect(thinking_printer.chunk)
+        core.on_thinking_stream_reset.connect(thinking_printer.reset)
+        core.on_thinking_stream_finalize.connect(lambda: print("", flush=True))
 
         core.on_analysis_stream_begin.connect(analysis_printer.begin)
         core.on_analysis_stream_chunk.connect(analysis_printer.chunk)

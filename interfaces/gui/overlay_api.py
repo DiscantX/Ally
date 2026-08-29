@@ -94,7 +94,6 @@ class OverlayApiMixin:
         with an empty body, ready to receive live text via
         append_streaming_feedback_chunk(). Mirrors update_feedback()'s
         header-insertion exactly, just split into stages."""
-        print("[DEBUG] begin_streaming_feedback called")
         def _update():
             text = self.feedback_text
             was_at_bottom = self._is_scrolled_to_bottom(text)
@@ -114,7 +113,6 @@ class OverlayApiMixin:
         self._dispatch(_update)
 
     def append_streaming_feedback_chunk(self, chunk_text: str):
-        print(f"[DEBUG] append_streaming_feedback_chunk: {repr(chunk_text)}")
         def _update():
             text = self.feedback_text
             was_at_bottom = self._is_scrolled_to_bottom(text)
@@ -143,7 +141,6 @@ class OverlayApiMixin:
 
     def finalize_streaming_feedback(self, final_text: str):
         """Stream complete."""
-        print(f"[DEBUG] finalize_streaming_feedback: {repr(final_text)}")
         def _update():
             self._feedback_data.feedback = final_text
             self._feedback_data.last_update = time.time()

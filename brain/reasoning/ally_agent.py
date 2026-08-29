@@ -86,6 +86,10 @@ class Ally:
         perspective_context: str = "(no strong perspective signal this turn)",
         on_chunk: Callable[[str], None] | None = None,
         on_reset: Callable[[], None] | None = None,
+        on_thought_begin: Callable[[], None] | None = None,
+        on_thought_chunk: Callable[[str], None] | None = None,
+        on_thought_reset: Callable[[], None] | None = None,
+        on_thought_finalize: Callable[[], None] | None = None,
     ) -> AllyOutput:
         """Streaming counterpart to decide() -- builds the exact same prompt,
         but streams the `analysis` field live via on_chunk as it's generated,
@@ -106,6 +110,10 @@ class Ally:
             on_field_chunk=on_chunk,
             on_stream_reset=on_reset,
             thinking_level=self.thinking_level,
+            on_thought_begin=on_thought_begin,
+            on_thought_chunk=on_thought_chunk,
+            on_thought_reset=on_thought_reset,
+            on_thought_finalize=on_thought_finalize,
         )
 
     def chat_stream(
@@ -118,6 +126,10 @@ class Ally:
         question: str = "",
         on_chunk: Callable[[str], None] | None = None,
         on_reset: Callable[[], None] | None = None,
+        on_thought_begin: Callable[[], None] | None = None,
+        on_thought_chunk: Callable[[str], None] | None = None,
+        on_thought_reset: Callable[[], None] | None = None,
+        on_thought_finalize: Callable[[], None] | None = None,
     ) -> AllyChatOutput:
         """Streaming counterpart to chat() -- builds the exact same prompt,
         streams the `response` field live via on_chunk."""
@@ -136,4 +148,9 @@ class Ally:
             stream_field="response",
             on_field_chunk=on_chunk,
             on_stream_reset=on_reset,
+            thinking_level=self.thinking_level,
+            on_thought_begin=on_thought_begin,
+            on_thought_chunk=on_thought_chunk,
+            on_thought_reset=on_thought_reset,
+            on_thought_finalize=on_thought_finalize,
         )

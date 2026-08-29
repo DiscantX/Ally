@@ -115,6 +115,10 @@ class AllyCore:
         self.on_chat_stream_chunk: EventHook = EventHook("on_chat_stream_chunk")
         self.on_chat_stream_reset: EventHook = EventHook("on_chat_stream_reset")
         self.on_chat_stream_finalize: EventHook = EventHook("on_chat_stream_finalize")
+        self.on_thinking_stream_begin: EventHook = EventHook("on_thinking_stream_begin")
+        self.on_thinking_stream_chunk: EventHook = EventHook("on_thinking_stream_chunk")
+        self.on_thinking_stream_reset: EventHook = EventHook("on_thinking_stream_reset")
+        self.on_thinking_stream_finalize: EventHook = EventHook("on_thinking_stream_finalize")
 
     def push_memory_states(self):
         if self.memory_manager is not None:
@@ -255,7 +259,12 @@ class AllyCore:
             perspective_context = self.perspective_engine.as_context(perspective_score)
 
             prompt_sent_to_ally = f"Elements: {elements_context}\nEntities: {entities_context}\nGenre: {genre_context}\nMemory: {memory_context}\nPerspectives: {perspective_context}"
-            self.on_analysis_stream_begin.emit()
+            analysis_begun = [False]
+            def ensure_analysis_begun():
+                if not analysis_begun[0]:
+                    analysis_begun[0] = True
+                    self.on_analysis_stream_begin.emit()
+
             ally_output = self.ally.decide_stream(
                 elements_context=elements_context,
                 entities_context=entities_context,
@@ -263,9 +272,14 @@ class AllyCore:
                 memory_context=memory_context,
                 personality=personality_context,
                 perspective_context=perspective_context,
-                on_chunk=lambda text: self.on_analysis_stream_chunk.emit(text),
+                on_chunk=lambda text: (ensure_analysis_begun(), self.on_analysis_stream_chunk.emit(text)),
                 on_reset=lambda: self.on_analysis_stream_reset.emit(),
+                on_thought_begin=lambda: self.on_thinking_stream_begin.emit(),
+                on_thought_chunk=lambda t: self.on_thinking_stream_chunk.emit(t),
+                on_thought_reset=lambda: self.on_thinking_stream_reset.emit(),
+                on_thought_finalize=lambda: (self.on_thinking_stream_finalize.emit(), ensure_analysis_begun()),
             )
+            ensure_analysis_begun()
             self.on_analysis_stream_finalize.emit(ally_output.analysis)
             timings["ally"] = time.perf_counter() - t0
 
@@ -303,6 +317,8 @@ class AllyCore:
                 run_boundary="none",
             )
             self.on_ally_output.emit(ally_output)
+            self.on_thinking_stream_begin.emit()
+            self.on_thinking_stream_finalize.emit()
             self.on_analysis_stream_begin.emit()
             self.on_analysis_stream_chunk.emit(ally_output.analysis)
             self.on_analysis_stream_finalize.emit(ally_output.analysis)
@@ -451,7 +467,12 @@ class AllyCore:
                 return
 
             try:
-                self.on_chat_stream_begin.emit()
+                chat_begun = [False]
+                def ensure_chat_begun():
+                    if not chat_begun[0]:
+                        chat_begun[0] = True
+                        self.on_chat_stream_begin.emit()
+
                 res = self.ally.chat_stream(
                     elements_context=elements_context,
                     entities_context=entities_context,
@@ -459,9 +480,14 @@ class AllyCore:
                     memory_context=memory_context,
                     personality=personality_context,
                     question=text,
-                    on_chunk=lambda t: self.on_chat_stream_chunk.emit(t),
+                    on_chunk=lambda t: (ensure_chat_begun(), self.on_chat_stream_chunk.emit(t)),
                     on_reset=lambda: self.on_chat_stream_reset.emit(),
+                    on_thought_begin=lambda: self.on_thinking_stream_begin.emit(),
+                    on_thought_chunk=lambda t: self.on_thinking_stream_chunk.emit(t),
+                    on_thought_reset=lambda: self.on_thinking_stream_reset.emit(),
+                    on_thought_finalize=lambda: (self.on_thinking_stream_finalize.emit(), ensure_chat_begun()),
                 )
+                ensure_chat_begun()
                 with self.state_lock:
                     if self.memory_manager is not None:
                         self.memory_manager.record_turn(
