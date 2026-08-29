@@ -292,6 +292,7 @@ class AllyCore:
             )
             self.on_ally_output.emit(ally_output)
 
+        run_ended = False
         t0 = time.perf_counter()
         with self.state_lock:
             if self.memory_manager is not None and skip_scribe_reason != "off_game":

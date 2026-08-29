@@ -69,6 +69,6 @@ test_neutral_empty_baseline (tests.test_perspective_engine.TestPerspectiveEngine
 test_scoring_heuristics_ataraxia (tests.test_perspective_engine.TestPerspectiveEngine.test_scoring_heuristics_ataraxia) ... ok
 
 ----------------------------------------------------------------------
-Ran 67 tests in 274.497s
+Ran 67 tests in 83.971s
 
 OK
