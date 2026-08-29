@@ -64,12 +64,12 @@ def initialize_application():
         gui_app.mainloop()
     else:
         # Headless terminal mode
-        core.on_status_update = lambda screen, event: None
-        core.on_state_summary = lambda summary: log("Summary:\n{summary}", summary=summary)
-        core.on_prompt_update = lambda prompt: None
-        core.on_feedback = lambda feedback: log("Feedback:\n{feedback}", feedback=feedback)
-        core.on_chat_message = lambda sender, msg: log("{sender}: {msg}", sender=sender, msg=msg)
-        core.on_connection_status = lambda conn: log("Connection: {conn}", conn=conn)
+        core.on_status_update.connect(lambda screen, event: None)
+        core.on_state_summary.connect(lambda summary: log("Summary:\n{summary}", summary=summary))
+        core.on_prompt_update.connect(lambda prompt: None)
+        core.on_feedback.connect(lambda feedback: log("Feedback:\n{feedback}", feedback=feedback))
+        core.on_chat_message.connect(lambda sender, msg: log("{sender}: {msg}", sender=sender, msg=msg))
+        core.on_connection_status.connect(lambda conn: log("Connection: {conn}", conn=conn))
 
         if args.image:
             observation = RawObservation(image=Image.open(args.image))

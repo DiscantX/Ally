@@ -20,6 +20,7 @@ from PIL import Image
 from ingestion.collectors.base import RawObservation
 from ingestion.collectors.window_manager import ClientRect
 from brain.perception.change_detector import ChangeDetector  # This was added/changed as a part of the ZOO CODE idle safeguard pass
+from brain.state.shell_bounds_registry import SHELL_BOUNDS
 from storage.configs.config_manager import load_user_config
 from infrastructure.logger import log
 
@@ -100,4 +101,15 @@ class ScreenCollector:
         with mss.mss() as sct:
             sct_img = sct.grab(monitor)
             frame = np.array(sct_img)
-            return cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+            bgr_frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+            
+            frame_h, frame_w = bgr_frame.shape[:2]
+            for (bx, by, bw, bh) in SHELL_BOUNDS.all_bounds():
+                x0 = max(0, bx - self.rect.left)
+                y0 = max(0, by - self.rect.top)
+                x1 = min(frame_w, bx - self.rect.left + bw)
+                y1 = min(frame_h, by - self.rect.top + bh)
+                if x0 < x1 and y0 < y1:
+                    cv2.rectangle(bgr_frame, (x0, y0), (x1, y1), (0, 0, 0), -1)
+            
+            return bgr_frame

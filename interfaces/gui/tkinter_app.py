@@ -46,18 +46,18 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
             if self._on_send_message is None:
                 self._on_send_message = core.send_message
             core.gui_app = self
-            core.on_pipeline_image = self.update_pipeline_image
-            core.on_debug_overlay = self.update_debug_image
-            core.on_status_update = lambda screen, event: (self.update_debug_info(screen, event), self.start_eta_countdown(15))
-            core.on_state_summary = self.update_state_summary
-            core.on_prompt_update = self.update_prompt
-            core.on_feedback = self.update_feedback
-            core.on_chat_message = self.append_chat_message
-            core.on_eta_ready = self.set_eta_ready
-            core.on_connection_status = self.set_connection_status
-            core.on_medium_term = self.update_medium_term_summary
-            core.on_personality_state = self.update_personality_state
-            core.on_strategic_memory = self.update_strategic_memory
+            core.on_pipeline_image.connect(self.update_pipeline_image)
+            core.on_debug_overlay.connect(self.update_debug_image)
+            core.on_status_update.connect(lambda screen, event: (self.update_debug_info(screen, event), self.start_eta_countdown(15)))
+            core.on_state_summary.connect(self.update_state_summary)
+            core.on_prompt_update.connect(self.update_prompt)
+            core.on_feedback.connect(self.update_feedback)
+            core.on_chat_message.connect(self.append_chat_message)
+            core.on_eta_ready.connect(self.set_eta_ready)
+            core.on_connection_status.connect(self.set_connection_status)
+            core.on_medium_term.connect(self.update_medium_term_summary)
+            core.on_personality_state.connect(self.update_personality_state)
+            core.on_strategic_memory.connect(self.update_strategic_memory)
 
         self._drawer_open = DEFAULT_DRAWER_OPEN
         self._prompt_collapsed = True

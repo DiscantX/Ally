@@ -3,6 +3,8 @@ import sys
 import inspect
 import datetime
 from pathlib import Path
+from dataclasses import dataclass
+from typing import Callable, Any
 
 # ANSI Color Codes (Expanded Palette)
 COLORS = {
@@ -80,7 +82,35 @@ REGISTRY = {
     "update_docs.py": {"name": "UpdateDocs", "color": "red"},
     "init_config.py": {"name": "InitConfig", "color": "bright_orange"},
     "core.py": {"name": "AllyCore", "color": "lavender"},
+    "screen_classifier.py": {"name": "ScreenClassifier", "color": "mint"},
+    "screen_bootstrapper.py": {"name": "ScreenBootstrapper", "color": "salmon"},
+    "layout_reader.py": {"name": "LayoutOCRReader", "color": "teal"},
+    "ocr.py": {"name": "OCR", "color": "olive"},
+    "clip_classifier.py": {"name": "ClipClassifier", "color": "violet"},
+    "screen_category_store.py": {"name": "CategoryStore", "color": "lavender"},
+    "entity_registry.py": {"name": "EntityRegistry", "color": "sky_blue"},
+    "narrative.py": {"name": "NarrativeMemory", "color": "pink"},
+    "personality.py": {"name": "PersonalityMemory", "color": "purple"},
+    "save_tracker.py": {"name": "SaveTracker", "color": "dark_grey"},
 }
+
+@dataclass
+class LogEntry:
+    brain_name: str
+    method_name: str
+    message: str
+    level: str
+    timestamp: datetime.datetime
+
+_subscribers: list[Callable[[LogEntry], None]] = []
+
+def subscribe(callback: Callable[[LogEntry], None]) -> None:
+    if callback not in _subscribers:
+        _subscribers.append(callback)
+
+def unsubscribe(callback: Callable[[LogEntry], None]) -> None:
+    if callback in _subscribers:
+        _subscribers.remove(callback)
 
 DEFAULT_BRAIN = {"name": "General", "color": "white"}
 
@@ -202,6 +232,23 @@ def log(message: str, *args, name: str | None = None, level: str = "info", **kwa
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(file_line)
+    except Exception:
+        pass
+
+    # 6. Subscriber Pub/Sub Dispatch
+    try:
+        entry = LogEntry(
+            brain_name=brain_name,
+            method_name=method_name,
+            message=formatted_message,
+            level=level,
+            timestamp=datetime.datetime.now()
+        )
+        for sub in list(_subscribers):
+            try:
+                sub(entry)
+            except Exception:
+                pass
     except Exception:
         pass
 

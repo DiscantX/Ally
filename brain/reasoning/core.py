@@ -3,11 +3,14 @@
 
 import threading
 import time
+from collections import deque
 from typing import Any, Optional, Callable, cast
 import cv2
 import numpy as np
 from PIL import Image
 
+from utils.event_hook import EventHook
+from brain.state.turn_trace import TurnTrace
 from brain.reasoning.ally_agent import Ally
 from brain.reasoning.personalities import PERSONALITIES
 from ingestion.collectors.base import RawObservation
@@ -74,41 +77,46 @@ class AllyCore:
         self.running = False
         self._loop_thread: Optional[threading.Thread] = None
 
-        # Observer / Event callbacks
-        self.on_pipeline_image: Optional[Callable[[str, Image.Image, str], None]] = None
-        self.on_debug_overlay: Optional[Callable[[np.ndarray], None]] = None
-        self.on_status_update: Optional[Callable[[str, str], None]] = None
-        self.on_state_summary: Optional[Callable[[str], None]] = None
-        self.on_prompt_update: Optional[Callable[[str], None]] = None
-        self.on_feedback: Optional[Callable[[str], None]] = None
-        self.on_chat_message: Optional[Callable[[str, str], None]] = None
-        self.on_eta_ready: Optional[Callable[[], None]] = None
-        self.on_connection_status: Optional[Callable[[bool], None]] = None
-        self.on_medium_term: Optional[Callable[[str], None]] = None
-        self.on_personality_state: Optional[Callable[[str], None]] = None
-        self.on_strategic_memory: Optional[Callable[[str], None]] = None
+        # Telemetry ring buffer
+        self.turn_traces: deque[TurnTrace] = deque(maxlen=20)
+
+        # Observer / Event Hooks
+        self.on_pipeline_image: EventHook = EventHook("on_pipeline_image")
+        self.on_debug_overlay: EventHook = EventHook("on_debug_overlay")
+        self.on_status_update: EventHook = EventHook("on_status_update")
+        self.on_state_summary: EventHook = EventHook("on_state_summary")
+        self.on_prompt_update: EventHook = EventHook("on_prompt_update")
+        self.on_feedback: EventHook = EventHook("on_feedback")
+        self.on_chat_message: EventHook = EventHook("on_chat_message")
+        self.on_eta_ready: EventHook = EventHook("on_eta_ready")
+        self.on_connection_status: EventHook = EventHook("on_connection_status")
+        self.on_medium_term: EventHook = EventHook("on_medium_term")
+        self.on_personality_state: EventHook = EventHook("on_personality_state")
+        self.on_strategic_memory: EventHook = EventHook("on_strategic_memory")
+        self.on_ocr_result: EventHook = EventHook("on_ocr_result")
+        self.on_scribe_output: EventHook = EventHook("on_scribe_output")
+        self.on_ally_output: EventHook = EventHook("on_ally_output")
 
     def push_memory_states(self):
         if self.memory_manager is not None:
-            if self.on_personality_state is not None:
-                digest = self.memory_manager.get_personality_digest()
-                base = self.memory_manager.get_base_personality()
-                self.on_personality_state(f"Archetype: {base}\n\nDigest:\n{digest}")
-            if self.on_strategic_memory is not None:
-                long_term = self.memory_manager.get_long_term_summary()
-                cross_session = self.memory_manager.get_cross_session_summary()
-                strat_text = []
-                if cross_session:
-                    strat_text.append(f"Cross-Session Summary:\n{cross_session}")
-                if long_term:
-                    strat_text.append(f"Strategic Long-Term Overview:\n{long_term}")
-                self.on_strategic_memory("\n\n".join(strat_text) if strat_text else "(no strategic memory recorded yet)")
+            digest = self.memory_manager.get_personality_digest()
+            base = self.memory_manager.get_base_personality()
+            self.on_personality_state.emit(f"Archetype: {base}\n\nDigest:\n{digest}")
+            
+            long_term = self.memory_manager.get_long_term_summary()
+            cross_session = self.memory_manager.get_cross_session_summary()
+            strat_text = []
+            if cross_session:
+                strat_text.append(f"Cross-Session Summary:\n{cross_session}")
+            if long_term:
+                strat_text.append(f"Strategic Long-Term Overview:\n{long_term}")
+            self.on_strategic_memory.emit("\n\n".join(strat_text) if strat_text else "(no strategic memory recorded yet)")
 
     def update_pipeline_image(self, key: str, image, title: Optional[str] = None):
         if self.gui_app is not None and hasattr(self.gui_app, "update_pipeline_image"):
             self.gui_app.update_pipeline_image(key, image, title)
-        elif self.on_pipeline_image is not None:
-            self.on_pipeline_image(key, image, title)
+        else:
+            self.on_pipeline_image.emit(key, image, title)
 
     def _debug_frame(self, observation: RawObservation) -> np.ndarray:
         if observation.image is None:
@@ -123,25 +131,24 @@ class AllyCore:
 
     def run_turn(self, observation: RawObservation, include_ui: bool = True) -> bool:
         if observation.image is None:
-            # log("No image captured -- is the game window open?")
             return False
 
-        if self.on_pipeline_image is not None:
-            self.on_pipeline_image("observation", observation.image, "RGB PIL Image Observation")
-            if self.collector is not None:
-                c_any = cast(Any, self.collector)
-                target_gui = self.gui_app or self
-                if hasattr(c_any, "change_detector") and c_any.change_detector:
-                    c_any.change_detector.gui_app = target_gui
-                if hasattr(c_any, "screen") and c_any.screen and hasattr(c_any.screen, "change_detector"):
-                    c_any.screen.change_detector.gui_app = target_gui
-                if hasattr(c_any, "classifier") and c_any.classifier:
-                    c_any.classifier.gui_app = target_gui
+        timings: dict[str, float] = {}
+
+        self.on_pipeline_image.emit("observation", observation.image, "RGB PIL Image Observation")
+        if self.collector is not None:
+            c_any = cast(Any, self.collector)
+            target_gui = self.gui_app or self
+            if hasattr(c_any, "change_detector") and c_any.change_detector:
+                c_any.change_detector.gui_app = target_gui
+            if hasattr(c_any, "screen") and c_any.screen and hasattr(c_any.screen, "change_detector"):
+                c_any.screen.change_detector.gui_app = target_gui
+            if hasattr(c_any, "classifier") and c_any.classifier:
+                c_any.classifier.gui_app = target_gui
 
         debug_frame = self._debug_frame(observation)
-        if self.on_debug_overlay is not None:
-            self.on_debug_overlay(debug_frame)
-        else:
+        self.on_debug_overlay.emit(debug_frame)
+        if not self.on_debug_overlay._subscribers:
             show_image(debug_frame)
 
         log(
@@ -153,8 +160,29 @@ class AllyCore:
         skip_scribe_reason = getattr(observation, 'skip_scribe_reason', 'none')
         skip_ally = getattr(observation, 'skip_ally', False) or skip_scribe_reason != 'none'
 
+        screen_category = getattr(observation, 'screen_category', None)
+        is_draft = getattr(observation, 'is_draft', False)
+
+        ocr_payload = {
+            "screen_name": observation.screen_name,
+            "confidence": observation.screen_confidence,
+            "is_draft": is_draft,
+            "confirmed_facts": observation.confirmed_facts,
+            "screen_category": screen_category,
+            "skip_scribe_reason": skip_scribe_reason,
+        }
+        self.on_ocr_result.emit(ocr_payload)
+
+        scribe_output = None
+        ally_output = None
+        prompt_sent_to_ally = None
+
         if not skip_ally:
+            t0 = time.perf_counter()
             scribe_output = self.scribe.extract(observation.image, include_ui=include_ui)
+            timings["scribe"] = time.perf_counter() - t0
+
+            self.on_scribe_output.emit(scribe_output)
 
             if self.category_store is not None and self.collector is not None:
                 self.category_store.maybe_learn(scribe_output.screen_name_guess, self.collector.config.game_id)
@@ -162,6 +190,7 @@ class AllyCore:
             if self.collector is not None and observation.bootstrap_ready:
                 self.collector.bootstrap_screen(scribe_output.screen_elements, scribe_output.screen_name_guess)
 
+            t0 = time.perf_counter()
             with self.state_lock:
                 self.sandbox.update(scribe_output.screen_elements, observation.confirmed_facts)
                 genre_estimate = self.genre_tracker.update(
@@ -186,6 +215,7 @@ class AllyCore:
                 genre_context = self.genre_tracker.as_context()
                 memory_context = self.memory_manager.build_context() if self.memory_manager else "(no memory)"
                 personality_context = self.memory_manager.get_personality_context() if self.memory_manager else self.ally.base_personality
+            timings["entity_resolve"] = time.perf_counter() - t0
 
             log("\n--- Entity registry (accumulated across the run) ---")
             log("{}", entities_context)
@@ -198,6 +228,8 @@ class AllyCore:
             )
 
             log("\n--- Ally (blind to the image) ---")
+            t0 = time.perf_counter()
+            prompt_sent_to_ally = f"Elements: {elements_context}\nEntities: {entities_context}\nGenre: {genre_context}\nMemory: {memory_context}"
             ally_output = self.ally.decide(
                 elements_context=elements_context,
                 entities_context=entities_context,
@@ -205,11 +237,17 @@ class AllyCore:
                 memory_context=memory_context,
                 personality=personality_context,
             )
+            timings["ally"] = time.perf_counter() - t0
+
+            self.on_ally_output.emit(ally_output)
+
             log("\nAnalysis:\n{analysis}", analysis=ally_output.analysis)
             log("\nActions:")
             for action in ally_output.actions:
                 log("  - {text}", text=action.text)
         else:
+            self.on_scribe_output.emit(None)
+            t0 = time.perf_counter()
             with self.state_lock:
                 self.sandbox.update([], observation.confirmed_facts)
                 genre_estimate = self.genre_tracker.update("unknown", 0.0)
@@ -218,6 +256,8 @@ class AllyCore:
                     entities_context = self.registry.as_context(touched_entities, max_entities=20)
                 else:
                     entities_context = "(no registry)"
+            timings["entity_resolve"] = time.perf_counter() - t0
+
             log("\n--- Entity registry (accumulated across the run) ---")
             log("{}", entities_context)
             skip_messages = {
@@ -232,7 +272,9 @@ class AllyCore:
                 actions=[],
                 run_boundary="none",
             )
+            self.on_ally_output.emit(ally_output)
 
+        t0 = time.perf_counter()
         with self.state_lock:
             if self.memory_manager is not None and skip_scribe_reason != "off_game":
                 self.memory_manager.record_turn(
@@ -245,20 +287,32 @@ class AllyCore:
                 log("\n--- Run ended (boundary resolved) ---")
                 if self.memory_manager is not None:
                     self.memory_manager.close_run()
-                if self.on_chat_message is not None:
-                    self.on_chat_message("coach", "Run ended! Closing session and saving cross-session memories.")
+                self.on_chat_message.emit("coach", "Run ended! Closing session and saving cross-session memories.")
+        timings["memory_record"] = time.perf_counter() - t0
 
-        if self.on_status_update is not None:
-            self.on_status_update(observation.screen_name, "turn")
-        if self.on_state_summary is not None:
-            self.on_state_summary(self.sandbox.as_context())
-        if self.on_prompt_update is not None:
-            self.on_prompt_update(self.sandbox.as_context()[:300])
-        if self.on_feedback is not None:
-            self.on_feedback(ally_output.analysis)
+        self.on_status_update.emit(observation.screen_name, "turn")
+        self.on_state_summary.emit(self.sandbox.as_context())
+        self.on_prompt_update.emit(self.sandbox.as_context()[:300])
+        self.on_feedback.emit(ally_output.analysis)
         self.push_memory_states()
-        if self.on_eta_ready is not None:
-            self.on_eta_ready()
+        self.on_eta_ready.emit()
+
+        trace = TurnTrace(
+            turn=self.sandbox.turn,
+            timestamp=time.time(),
+            screen_name=observation.screen_name,
+            screen_confidence=observation.screen_confidence,
+            is_draft_match=is_draft,
+            skip_scribe_reason=skip_scribe_reason,
+            skip_ally=skip_ally,
+            screen_category=screen_category,
+            confirmed_facts=list(observation.confirmed_facts),
+            scribe_output=scribe_output,
+            ally_output=ally_output,
+            prompt_sent_to_ally=prompt_sent_to_ally,
+            timings=timings,
+        )
+        self.turn_traces.append(trace)
 
         return run_ended
 
@@ -337,13 +391,11 @@ class AllyCore:
                         self.memory_manager.personality.record_reflection(f"Player feedback: {text}")
 
             if not_started:
-                if self.on_chat_message is not None:
-                    self.on_chat_message("coach", "Game loop hasn't started yet. Hang tight!")
+                self.on_chat_message.emit("coach", "Game loop hasn't started yet. Hang tight!")
                 return
 
             if message_type == "feedback":
-                if self.on_chat_message is not None:
-                    self.on_chat_message("coach", "Got it! I've noted that feedback and adjusted my approach.")
+                self.on_chat_message.emit("coach", "Got it! I've noted that feedback and adjusted my approach.")
                 return
 
             try:
@@ -362,11 +414,9 @@ class AllyCore:
                             f"Player asked: '{text}' -> Ally answered: '{res.response}'",
                             importance=5
                         )
-                if self.on_chat_message is not None:
-                    self.on_chat_message("coach", res.response)
+                self.on_chat_message.emit("coach", res.response)
             except Exception as e:
-                if self.on_chat_message is not None:
-                    self.on_chat_message("coach", f"(Error: {e})")
+                self.on_chat_message.emit("coach", f"(Error: {e})")
 
         threading.Thread(target=_handle, daemon=True).start()
 
@@ -413,6 +463,3 @@ class AllyCore:
                 save_id=save_id,
                 db=self.db,
             )
-
-
-

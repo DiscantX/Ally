@@ -18,6 +18,10 @@ from tests.test_run_turn_skip_ally import TestRunTurnSkipAlly
 from tests.test_screen_category_store import TestScreenCategoryStore
 from tests.test_window_manager_refresh import TestWindowManagerRefresh
 from tests.test_clip_gate_integration import TestClipGateIntegration
+from tests.test_event_hook import TestEventHook
+from tests.test_turn_trace import TestTurnTrace
+from tests.test_shell_bounds_registry import TestShellBoundsRegistry
+from tests.test_logger_pubsub import TestLoggerPubSub
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
@@ -40,6 +44,10 @@ if __name__ == "__main__":
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestScreenCategoryStore))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestWindowManagerRefresh))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestClipGateIntegration))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestEventHook))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestTurnTrace))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestShellBoundsRegistry))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestLoggerPubSub))
 
     with open("test_results.log", "w") as log_file:
         runner = unittest.TextTestRunner(stream=log_file, verbosity=2)

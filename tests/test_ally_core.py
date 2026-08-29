@@ -10,11 +10,11 @@ class TestAllyCore(unittest.TestCase):
         core.initialize_run()
 
         events = []
-        core.on_status_update = lambda screen, event: events.append(("status", screen, event))
-        core.on_state_summary = lambda summary: events.append(("summary", summary))
-        core.on_prompt_update = lambda prompt: events.append(("prompt", prompt))
-        core.on_feedback = lambda feedback: events.append(("feedback", feedback))
-        core.on_eta_ready = lambda: events.append(("eta",))
+        core.on_status_update.connect(lambda screen, event: events.append(("status", screen, event)))
+        core.on_state_summary.connect(lambda summary: events.append(("summary", summary)))
+        core.on_prompt_update.connect(lambda prompt: events.append(("prompt", prompt)))
+        core.on_feedback.connect(lambda feedback: events.append(("feedback", feedback)))
+        core.on_eta_ready.connect(lambda: events.append(("eta",)))
 
         # Create dummy observation with skip_ally=True to avoid LLM network call in unit test
         img = Image.new("RGB", (100, 100), color="blue")
@@ -35,7 +35,7 @@ class TestAllyCore(unittest.TestCase):
     def test_ally_core_chat_message_unstarted(self):
         core = AllyCore(personality_name="Scout")
         messages = []
-        core.on_chat_message = lambda sender, msg: messages.append((sender, msg))
+        core.on_chat_message.connect(lambda sender, msg: messages.append((sender, msg)))
 
         core.send_message("Hello Ally", message_type="chat")
         # Wait briefly for background thread
