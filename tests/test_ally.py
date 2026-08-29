@@ -2,12 +2,14 @@ import unittest
 from unittest.mock import MagicMock
 from brain.reasoning.ally_agent import Ally
 from brain.knowledge.schema.schema import AllyOutput
+from storage.configs.config_manager import load_user_config, get_thinking_level
 
 class TestAllyAgent(unittest.TestCase):
     def test_ally_constructor_defaults_and_custom(self):
         provider = MagicMock()
+        config = load_user_config()
         ally_default = Ally(provider)
-        self.assertEqual(ally_default.thinking_level, "LOW")
+        self.assertEqual(ally_default.thinking_level, get_thinking_level("ally", config))
         self.assertIn("upbeat", ally_default.base_personality)
 
         ally_custom = Ally(provider, thinking_level="MEDIUM")
