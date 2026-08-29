@@ -82,7 +82,7 @@ def _animate_loop():
         
         h_line = f" {m0}────{m1}────{m2}────{m3}────{m4}────{c4}────{c3}────{c2}────{c1}────{c0}────{RESET}"
         
-        final_line = f"{c0}A{RESET}{DIM}utonomous {c1}L{RESET}{DIM}ive {c2}L{RESET}{DIM}earner for {c3}Y{RESET}{DIM}our Games"
+        final_line = f"{c3}A{RESET}{DIM}utonomous {c2}L{RESET}{DIM}ive {c1}L{RESET}{DIM}earner for {c0}Y{RESET}{DIM}our Games"
         splash_frame = ALLY_ASCII_TEMPLATE.format(
             m0=m0, m1=m1, m2=m2, m3=m3, m4=m4,
             c0=c0, c1=c1, c2=c2, c3=c3, c4=c4,
@@ -138,6 +138,6 @@ def run_header_splash():
         final_line=final_line,
         RESET=RESET,
         DIM=DIM
-    )
-    print(static_frame)
+    ) + f"{h_line}\n"
+    print(static_frame, end="")
     return main
