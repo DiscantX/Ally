@@ -8,6 +8,16 @@ to the decision log instead of leaving it here.
 
 ---
 
+## 2026-08-29 — Production Token-Level Streaming (Ally.decide + Ally.chat)
+
+Shipped production token-level streaming for Ally's analysis and chat responses across terminal and Tkinter GUI:
+
+- **Provider Layer**: Added [`generate_structured_stream_field()`](infrastructure/llm/gemini_provider.py:115) and [`_extract_new_field_text()`](infrastructure/llm/gemini_provider.py:258) to [`GeminiProvider`](infrastructure/llm/gemini_provider.py:66) using [`partial-json-parser`](requirements.txt:14) (`partial-json-parser` added to [`requirements.txt`](requirements.txt:14)), with retry-and-reset semantics.
+- **Ally Layer**: Added [`Ally.decide_stream()`](brain/reasoning/ally_agent.py:346) and [`Ally.chat_stream()`](brain/reasoning/ally_agent.py:398).
+- **Core EventHooks & Wiring**: Added eight new streaming EventHooks (`on_analysis_stream_*`, `on_chat_stream_*`) to [`AllyCore`](brain/reasoning/core.py:41), rewiring [`run_turn()`](brain/reasoning/core.py:143) and [`send_message()`](brain/reasoning/core.py:407).
+- **GUI & Terminal**: Implemented live streaming feedback panel and chat drawer methods in [`interfaces/gui/overlay_api.py`](interfaces/gui/overlay_api.py) and [`interfaces/gui/chat_drawer.py`](interfaces/gui/chat_drawer.py), rewired in [`AllyOverlay`](interfaces/gui/tkinter_app.py:34). Added [`TerminalStreamPrinter`](main.py:15) for headless/terminal streaming in [`main.py`](main.py:1).
+- **Testing**: Added [`TestGeminiProviderStreamField`](tests/test_gemini_provider_stream_field.py:10) and [`TestAllyStream`](tests/test_ally_stream.py:5), and extended [`TestAllyCore`](tests/test_ally_core.py:8).
+
 ## 2026-08-29 — Perspectives, Scoring, & Diagnostic Streaming Thinking (Phase 2)
 
 Shipped Phase 2 features covering competing internal psychological framings, zero-API heuristic scoring, and diagnostic streaming thinking:

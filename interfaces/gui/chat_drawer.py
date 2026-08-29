@@ -153,3 +153,48 @@ class ChatDrawerMixin:
             if was_at_bottom:
                 self.chat_text.see(tk.END)
         self._dispatch(_update)
+
+    def begin_streaming_chat_message(self):
+        def _update():
+            was_at_bottom = self._is_scrolled_to_bottom(self.chat_text)
+            self.chat_text.config(state=tk.NORMAL)
+            if self.chat_text.index('end-1c') != '1.0':
+                self.chat_text.insert(tk.END, "\n\n")
+            self.chat_text.insert(tk.END, "Ally\n", 'chat_label')
+            self._streaming_chat_body_start = self.chat_text.index(tk.END)
+            self.chat_text.config(state=tk.DISABLED)
+            if was_at_bottom:
+                self.chat_text.see(tk.END)
+        self._dispatch(_update)
+
+    def append_streaming_chat_chunk(self, chunk_text: str):
+        def _update():
+            was_at_bottom = self._is_scrolled_to_bottom(self.chat_text)
+            self.chat_text.config(state=tk.NORMAL)
+            self.chat_text.insert(tk.END, chunk_text, "coach")
+            self.chat_text.config(state=tk.DISABLED)
+            if was_at_bottom:
+                self.chat_text.see(tk.END)
+        self._dispatch(_update)
+
+    def reset_streaming_chat_message(self):
+        def _update():
+            start = getattr(self, "_streaming_chat_body_start", None)
+            if start is None:
+                return
+            self.chat_text.config(state=tk.NORMAL)
+            self.chat_text.delete(start, tk.END)
+            self.chat_text.config(state=tk.DISABLED)
+        self._dispatch(_update)
+
+    def finalize_streaming_chat_message(self, final_text: str):
+        def _update():
+            start = getattr(self, "_streaming_chat_body_start", None)
+            if start is not None:
+                self.chat_text.config(state=tk.NORMAL)
+                current = self.chat_text.get(start, tk.END).rstrip("\n")
+                if current != final_text:
+                    self.chat_text.delete(start, tk.END)
+                    self.chat_text.insert(start, final_text, "coach")
+                self.chat_text.config(state=tk.DISABLED)
+        self._dispatch(_update)

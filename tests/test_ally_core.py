@@ -125,6 +125,97 @@ class TestAllyCore(unittest.TestCase):
         self.assertEqual(core._personality_journal_writes_since_redistill, 0)
         core.memory_manager.close_run.assert_called()
 
+    def test_ally_core_run_turn_streaming(self):
+        core = AllyCore(image_path=None, personality_name="Scout")
+        core.initialize_run()
+
+        from brain.knowledge.schema.schema import AllyOutput
+        mock_output = AllyOutput(analysis="Streamed analysis text", actions=[])
+        
+        def mock_decide_stream(*args, **kwargs):
+            on_chunk = kwargs.get("on_chunk")
+            if on_chunk:
+                on_chunk("Streamed ")
+                on_chunk("analysis text")
+            return mock_output
+
+        core.ally.decide_stream = mock_decide_stream
+        core.scribe.extract = MagicMock(return_value=MagicMock(screen_elements=[], genre_guess="RPG", genre_confidence=1.0, screen_name_guess="combat"))
+
+        begins, chunks, resets, finalizes = [], [], [], []
+        core.on_analysis_stream_begin.connect(lambda: begins.append(True))
+        core.on_analysis_stream_chunk.connect(lambda t: chunks.append(t))
+        core.on_analysis_stream_reset.connect(lambda: resets.append(True))
+        core.on_analysis_stream_finalize.connect(lambda t: finalizes.append(t))
+
+        img = Image.new("RGB", (100, 100), color="blue")
+        obs = RawObservation(
+            image=img,
+            screen_name="combat",
+            screen_confidence=1.0,
+            confirmed_facts=[],
+            skip_ally=False
+        )
+
+        core.run_turn(obs, include_ui=True)
+
+        self.assertEqual(len(begins), 1)
+        self.assertEqual(chunks, ["Streamed ", "analysis text"])
+        self.assertEqual(resets, [])
+        self.assertEqual(finalizes, ["Streamed analysis text"])
+
+    def test_ally_core_skip_ally_streaming(self):
+        core = AllyCore(image_path=None, personality_name="Scout")
+        core.initialize_run()
+
+        chunks, finalizes = [], []
+        core.on_analysis_stream_chunk.connect(lambda t: chunks.append(t))
+        core.on_analysis_stream_finalize.connect(lambda t: finalizes.append(t))
+
+        img = Image.new("RGB", (100, 100), color="blue")
+        obs = RawObservation(
+            image=img,
+            screen_name="test_screen",
+            screen_confidence=1.0,
+            confirmed_facts=[],
+            skip_ally=True
+        )
+
+        core.run_turn(obs, include_ui=False)
+        self.assertTrue(len(chunks) > 0)
+        self.assertTrue(len(finalizes) > 0)
+
+    def test_ally_core_chat_streaming(self):
+        core = AllyCore(image_path=None, personality_name="Scout")
+        core.initialize_run()
+
+        from brain.knowledge.schema.schema import AllyChatOutput
+        mock_chat_output = AllyChatOutput(response="Chat response streamed")
+
+        def mock_chat_stream(*args, **kwargs):
+            on_chunk = kwargs.get("on_chunk")
+            if on_chunk:
+                on_chunk("Chat response ")
+                on_chunk("streamed")
+            return mock_chat_output
+
+        core.ally.chat_stream = mock_chat_stream
+
+        begins, chunks, resets, finalizes = [], [], [], []
+        core.on_chat_stream_begin.connect(lambda: begins.append(True))
+        core.on_chat_stream_chunk.connect(lambda t: chunks.append(t))
+        core.on_chat_stream_reset.connect(lambda: resets.append(True))
+        core.on_chat_stream_finalize.connect(lambda t: finalizes.append(t))
+
+        core.send_message("Hello", message_type="chat")
+        import time
+        time.sleep(0.1)
+
+        self.assertEqual(len(begins), 1)
+        self.assertEqual(chunks, ["Chat response ", "streamed"])
+        self.assertEqual(resets, [])
+        self.assertEqual(finalizes, ["Chat response streamed"])
+
 
 if __name__ == "__main__":
     unittest.main()

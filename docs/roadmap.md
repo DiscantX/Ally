@@ -76,4 +76,3 @@
 - Auto-promotion of a CLIP-learned `"normal"` screen category to
   `"low_value"` — a repetition/staleness heuristic risks silently gating
   real gameplay without real playtesting data to tune it against.
-- Real-time JSON streaming (as opposed to thinking-trace streaming via [`generate_structured_stream()`](infrastructure/llm/gemini_provider.py:147)) remains deferred, since partial JSON chunks from structured output streams are not valid JSON until stream completion.

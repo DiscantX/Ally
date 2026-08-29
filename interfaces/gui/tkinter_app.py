@@ -51,8 +51,15 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
             core.on_status_update.connect(lambda screen, event: (self.update_debug_info(screen, event), self.start_eta_countdown(15)))
             core.on_state_summary.connect(self.update_state_summary)
             core.on_prompt_update.connect(self.update_prompt)
-            core.on_feedback.connect(self.update_feedback)
             core.on_chat_message.connect(self.append_chat_message)
+            core.on_analysis_stream_begin.connect(self.begin_streaming_feedback)
+            core.on_analysis_stream_chunk.connect(self.append_streaming_feedback_chunk)
+            core.on_analysis_stream_reset.connect(self.reset_streaming_feedback)
+            core.on_analysis_stream_finalize.connect(self.finalize_streaming_feedback)
+            core.on_chat_stream_begin.connect(self.begin_streaming_chat_message)
+            core.on_chat_stream_chunk.connect(self.append_streaming_chat_chunk)
+            core.on_chat_stream_reset.connect(self.reset_streaming_chat_message)
+            core.on_chat_stream_finalize.connect(self.finalize_streaming_chat_message)
             core.on_eta_ready.connect(self.set_eta_ready)
             core.on_connection_status.connect(self.set_connection_status)
             core.on_medium_term.connect(self.update_medium_term_summary)
@@ -77,6 +84,8 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         self._eta_thread: Optional[threading.Thread] = None
         self._running = True
         self._feedback_entry_count = 0
+        self._streaming_feedback_body_start: Optional[str] = None
+        self._streaming_chat_body_start: Optional[str] = None
         self._resize_job = None
         self._debug_image_raw: Optional[Image.Image] = None
         self._debug_photo_image: Optional[ImageTk.PhotoImage] = None

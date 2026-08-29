@@ -107,6 +107,14 @@ class AllyCore:
         self.on_ocr_result: EventHook = EventHook("on_ocr_result")
         self.on_scribe_output: EventHook = EventHook("on_scribe_output")
         self.on_ally_output: EventHook = EventHook("on_ally_output")
+        self.on_analysis_stream_begin: EventHook = EventHook("on_analysis_stream_begin")
+        self.on_analysis_stream_chunk: EventHook = EventHook("on_analysis_stream_chunk")
+        self.on_analysis_stream_reset: EventHook = EventHook("on_analysis_stream_reset")
+        self.on_analysis_stream_finalize: EventHook = EventHook("on_analysis_stream_finalize")
+        self.on_chat_stream_begin: EventHook = EventHook("on_chat_stream_begin")
+        self.on_chat_stream_chunk: EventHook = EventHook("on_chat_stream_chunk")
+        self.on_chat_stream_reset: EventHook = EventHook("on_chat_stream_reset")
+        self.on_chat_stream_finalize: EventHook = EventHook("on_chat_stream_finalize")
 
     def push_memory_states(self):
         if self.memory_manager is not None:
@@ -247,14 +255,18 @@ class AllyCore:
             perspective_context = self.perspective_engine.as_context(perspective_score)
 
             prompt_sent_to_ally = f"Elements: {elements_context}\nEntities: {entities_context}\nGenre: {genre_context}\nMemory: {memory_context}\nPerspectives: {perspective_context}"
-            ally_output = self.ally.decide(
+            self.on_analysis_stream_begin.emit()
+            ally_output = self.ally.decide_stream(
                 elements_context=elements_context,
                 entities_context=entities_context,
                 genre_context=genre_context,
                 memory_context=memory_context,
                 personality=personality_context,
                 perspective_context=perspective_context,
+                on_chunk=lambda text: self.on_analysis_stream_chunk.emit(text),
+                on_reset=lambda: self.on_analysis_stream_reset.emit(),
             )
+            self.on_analysis_stream_finalize.emit(ally_output.analysis)
             timings["ally"] = time.perf_counter() - t0
 
             self.on_ally_output.emit(ally_output)
@@ -291,6 +303,9 @@ class AllyCore:
                 run_boundary="none",
             )
             self.on_ally_output.emit(ally_output)
+            self.on_analysis_stream_begin.emit()
+            self.on_analysis_stream_chunk.emit(ally_output.analysis)
+            self.on_analysis_stream_finalize.emit(ally_output.analysis)
 
         run_ended = False
         t0 = time.perf_counter()
@@ -436,13 +451,16 @@ class AllyCore:
                 return
 
             try:
-                res = self.ally.chat(
+                self.on_chat_stream_begin.emit()
+                res = self.ally.chat_stream(
                     elements_context=elements_context,
                     entities_context=entities_context,
                     genre_context=genre_context,
                     memory_context=memory_context,
                     personality=personality_context,
                     question=text,
+                    on_chunk=lambda t: self.on_chat_stream_chunk.emit(t),
+                    on_reset=lambda: self.on_chat_stream_reset.emit(),
                 )
                 with self.state_lock:
                     if self.memory_manager is not None:
@@ -451,9 +469,10 @@ class AllyCore:
                             f"Player asked: '{text}' -> Ally answered: '{res.response}'",
                             importance=5
                         )
-                self.on_chat_message.emit("coach", res.response)
+                self.on_chat_stream_finalize.emit(res.response)
             except Exception as e:
-                self.on_chat_message.emit("coach", f"(Error: {e})")
+                self.on_chat_stream_reset.emit()
+                self.on_chat_stream_finalize.emit(f"(Error: {e})")
 
         threading.Thread(target=_handle, daemon=True).start()
 

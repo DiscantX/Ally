@@ -89,6 +89,77 @@ class OverlayApiMixin:
             self.status_label.config(text=f"Updated: {timestamp}")
         self._dispatch(_update)
 
+    def begin_streaming_feedback(self):
+        """MAIN THREAD (dispatched). Starts a new timestamped feedback entry
+        with an empty body, ready to receive live text via
+        append_streaming_feedback_chunk(). Mirrors update_feedback()'s
+        header-insertion exactly, just split into stages."""
+        def _update():
+            text = self.feedback_text
+            was_at_bottom = self._is_scrolled_to_bottom(text)
+            timestamp = datetime.now().strftime('%H:%M:%S')
+
+            text.config(state=tk.NORMAL)
+            if self._feedback_entry_count > 0:
+                text.insert(tk.END, "\n\n")
+            text.insert(tk.END, f"── {timestamp} ──\n", 'timestamp')
+            self._streaming_feedback_body_start = text.index(tk.END)
+            text.config(state=tk.DISABLED)
+            self._feedback_entry_count += 1
+
+            if was_at_bottom:
+                text.see(tk.END)
+            self.status_label.config(text="Ally is responding...")
+        self._dispatch(_update)
+
+    def append_streaming_feedback_chunk(self, chunk_text: str):
+        def _update():
+            text = self.feedback_text
+            was_at_bottom = self._is_scrolled_to_bottom(text)
+            text.config(state=tk.NORMAL)
+            text.insert(tk.END, chunk_text, 'body')
+            text.config(state=tk.DISABLED)
+            if was_at_bottom:
+                text.see(tk.END)
+        self._dispatch(_update)
+
+    def reset_streaming_feedback(self):
+        """Mid-stream retry: wipe this entry's body back to empty (keep the
+        timestamp header already inserted by begin_streaming_feedback), so
+        the retried attempt starts clean with no leftover text visible from
+        the failed attempt."""
+        def _update():
+            text = self.feedback_text
+            start = getattr(self, "_streaming_feedback_body_start", None)
+            if start is None:
+                return
+            text.config(state=tk.NORMAL)
+            text.delete(start, tk.END)
+            text.config(state=tk.DISABLED)
+            self.status_label.config(text="Connection dropped -- retrying...")
+        self._dispatch(_update)
+
+    def finalize_streaming_feedback(self, final_text: str):
+        """Stream complete. Corrective step: ensure the displayed body text
+        exactly matches final_text -- guards against any drift between the
+        incremental partial-JSON preview and the fully-validated final field
+        value. Silently replaces the body if they differ (cheap no-op if
+        they already match)."""
+        def _update():
+            text = self.feedback_text
+            start = getattr(self, "_streaming_feedback_body_start", None)
+            if start is not None:
+                text.config(state=tk.NORMAL)
+                current = text.get(start, tk.END).rstrip("\n")
+                if current != final_text:
+                    text.delete(start, tk.END)
+                    text.insert(start, final_text, 'body')
+                text.config(state=tk.DISABLED)
+            self._feedback_data.feedback = final_text
+            self._feedback_data.last_update = time.time()
+            self.status_label.config(text=f"Updated: {datetime.now().strftime('%H:%M:%S')}")
+        self._dispatch(_update)
+
     def clear_feedback_history(self):
         """Wipe the feedback history."""
         self.feedback_text.config(state=tk.NORMAL)
