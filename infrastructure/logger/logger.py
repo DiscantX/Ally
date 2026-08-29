@@ -3,6 +3,9 @@ import sys
 import inspect
 import datetime
 import pprint
+import re
+import threading
+import time
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Callable, Any
@@ -128,24 +131,52 @@ def _ensure_log_file():
         pass
 
 def _strip_ansi(text: str) -> str:
-    import re
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     return ansi_escape.sub('', text)
 
-def resolve_module_info(explicit_name: str | None = None) -> tuple[str, str, str]:
-    """Resolves brain name, color, and calling function/method name."""
+# Thread-safe storage for function timing stacks
+_timing_storage = threading.local()
+
+def _get_timing_stack() -> dict:
+    if not hasattr(_timing_storage, 'stack'):
+        _timing_storage.stack = {}
+    return _timing_storage.stack
+
+def timed(func: Callable) -> Callable:
+    """Decorator to track function execution time seamlessly with the tree logger."""
+    from functools import wraps
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        stack = _get_timing_stack()
+        code_obj = func.__code__
+        if code_obj not in stack:
+            stack[code_obj] = []
+        stack[code_obj].append(time.perf_counter())
+        try:
+            return func(*args, **kwargs)
+        finally:
+            if code_obj in stack and stack[code_obj]:
+                stack[code_obj].pop()
+                if not stack[code_obj]:
+                    del stack[code_obj]
+    return wrapper
+
+def resolve_module_info(explicit_name: str | None = None) -> tuple[str, str, str, float | None]:
+    """Resolves brain name, color, calling function/method name, and active execution timing."""
     def get_callable_name(f):
         return f.f_code.co_name
 
     if explicit_name:
         for k, v in REGISTRY.items():
             if v["name"].lower() == explicit_name.lower():
-                return v["name"], v["color"], ""
-        return explicit_name, "white", ""
+                return v["name"], v["color"], "", None
+        return explicit_name, "white", "", None
 
     try:
         curr_frame = inspect.currentframe()
         frame = curr_frame.f_back if curr_frame else None
+        stack_timings = _get_timing_stack()
+
         while frame:
             filename = frame.f_code.co_filename
             
@@ -153,42 +184,49 @@ def resolve_module_info(explicit_name: str | None = None) -> tuple[str, str, str
                 frame = frame.f_back
                 continue
 
+            elapsed = None
+            if frame.f_code in stack_timings and stack_timings[frame.f_code]:
+                elapsed = time.perf_counter() - stack_timings[frame.f_code][-1]
+
             if "MODULE_NAME" in frame.f_globals:
                 mod_name = frame.f_globals["MODULE_NAME"]
                 callable_name = get_callable_name(frame)
                 for k, v in REGISTRY.items():
                     if v["name"].lower() == mod_name.lower():
-                        return v["name"], v["color"], callable_name
-                return mod_name, "white", callable_name
+                        return v["name"], v["color"], callable_name, elapsed
+                return mod_name, "white", callable_name, elapsed
 
             file_basename = os.path.basename(filename)
             if file_basename in REGISTRY:
                 entry = REGISTRY[file_basename]
                 callable_name = get_callable_name(frame)
-                return entry["name"], entry["color"], callable_name
+                return entry["name"], entry["color"], callable_name, elapsed
 
             frame = frame.f_back
     except Exception:
         pass
 
-    return DEFAULT_BRAIN["name"], DEFAULT_BRAIN["color"], ""
+    return DEFAULT_BRAIN["name"], DEFAULT_BRAIN["color"], "", None
 
 def log(message: str, *args, name: str | None = None, level: str = "info", **kwargs):
     """Logs a message to terminal with ANSI colors and appends plain text to log file."""
-    # FIX: Intercept logic completely dropped because run.py completely handles 
+    # FIX: Intercept logic completely dropped because run.py completely handles
     # thread cleanup and clearing before handing control to the main core.
 
-    brain_name, color_key, method_name = resolve_module_info(name)
+    brain_name, color_key, method_name, elapsed = resolve_module_info(name)
     color_code = COLORS.get(color_key, "37")
     reset_code = COLORS["reset"]
     
     dim_code = "2"
     ALIGN_WIDTH = 32  # Total character width reserved for the [Module][Method] block
 
+    # Precision expanded to 5 decimal places
+    time_str = f" +{elapsed:.5f}s" if elapsed is not None else ""
+
     # 1. Build the Raw Strings
     if method_name:
-        raw_prefix = f"[{brain_name}][{method_name}]"
-        terminal_prefix = f"\033[{color_code}m[{brain_name}]\033[{color_code};{dim_code}m[{method_name}]\033[{reset_code}m"
+        raw_prefix = f"[{brain_name}][{method_name}{time_str}]"
+        terminal_prefix = f"\033[{color_code}m[{brain_name}]\033[{color_code};{dim_code}m[{method_name}\033[0;{dim_code}m{time_str}]\033[{reset_code}m"
     else:
         raw_prefix = f"[{brain_name}]"
         terminal_prefix = f"\033[{color_code}m[{brain_name}]\033[{reset_code}m"
