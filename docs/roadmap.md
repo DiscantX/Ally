@@ -27,6 +27,7 @@
   component from the brain-analogy discussion) from distinguishing
   "player character" from "background prop" without either the Scribe
   emitting a real type field or a cheap heuristic in the registry.
+- Thinking-amount control (`thinking_level`) for Interactions API: while thinking summaries work with `generation_config={"thinking_summaries": "auto"}`, explicit thinking budget/level config mapping on Interactions API should be re-verified as Google documentation matures.
 
 ## In progress / not yet fully wired
 

@@ -49,7 +49,7 @@ class TestAllyCore(unittest.TestCase):
         core.initialize_run()
 
         from brain.knowledge.schema.schema import AllyOutput
-        core.ally.decide = MagicMock(return_value=AllyOutput(
+        core.ally.decide_stream = MagicMock(return_value=AllyOutput(
             analysis="We defeated the boss!",
             actions=[],
             significant_moment=True
@@ -79,7 +79,7 @@ class TestAllyCore(unittest.TestCase):
         core._personality_journal_writes_since_redistill = 0
 
         from brain.knowledge.schema.schema import AllyOutput
-        core.ally.decide = MagicMock(return_value=AllyOutput(
+        core.ally.decide_stream = MagicMock(return_value=AllyOutput(
             analysis="Significant moment happening.",
             actions=[],
             significant_moment=True

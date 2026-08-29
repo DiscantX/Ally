@@ -8,6 +8,15 @@ to the decision log instead of leaving it here.
 
 ---
 
+## 2026-08-29 — Migrate GeminiProvider to Interactions API & GUI Thinking Panel
+
+Migrated [`GeminiProvider`](infrastructure/llm/gemini_provider.py:66) from legacy `generateContent` to the Google GenAI Interactions API (`client.interactions.create`), resolved thought-streaming reliability issues, wired the Tkinter GUI thinking panel, and added diagnostic tooling:
+
+- **Interactions API Migration**: Replaced internals of [`generate_structured()`](infrastructure/llm/gemini_provider.py:111), [`generate_structured_stream()`](infrastructure/llm/gemini_provider.py:149), and [`generate_structured_stream_field()`](infrastructure/llm/gemini_provider.py:205) with `client.interactions.create` / `client.interactions.create(..., stream=True)`. Preserved all public method signatures.
+- **Diagnostics**: Added [`debug_raw_interactions_stream.py`](debug_raw_interactions_stream.py:1) for live validation of the Interactions API.
+- **GUI Thinking Panel**: Wired `core.on_thinking_stream_*` hooks to Tkinter GUI [`AllyOverlay`](interfaces/gui/tkinter_app.py:34) in [`interfaces/gui/overlay_api.py`](interfaces/gui/overlay_api.py:150) and [`interfaces/gui/tkinter_app.py`](interfaces/gui/tkinter_app.py:55), adding a dedicated live thinking-stream display panel.
+- **Test Suite**: Remocked unit tests (`tests/test_gemini_provider_stream.py`, `tests/test_gemini_provider_stream_field.py`) for Interactions event structures.
+
 ## 2026-08-29 — Production Token-Level Streaming (Ally.decide + Ally.chat)
 
 Shipped production token-level streaming for Ally's analysis and chat responses across terminal and Tkinter GUI:

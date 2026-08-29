@@ -417,3 +417,10 @@ Decided on the design for competing internal psychological framings (Perspective
 - **Why a new provider method (`generate_structured_stream_field`)**: Solves a genuinely different problem than [`generate_structured_stream()`](infrastructure/llm/gemini_provider.py:147) (thinking-trace display vs. content-field display) and requires separate retry-and-reset semantics (reset callback to visibly clear stale partial text before a retry begins).
 - **Mechanism (`partial-json-parser`)**: Raw JSON arrives incrementally from the SDK; [`partial-json-parser`](requirements.txt:14) extracts a named field's growing value from an incomplete buffer without abandoning `response_schema` validation for the final result.
 - **Retry-and-reset design**: Mid-stream failures retry the whole call from scratch and visibly clear partial text first, ensuring retries never appear corrupted or duplicated.
+
+## Migration to Gemini Interactions API (`client.interactions.create`)
+
+- **Supersedes**: `GeminiProvider`'s use of `generateContent` as primary call surface.
+- **Why**: Production thought-summary streaming never worked reliably after two implementation passes against `generateContent` + `response_schema` due to documented failure clusters where thought parts arrived without `part.thought` flag set or were omitted on low-complexity prompts. The Interactions API's dedicated `thought_summary` event type (`delta.type == "thought_summary"`) completely sidesteps flag-sniffing fragility.
+- **Phase 0 Findings**: Verified against `google-genai==2.19.0`: `client.interactions.create(model=..., input=..., stream=True, response_format=..., generation_config={"thinking_summaries": "auto"})` successfully composes structured output and thinking summaries. Multimodal inputs (`[image, prompt]`) work correctly via `input=contents`.
+- **Scoping**: Public method signatures on [`GeminiProvider`](infrastructure/llm/gemini_provider.py:66) (`generate_structured()`, `generate_structured_stream()`, `generate_structured_stream_field()`) were preserved exactly, ensuring all callers (`Scribe`, `Ally`, etc.) required zero changes.

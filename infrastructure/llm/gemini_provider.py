@@ -1,19 +1,22 @@
-"""Thin wrapper around google-genai.
+"""Thin wrapper around google-genai using the Interactions API.
 
-This is the seam the earlier architecture discussion called for: both the
-Scribe and Ally call generate_structured() rather than touching the genai
-client directly. Swapping providers later (different Gemini model, a
-different vendor entirely) means editing this one file.
+This is the seam: both Scribe and Ally call generate_structured() rather than
+touching the genai client directly. Swapping providers later means editing this one file.
 """
 
 from google import genai
-from google.genai import types, errors
+from google.genai import errors, types
+from google.genai._gaos.types.interactions.textcontent import TextContent
+from google.genai._gaos.types.interactions.imagecontent import ImageContent
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from typing import TypeVar, Callable, Any
+import io
+import base64
 import time
 import random
 import functools
+from PIL import Image
 import partial_json_parser
 from infrastructure.logger import log
 
@@ -84,28 +87,76 @@ class GeminiProvider:
             pass
         return None
 
-    def _map_thinking_level(self, thinking_level: str | types.ThinkingLevel | None) -> Any:
+    def _map_thinking_level(self, thinking_level: str | types.ThinkingLevel | None) -> str | None:
         if thinking_level is None:
             return None
         if isinstance(thinking_level, types.ThinkingLevel):
-            return thinking_level
+            if thinking_level == getattr(types.ThinkingLevel, "THINKING_LEVEL_UNSPECIFIED", None):
+                return None
+            return thinking_level.name.lower()
         if isinstance(thinking_level, str):
+            s = thinking_level.lower()
+            if s == "thinking_level_unspecified" or s == "":
+                return None
             val_upper = thinking_level.upper()
             try:
                 if hasattr(types.ThinkingLevel, val_upper):
-                    return getattr(types.ThinkingLevel, val_upper)
+                    item = getattr(types.ThinkingLevel, val_upper)
+                    if item != getattr(types.ThinkingLevel, "THINKING_LEVEL_UNSPECIFIED", None):
+                        if hasattr(item, "name"):
+                            return item.name.lower()
             except Exception:
                 pass
             try:
                 for item in types.ThinkingLevel:
                     if item.name.upper() == val_upper or str(item.value).upper() == val_upper:
-                        return item
+                        if item != getattr(types.ThinkingLevel, "THINKING_LEVEL_UNSPECIFIED", None):
+                            if hasattr(item, "name"):
+                                return item.name.lower()
             except Exception:
                 pass
             for item in types.ThinkingLevel:
-                if item.name.lower() == thinking_level.lower():
-                    return item
-        return thinking_level
+                if item.name.lower() == s:
+                    if item != getattr(types.ThinkingLevel, "THINKING_LEVEL_UNSPECIFIED", None):
+                        if hasattr(item, "name"):
+                            return item.name.lower()
+            if s in ["minimal", "low", "medium", "high"]:
+                return s
+            return s
+        return str(thinking_level).lower()
+
+    def _build_interactions_input(self, contents: Any) -> list[Any]:
+        """Converts contents list into Interactions API input objects.
+
+        Confirmed via Phase 0 verification (live calls in §1.2 run and succeeded):
+        - TextContent: Fields `text` (required, str), `type` (optional literal 'text'), `annotations`
+        - ImageContent: Fields `data` (optional str, base64-encoded string), `mime_type` (optional literal 'image/png'), `type` (optional literal 'image'), `uri`, `resolution`
+        - input= Shape: Accepts a list of content objects (e.g. [TextContent, ImageContent]) directly, WITHOUT wrapping in a Turn object.
+        """
+        if contents is None:
+            return []
+        if not isinstance(contents, list):
+            contents = [contents]
+
+        formatted = []
+        for item in contents:
+            if isinstance(item, str):
+                formatted.append(TextContent(type="text", text=item))
+            elif isinstance(item, Image.Image):
+                buffered = io.BytesIO()
+                img_format = item.format or "PNG"
+                item.save(buffered, format=img_format)
+                img_bytes = buffered.getvalue()
+                mime_type = f"image/{img_format.lower()}"
+                if mime_type == "image/jpg":
+                    mime_type = "image/jpeg"
+                elif mime_type not in ["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"]:
+                    mime_type = "image/png"
+                b64_data = base64.b64encode(img_bytes).decode("utf-8")
+                formatted.append(ImageContent(type="image", data=b64_data, mime_type=mime_type))
+            else:
+                raise TypeError(f"Unsupported content type for Interactions API: {type(item).__name__}")
+        return formatted
 
     @retry_with_gemini_backoff(max_retries=5)
     def generate_structured(
@@ -116,35 +167,33 @@ class GeminiProvider:
         thinking_level: str | types.ThinkingLevel | None = None,
         thinking_budget: int | None = None,
     ) -> T:
-        """Call the model and parse the response straight into `schema`.
-
-        Using response_mime_type + response_schema instead of asking nicely
-        for JSON in the prompt avoids the markdown-fence/stray-text problem
-        the original script was exposed to.
-        """
+        """Call the model via client.interactions.create and parse straight into `schema`."""
         start_t = time.perf_counter()
-        thinking_config = None
+        generation_config: dict[str, Any] = {"thinking_summaries": "auto"}
         if thinking_level is not None:
             lvl = self._map_thinking_level(thinking_level)
-            thinking_config = types.ThinkingConfig(thinking_level=lvl)
+            generation_config["thinking_level"] = lvl
 
-        response = self.client.models.generate_content(
+        response = self.client.interactions.create(
             model=model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=schema,
-                thinking_config=thinking_config,
-            ),
+            input=self._build_interactions_input(contents),
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": schema.model_json_schema(),
+            },
+            generation_config=generation_config,
         )
+
         duration = time.perf_counter() - start_t
         if not GeminiProvider._first_gen_done:
             GeminiProvider._first_gen_done = True
             log("Completed first LLM generation (model={model}) in {duration:.4f}s", model=model, duration=duration)
 
-        if not response.text:
+        text_content = getattr(response, "output_text", None) or getattr(response, "text", None)
+        if not text_content:
             raise ValueError("Model returned empty response text")
-        return schema.model_validate_json(response.text)
+        return schema.model_validate_json(text_content)
 
     def generate_structured_stream(
         self,
@@ -155,48 +204,40 @@ class GeminiProvider:
         thinking_budget: int | None = None,
         on_thought_chunk: Callable[[str], None] | None = None,
     ) -> T:
-        """Streaming counterpart to generate_structured(). Requests
-        include_thoughts=True alongside the same response_mime_type/
-        response_schema structured-output config used everywhere else.
-
-        Per Gemini's two-phase stream contract when include_thoughts and a
-        strict response_schema are both set: the model emits ALL thought
-        chunks first (plain text, part.thought=True), then ALL JSON content
-        chunks second (part.text, part.thought falsy). Partial JSON is not
-        valid JSON until the stream completes -- this method never hands a
-        partial chunk to json.loads() or to the caller. If on_thought_chunk
-        is given, it's called once per thought-chunk's text as it arrives
-        (e.g. to print it live to the terminal); JSON content chunks are
-        buffered internally and the full buffer is parsed into `schema`
-        only once the stream ends, exactly like generate_structured()'s
-        non-streaming parse step.
-        """
-        thinking_config = types.ThinkingConfig(include_thoughts=True)
+        """Streaming counterpart to generate_structured() using client.interactions.create(..., stream=True)."""
+        generation_config: dict[str, Any] = {"thinking_summaries": "auto"}
         if thinking_level is not None:
             lvl = self._map_thinking_level(thinking_level)
-            thinking_config = types.ThinkingConfig(thinking_level=lvl, include_thoughts=True)
+            generation_config["thinking_level"] = lvl
 
         json_buffer = ""
-        stream = self.client.models.generate_content_stream(
+        stream = self.client.interactions.create(
             model=model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=schema,
-                thinking_config=thinking_config,
-            ),
+            input=self._build_interactions_input(contents),
+            stream=True,
+            response_format={
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": schema.model_json_schema(),
+            },
+            generation_config=generation_config,
         )
-        for chunk in stream:
-            if not chunk.candidates or not chunk.candidates[0].content or not chunk.candidates[0].content.parts:
+        for event in stream:
+            delta = getattr(event, "delta", None)
+            if not delta:
                 continue
-            for part in chunk.candidates[0].content.parts:
-                if not getattr(part, "text", None):
-                    continue
-                if getattr(part, "thought", False):
-                    if on_thought_chunk is not None:
-                        on_thought_chunk(part.text)
-                else:
-                    json_buffer += part.text
+            delta_type = getattr(delta, "type", None)
+            if not isinstance(delta_type, str):
+                delta_type = None
+            delta_content = getattr(delta, "content", None)
+            delta_text_attr = getattr(delta, "text", None)
+            delta_text = delta_content if isinstance(delta_content, str) else (delta_text_attr if isinstance(delta_text_attr, str) else "")
+            if delta_type == "thought_summary":
+                if on_thought_chunk is not None and delta_text:
+                    on_thought_chunk(delta_text)
+            elif delta_type == "text" or delta_type is None:
+                if delta_text:
+                    json_buffer += delta_text
 
         if not json_buffer:
             raise ValueError("Streaming response produced no JSON content")
@@ -218,14 +259,11 @@ class GeminiProvider:
         on_thought_finalize: Callable[[], None] | None = None,
         on_thought_reset: Callable[[], None] | None = None,
     ) -> T:
-        """Streams one named string field out of a structured-output response
-        as it's generated, calling on_field_chunk with only the NEW text
-        since the last call (never the whole buffer, never a repeat).
-        """
-        thinking_config = types.ThinkingConfig(include_thoughts=True)
+        """Streams one named string field out of a structured-output response using client.interactions.create(..., stream=True)."""
+        generation_config: dict[str, Any] = {"thinking_summaries": "auto"}
         if thinking_level is not None:
             lvl = self._map_thinking_level(thinking_level)
-            thinking_config = types.ThinkingConfig(thinking_level=lvl, include_thoughts=True)
+            generation_config["thinking_level"] = lvl
 
         attempt = 0
         while True:
@@ -234,35 +272,42 @@ class GeminiProvider:
             emitted_so_far = ""
             thought_begun = False
             try:
-                stream = self.client.models.generate_content_stream(
+                stream = self.client.interactions.create(
                     model=model,
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_schema=schema,
-                        thinking_config=thinking_config,
-                    ),
+                    input=self._build_interactions_input(contents),
+                    stream=True,
+                    response_format={
+                        "type": "text",
+                        "mime_type": "application/json",
+                        "schema": schema.model_json_schema(),
+                    },
+                    generation_config=generation_config,
                 )
-                for chunk in stream:
-                    if not chunk.candidates or not chunk.candidates[0].content or not chunk.candidates[0].content.parts:
+                for event in stream:
+                    delta = getattr(event, "delta", None)
+                    if not delta:
                         continue
-                    for part in chunk.candidates[0].content.parts:
-                        if not getattr(part, "text", None):
-                            continue
-                        is_thought = getattr(part, "thought", False)
-                        if is_thought:
-                            if not thought_begun:
-                                thought_begun = True
-                                if on_thought_begin is not None:
-                                    on_thought_begin()
-                            if on_thought_chunk is not None:
-                                on_thought_chunk(part.text)
-                        else:
-                            if thought_begun:
-                                thought_begun = False
-                                if on_thought_finalize is not None:
-                                    on_thought_finalize()
-                            json_buffer += part.text
+                    delta_type = getattr(delta, "type", None)
+                    if not isinstance(delta_type, str):
+                        delta_type = None
+                    delta_content = getattr(delta, "content", None)
+                    delta_text_attr = getattr(delta, "text", None)
+                    delta_text = delta_content if isinstance(delta_content, str) else (delta_text_attr if isinstance(delta_text_attr, str) else "")
+
+                    if delta_type == "thought_summary":
+                        if not thought_begun:
+                            thought_begun = True
+                            if on_thought_begin is not None:
+                                on_thought_begin()
+                        if on_thought_chunk is not None and delta_text:
+                            on_thought_chunk(delta_text)
+                    else:
+                        if thought_begun:
+                            thought_begun = False
+                            if on_thought_finalize is not None:
+                                on_thought_finalize()
+                        if delta_text:
+                            json_buffer += delta_text
                             if on_field_chunk is not None:
                                 new_text, emitted_so_far = self._extract_new_field_text(
                                     json_buffer, stream_field, emitted_so_far
@@ -315,10 +360,9 @@ class GeminiProvider:
         string value from a possibly-incomplete JSON buffer. Returns
         (new_suffix_to_emit_now, updated_previous_value).
 
-        # Verified against partial_json_parser==0.2.1.1.post7 installed in this
-        # environment.
-        # dir(partial_json_parser): ['ALL', 'ARR', 'ATOM', 'Allow', 'BOOL', 'COLLECTION', 'INF', 'INFINITY', 'JSON', 'JSONDecodeError', 'MalformedJSON', 'NAN', 'NULL', 'NUM', 'OBJ', 'PartialJSON', 'SPECIAL', 'STR', '_INFINITY', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__path__', '__spec__', 'core', 'decode', 'ensure_json', 'fix', 'fix_fast', 'loads', 'parse_json']
-        # loads('{"analysis": "Hello wor', Allow.ALL) -> {'analysis': 'Hello wor'}
+        # Verified against google-genai==2.19.0 and partial_json_parser==0.2.1.1.post7
+        # installed in this environment. client.interactions.create(..., stream=True)
+        # produces events with delta.type == "thought_summary" and delta.type == "text".
         """
         try:
             partial_obj = partial_json_parser.loads(json_buffer, partial_json_parser.Allow.ALL)

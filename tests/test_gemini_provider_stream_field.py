@@ -11,22 +11,18 @@ class TestGeminiProviderStreamField(unittest.TestCase):
     def test_generate_structured_stream_field_success(self):
         mock_client = MagicMock()
         
-        # Simulate chunks splitting JSON and analysis value mid-word
-        part1 = MagicMock()
-        part1.text = '{"analysis": "Hel'
-        part2 = MagicMock()
-        part2.text = 'lo ther'
-        part3 = MagicMock()
-        part3.text = 'e, friend!"}'
+        # Simulate interaction events splitting JSON and analysis value mid-word
+        event1 = MagicMock()
+        event1.delta.type = "text"
+        event1.delta.text = '{"analysis": "Hel'
+        event2 = MagicMock()
+        event2.delta.type = "text"
+        event2.delta.text = 'lo ther'
+        event3 = MagicMock()
+        event3.delta.type = "text"
+        event3.delta.text = 'e, friend!"}'
         
-        c1 = MagicMock()
-        c1.candidates = [MagicMock(content=MagicMock(parts=[part1]))]
-        c2 = MagicMock()
-        c2.candidates = [MagicMock(content=MagicMock(parts=[part2]))]
-        c3 = MagicMock()
-        c3.candidates = [MagicMock(content=MagicMock(parts=[part3]))]
-        
-        mock_client.models.generate_content_stream.return_value = [c1, c2, c3]
+        mock_client.interactions.create.return_value = [event1, event2, event3]
         
         provider = GeminiProvider(client=mock_client)
         
@@ -45,13 +41,13 @@ class TestGeminiProviderStreamField(unittest.TestCase):
         self.assertEqual(result.analysis, "Hello there, friend!")
         full_reconstructed = "".join(emitted_chunks)
         self.assertEqual(full_reconstructed, "Hello there, friend!")
-        mock_client.models.generate_content_stream.assert_called_once()
+        mock_client.interactions.create.assert_called_once()
 
     def test_generate_structured_stream_field_no_content(self):
         mock_client = MagicMock()
-        c1 = MagicMock()
-        c1.candidates = [MagicMock(content=MagicMock(parts=[]))]
-        mock_client.models.generate_content_stream.return_value = [c1]
+        event1 = MagicMock()
+        event1.delta = None
+        mock_client.interactions.create.return_value = [event1]
         
         provider = GeminiProvider(client=mock_client)
         with self.assertRaises(ValueError):
@@ -65,11 +61,10 @@ class TestGeminiProviderStreamField(unittest.TestCase):
     @patch("infrastructure.llm.gemini_provider.partial_json_parser")
     def test_generate_structured_stream_field_parse_exception_handling(self, mock_pjp):
         mock_client = MagicMock()
-        part1 = MagicMock()
-        part1.text = '{"analysis": "first"}'
-        c1 = MagicMock()
-        c1.candidates = [MagicMock(content=MagicMock(parts=[part1]))]
-        mock_client.models.generate_content_stream.return_value = [c1]
+        event1 = MagicMock()
+        event1.delta.type = "text"
+        event1.delta.text = '{"analysis": "first"}'
+        mock_client.interactions.create.return_value = [event1]
 
         # Make loads raise on first call, succeed on second (or vice versa)
         original_loads = mock_pjp.loads
@@ -97,31 +92,27 @@ class TestGeminiProviderStreamField(unittest.TestCase):
     def test_retry_with_reset(self):
         mock_client = MagicMock()
         
-        # First attempt fails with ClientError after one chunk
-        part1 = MagicMock()
-        part1.text = '{"analysis": "bad'
-        c1 = MagicMock()
-        c1.candidates = [MagicMock(content=MagicMock(parts=[part1]))]
+        # First attempt fails with ClientError after one event
+        event1 = MagicMock()
+        event1.delta.type = "text"
+        event1.delta.text = '{"analysis": "bad'
         
         # Second attempt succeeds cleanly
-        part2 = MagicMock()
-        part2.text = '{"analysis": "success"}'
-        c2 = MagicMock()
-        c2.candidates = [MagicMock(content=MagicMock(parts=[part2]))]
+        event2 = MagicMock()
+        event2.delta.type = "text"
+        event2.delta.text = '{"analysis": "success"}'
         
-        # We can make generate_content_stream raise on first iteration of first call, or raise ClientError
         def stream_side_effect(*args, **kwargs):
             if stream_side_effect.called:
-                return [c2]
+                return [event2]
             stream_side_effect.called = True
-            # yield one chunk that calls on_field_chunk, then raise ClientError
             def generator():
-                yield c1
+                yield event1
                 raise errors.ClientError(429, {})
             return generator()
         stream_side_effect.called = False
 
-        mock_client.models.generate_content_stream.side_effect = stream_side_effect
+        mock_client.interactions.create.side_effect = stream_side_effect
 
         provider = GeminiProvider(client=mock_client)
         
@@ -144,11 +135,10 @@ class TestGeminiProviderStreamField(unittest.TestCase):
 
     def test_optional_callbacks(self):
         mock_client = MagicMock()
-        part1 = MagicMock()
-        part1.text = '{"analysis": "ok"}'
-        c1 = MagicMock()
-        c1.candidates = [MagicMock(content=MagicMock(parts=[part1]))]
-        mock_client.models.generate_content_stream.return_value = [c1]
+        event1 = MagicMock()
+        event1.delta.type = "text"
+        event1.delta.text = '{"analysis": "ok"}'
+        mock_client.interactions.create.return_value = [event1]
 
         provider = GeminiProvider(client=mock_client)
         result = provider.generate_structured_stream_field(

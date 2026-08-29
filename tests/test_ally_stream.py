@@ -63,8 +63,7 @@ class TestAllyStream(unittest.TestCase):
         _, kwargs = provider.generate_structured_stream_field.call_args
         self.assertEqual(kwargs.get("stream_field"), "response")
         self.assertEqual(kwargs.get("schema"), AllyChatOutput)
-        # chat() / chat_stream() explicitly does NOT pass thinking_level
-        self.assertNotIn("thinking_level", kwargs)
+        self.assertEqual(kwargs.get("thinking_level"), "HIGH")
         self.assertEqual(kwargs.get("on_field_chunk"), on_chunk)
         self.assertEqual(kwargs.get("on_stream_reset"), on_reset)
         contents = kwargs.get("contents")

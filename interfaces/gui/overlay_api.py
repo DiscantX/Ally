@@ -147,6 +147,57 @@ class OverlayApiMixin:
             self.status_label.config(text=f"Updated: {datetime.now().strftime('%H:%M:%S')}")
         self._dispatch(_update)
 
+    def begin_streaming_thinking(self):
+        """MAIN THREAD (dispatched). Starts a new timestamped thinking entry."""
+        def _update():
+            text = self.feedback_text
+            was_at_bottom = self._is_scrolled_to_bottom(text)
+            timestamp = datetime.now().strftime('%H:%M:%S')
+
+            text.config(state=tk.NORMAL)
+            if self._feedback_entry_count > 0:
+                text.insert(tk.END, "\n\n")
+            text.insert(tk.END, f"── {timestamp} [THINKING] ──\n", 'thinking')
+            self._streaming_thinking_body_start = text.index(tk.END)
+            text.config(state=tk.DISABLED)
+            self._feedback_entry_count += 1
+
+            if was_at_bottom:
+                text.see(tk.END)
+            self.status_label.config(text="Ally is thinking...")
+        self._dispatch(_update)
+
+    def append_streaming_thinking_chunk(self, chunk_text: str):
+        def _update():
+            text = self.feedback_text
+            was_at_bottom = self._is_scrolled_to_bottom(text)
+            text.config(state=tk.NORMAL)
+            text.insert(tk.END, chunk_text, 'thinking_body')
+            text.config(state=tk.DISABLED)
+            if was_at_bottom:
+                text.see(tk.END)
+        self._dispatch(_update)
+
+    def reset_streaming_thinking(self):
+        """Reset thinking body on retry."""
+        def _update():
+            text = self.feedback_text
+            start = getattr(self, "_streaming_thinking_body_start", None)
+            if start is None:
+                return
+            text.config(state=tk.NORMAL)
+            text.delete(start, tk.END)
+            text.config(state=tk.DISABLED)
+            self.status_label.config(text="Thinking reset -- retrying...")
+        self._dispatch(_update)
+
+    def finalize_streaming_thinking(self):
+        """Thinking stream complete."""
+        def _update():
+            self._streaming_thinking_body_start = None
+            self.status_label.config(text=f"Thinking finalized: {datetime.now().strftime('%H:%M:%S')}")
+        self._dispatch(_update)
+
     def clear_feedback_history(self):
         """Wipe the feedback history."""
         self.feedback_text.config(state=tk.NORMAL)

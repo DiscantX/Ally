@@ -26,7 +26,10 @@ test_ally_constructor_defaults_and_custom (tests.test_ally.TestAllyAgent.test_al
 test_ally_decide_perspective_context (tests.test_ally.TestAllyAgent.test_ally_decide_perspective_context) ... ok
 test_ally_decide_uses_thinking_level (tests.test_ally.TestAllyAgent.test_ally_decide_uses_thinking_level) ... ok
 test_ally_core_chat_message_unstarted (tests.test_ally_core.TestAllyCore.test_ally_core_chat_message_unstarted) ... ok
+test_ally_core_chat_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_chat_streaming) ... ok
 test_ally_core_initialization_and_turn (tests.test_ally_core.TestAllyCore.test_ally_core_initialization_and_turn) ... ok
+test_ally_core_run_turn_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_run_turn_streaming) ... ok
+test_ally_core_skip_ally_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_skip_ally_streaming) ... ok
 test_gameplay_driven_significant_moment_trigger (tests.test_ally_core.TestAllyCore.test_gameplay_driven_significant_moment_trigger) ... ok
 test_redistill_threshold_accumulation_and_run_ended_flush (tests.test_ally_core.TestAllyCore.test_redistill_threshold_accumulation_and_run_ended_flush) ... ok
 test_missing_file_raises_when_not_following (tests.test_log_reader.TestLogReaderReplay.test_missing_file_raises_when_not_following) ... ok
@@ -72,8 +75,10 @@ test_generate_structured_stream_field_parse_exception_handling (tests.test_gemin
 test_generate_structured_stream_field_success (tests.test_gemini_provider_stream_field.TestGeminiProviderStreamField.test_generate_structured_stream_field_success) ... ok
 test_optional_callbacks (tests.test_gemini_provider_stream_field.TestGeminiProviderStreamField.test_optional_callbacks) ... ok
 test_retry_with_reset (tests.test_gemini_provider_stream_field.TestGeminiProviderStreamField.test_retry_with_reset) ... ok
+test_chat_stream (tests.test_ally_stream.TestAllyStream.test_chat_stream) ... ok
+test_decide_stream (tests.test_ally_stream.TestAllyStream.test_decide_stream) ... ok
 
 ----------------------------------------------------------------------
-Ran 72 tests in 257.678s
+Ran 77 tests in 89.476s
 
 OK

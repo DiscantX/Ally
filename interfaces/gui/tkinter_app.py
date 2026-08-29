@@ -56,6 +56,10 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
             core.on_analysis_stream_chunk.connect(self.append_streaming_feedback_chunk)
             core.on_analysis_stream_reset.connect(self.reset_streaming_feedback)
             core.on_analysis_stream_finalize.connect(self.finalize_streaming_feedback)
+            core.on_thinking_stream_begin.connect(self.begin_streaming_thinking)
+            core.on_thinking_stream_chunk.connect(self.append_streaming_thinking_chunk)
+            core.on_thinking_stream_reset.connect(self.reset_streaming_thinking)
+            core.on_thinking_stream_finalize.connect(self.finalize_streaming_thinking)
             core.on_chat_stream_begin.connect(self.begin_streaming_chat_message)
             core.on_chat_stream_chunk.connect(self.append_streaming_chat_chunk)
             core.on_chat_stream_reset.connect(self.reset_streaming_chat_message)
@@ -85,6 +89,7 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         self._running = True
         self._feedback_entry_count = 0
         self._streaming_feedback_body_start: Optional[str] = None
+        self._streaming_thinking_body_start: Optional[str] = None
         self._streaming_chat_body_start: Optional[str] = None
         self._resize_job = None
         self._debug_image_raw: Optional[Image.Image] = None
@@ -362,6 +367,8 @@ class AllyOverlay(tk.Tk, OverlayApiMixin, ChatDrawerMixin):
         feedback_box.pack(fill=tk.BOTH, expand=True)
         self.feedback_text.tag_configure('timestamp', foreground=cfg.dim_color, font=self.mini_font)
         self.feedback_text.tag_configure('body', foreground=cfg.feedback_color, font=self.text_font)
+        self.feedback_text.tag_configure('thinking', foreground=cfg.thinking_color, font=self.mini_font)
+        self.feedback_text.tag_configure('thinking_body', foreground=cfg.thinking_color, font=self.text_font)
         self.feedback_text.tag_configure('medium', foreground='#ffb74d', font=self.text_font)
 
         self._add_draggable_divider(lambda: self.feedback_text, lambda: self.prompt_text)

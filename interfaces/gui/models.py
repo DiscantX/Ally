@@ -35,6 +35,7 @@ class OverlayConfig:
     error_color: str = "#c93b55"
     dim_color: str = "#888888"
     summary_color: str = "#ffd966"
+    thinking_color: str = "#8ab4f8"
     opacity: float = 0.93
     font_family: str = "Segoe UI"
     font_size: int = 10
