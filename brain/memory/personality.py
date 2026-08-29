@@ -44,9 +44,12 @@ class PersonalityMemoryManager:
         if not self._micro:
             self._micro = self.base_personality
 
+    def add_journal_entry(self, text: str) -> None:
+        self._master_journal.append(text)
+        self.db.save_personality_entry(self.player_id, "master", text)
+
     def record_reflection(self, reflection_text: str) -> None:
-        self._master_journal.append(reflection_text)
-        self.db.save_personality_entry(self.player_id, "master", reflection_text)
+        self.add_journal_entry(reflection_text)
         self.redistill()
 
     def redistill(self) -> None:

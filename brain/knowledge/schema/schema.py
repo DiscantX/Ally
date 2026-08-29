@@ -35,6 +35,10 @@ class AllyOutput(BaseModel):
     )
     actions: list[ActionItem]
     run_boundary: Literal["none", "run_ended"] = "none"
+    significant_moment: bool = Field(
+        default=False,
+        description="True if this turn represents a genuinely memorable beat worth Ally remembering long-term -- a boss defeat, a major setback, a big narrative reveal, a clutch play, a milestone. False for routine turns.",
+    )
 
 
 class AllyChatOutput(BaseModel):

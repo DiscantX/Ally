@@ -20,7 +20,7 @@ from infrastructure.llm.gemini_provider import GeminiProvider
 from brain.memory.manager import MemoryManager
 from brain.memory.db import MemoryDB
 from brain.memory.save_tracker import SaveTracker
-from brain.memory.triggers import resolve_run_ended
+from brain.memory.triggers import resolve_run_ended, CompositeTrigger, TurnCountTrigger, SalienceEventTrigger, SignificantMomentTrigger
 from brain.memory.narrative import NarrativeMemoryManager
 from brain.knowledge.schema.schema import AllyOutput
 from brain.state.entity_registry import EntityRegistry
@@ -79,6 +79,14 @@ class AllyCore:
 
         # Telemetry ring buffer
         self.turn_traces: deque[TurnTrace] = deque(maxlen=20)
+
+        self.personality_flush_trigger = CompositeTrigger([
+            TurnCountTrigger(interval=config.get("personality_journal_turn_interval", 20)),
+            SalienceEventTrigger(importance_threshold=8),
+            SignificantMomentTrigger(),
+        ])
+        self.personality_redistill_journal_interval = config.get("personality_redistill_journal_interval", 3)
+        self._personality_journal_writes_since_redistill: int = 0
 
         # Observer / Event Hooks
         self.on_pipeline_image: EventHook = EventHook("on_pipeline_image")
@@ -279,13 +287,30 @@ class AllyCore:
             if self.memory_manager is not None and skip_scribe_reason != "off_game":
                 self.memory_manager.record_turn(
                     self.sandbox.turn,
-                    ally_output.analysis if not skip_ally else f"skip_ally: {reason_label}"
+                    ally_output.analysis if not skip_ally else f"skip_ally: {reason_label}",
+                    importance=8 if (not skip_ally and ally_output.significant_moment) else 0,
                 )
+
+                if not skip_ally:
+                    personality_trigger_context: dict[str, Any] = {
+                        "turn": self.sandbox.turn,
+                        "importance": 8 if ally_output.significant_moment else 0,
+                        "significant_moment": ally_output.significant_moment,
+                    }
+                    if self.personality_flush_trigger.should_trigger(personality_trigger_context):
+                        self.memory_manager.add_personality_journal_entry(ally_output.analysis)
+                        self._personality_journal_writes_since_redistill += 1
+                        if self._personality_journal_writes_since_redistill >= self.personality_redistill_journal_interval:
+                            self.memory_manager.redistill_personality()
+                            self._personality_journal_writes_since_redistill = 0
 
             run_ended = resolve_run_ended(observation, ally_output)
             if run_ended:
                 log("\n--- Run ended (boundary resolved) ---")
                 if self.memory_manager is not None:
+                    if self._personality_journal_writes_since_redistill > 0:
+                        self.memory_manager.redistill_personality()
+                        self._personality_journal_writes_since_redistill = 0
                     self.memory_manager.close_run()
                 self.on_chat_message.emit("coach", "Run ended! Closing session and saving cross-session memories.")
         timings["memory_record"] = time.perf_counter() - t0

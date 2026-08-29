@@ -8,6 +8,13 @@ to the decision log instead of leaving it here.
 
 ---
 
+## 2026-08-29 — Personality Digest & Strategic Memory Update Bug Fix (Phase 1)
+
+Fixed an architectural bug where [`redistill()`](brain/memory/personality.py) was only reachable via manual chat feedback in [`AllyCore.send_message()`](brain/reasoning/ally_agent.py) and never updated during gameplay turns.
+
+- **Gameplay journal writing**: Gameplay turns now write to the personality journal via a composite trigger (`TurnCountTrigger`, `SalienceEventTrigger`, and `SignificantMomentTrigger`), with journal-write frequency decoupled from redistill frequency (`personality_redistill_journal_interval`).
+- **Significant moments**: Wired `significant_moment` into narrative's [`record_turn()`](brain/memory/narrative.py) call, activating its previously-dormant `SalienceEventTrigger` for genuinely significant turns.
+
 ## 2026-08-25 — Memory System Correctness Pass (Pass 1)
 
 Audit pass confirming the memory system's actual behavior, correcting prior

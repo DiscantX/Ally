@@ -11,6 +11,7 @@ from brain.memory.triggers import (
     TurnCountTrigger,
     SalienceEventTrigger,
     ExplicitAllyTrigger,
+    SignificantMomentTrigger,
     CompositeTrigger,
 )
 
@@ -34,6 +35,14 @@ class TestTriggers(unittest.TestCase):
         self.assertFalse(trigger.should_trigger({"explicit_checkpoint": False}))
         self.assertFalse(trigger.should_trigger({}))
         self.assertTrue(trigger.should_trigger({"explicit_checkpoint": True}))
+
+
+class TestSignificantMomentTrigger(unittest.TestCase):
+    def test_significant_moment_trigger(self):
+        trigger = SignificantMomentTrigger()
+        self.assertFalse(trigger.should_trigger({"significant_moment": False}))
+        self.assertFalse(trigger.should_trigger({}))
+        self.assertTrue(trigger.should_trigger({"significant_moment": True}))
 
     def test_composite_trigger(self):
         t1 = TurnCountTrigger(interval=8)

@@ -391,5 +391,13 @@ than fine-grained per-object locking. The project prefers simple,
 obviously-correct mechanisms over complex fine-grained locking — this
 approach directly addresses the concurrency issues in `main.py` and the
 background GUI thread without the bug surface of finer-grained locking.
-See `CHANGELOG.md` for the specific bug this surfaced and how it was
+See [`docs/changelog.md`](docs/changelog.md) for the specific bug this surfaced and how it was
 fixed during implementation.
+
+## Personality Journal Triggers and Gameplay Writing
+
+Decided to fix a major architectural oversight where personality journals and [`redistill()`](brain/memory/personality.py) were never updated during normal gameplay:
+
+- **The bug**: [`redistill()`](brain/memory/personality.py) was previously only reachable via the single chat-feedback call site in [`AllyCore.send_message()`](brain/reasoning/ally_agent.py). Gameplay turns never wrote to the personality journal or triggered redistillation, meaning companion state in the UI never evolved during play unless the player manually submitted chat feedback.
+- **The fix**: Gameplay now writes to the journal via a composite trigger (`TurnCountTrigger`, `SalienceEventTrigger`, and the new `SignificantMomentTrigger`), with journal-write frequency decoupled from redistill frequency (`personality_redistill_journal_interval`).
+- **The bonus fix**: Wiring `significant_moment` into narrative's [`record_turn()`](brain/memory/narrative.py) call, activating its previously-dormant `SalienceEventTrigger` for genuinely significant turns.

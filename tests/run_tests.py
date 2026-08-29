@@ -5,7 +5,8 @@ sys.path.insert(0, ".")
 from tests.test_save_tracker import TestSaveTracker
 from tests.test_run_boundary import TestRunBoundary
 from tests.test_cross_session import TestCrossSessionMemory
-from tests.test_triggers import TestTriggers, TestNarrativeManagerTriggers
+from tests.test_triggers import TestTriggers, TestNarrativeManagerTriggers, TestSignificantMomentTrigger
+from tests.test_personality_journal_split import TestPersonalityJournalSplit
 from tests.test_narrative import TestNarrativeMemoryManagerEntryCount
 from tests.test_entity_registry_persistence import TestEntityRegistryPersistence
 from tests.test_ally import TestAllyAgent
@@ -30,6 +31,8 @@ if __name__ == "__main__":
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestCrossSessionMemory))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestTriggers))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestNarrativeManagerTriggers))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestSignificantMomentTrigger))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestPersonalityJournalSplit))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestNarrativeMemoryManagerEntryCount))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestEntityRegistryPersistence))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestAllyAgent))

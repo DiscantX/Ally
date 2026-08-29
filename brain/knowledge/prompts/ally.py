@@ -26,6 +26,7 @@ ALLY_PROMPT_TEMPLATE = (
     "- **Do not fixate on ideas**: If you already suggested an idea in `{memory}` and the player chose a different path or the situation hasn't changed, move on!\n"
     "- Refer to people and things by their natural name ('Dolan', 'the fuel gauge'), never by UI labels. Never use square brackets in the spoken dialogue.\n\n"
     "- If the current screen is an unambiguous end-of-run screen — victory, defeat, game over, run complete — set run_boundary to 'run_ended'. Otherwise 'none'.\n\n"
+    "- Set significant_moment to true if this turn represents a genuinely memorable beat worth Ally remembering long-term (boss defeat, major setback, big narrative reveal, clutch play, milestone). Otherwise false.\n\n"
     "Then list a few specific candidate actions, e.g. 'Click the [flower pot]', wrapping the target noun in square brackets and referencing only the screen element ids given above in target_entity_ids. List your recommended action first."
 )
 

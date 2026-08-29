@@ -10,19 +10,24 @@ test_collector_takes_priority_over_ally (tests.test_run_boundary.TestRunBoundary
 test_build_context_surfaces_cross_session (tests.test_cross_session.TestCrossSessionMemory.test_build_context_surfaces_cross_session) ... ok
 test_close_run_writes_cross_session_memory (tests.test_cross_session.TestCrossSessionMemory.test_close_run_writes_cross_session_memory) ... ok
 test_second_run_merges_cross_session (tests.test_cross_session.TestCrossSessionMemory.test_second_run_merges_cross_session) ... ok
-test_composite_trigger (tests.test_triggers.TestTriggers.test_composite_trigger) ... ok
 test_explicit_ally_trigger (tests.test_triggers.TestTriggers.test_explicit_ally_trigger) ... ok
 test_salience_event_trigger (tests.test_triggers.TestTriggers.test_salience_event_trigger) ... ok
 test_turn_count_trigger (tests.test_triggers.TestTriggers.test_turn_count_trigger) ... ok
 test_narrative_manager_explicit_checkpoint_triggers_flush (tests.test_triggers.TestNarrativeManagerTriggers.test_narrative_manager_explicit_checkpoint_triggers_flush) ... ok
 test_narrative_manager_high_importance_triggers_flush (tests.test_triggers.TestNarrativeManagerTriggers.test_narrative_manager_high_importance_triggers_flush) ... ok
+test_composite_trigger (tests.test_triggers.TestSignificantMomentTrigger.test_composite_trigger) ... ok
+test_significant_moment_trigger (tests.test_triggers.TestSignificantMomentTrigger.test_significant_moment_trigger) ... ok
+test_add_journal_entry_does_not_redistill (tests.test_personality_journal_split.TestPersonalityJournalSplit.test_add_journal_entry_does_not_redistill) ... ok
+test_record_reflection_redistills (tests.test_personality_journal_split.TestPersonalityJournalSplit.test_record_reflection_redistills) ... ok
 test_same_turn_argument_increments_entry_count_and_triggers_flush (tests.test_narrative.TestNarrativeMemoryManagerEntryCount.test_same_turn_argument_increments_entry_count_and_triggers_flush) ... ok
 test_persistence_and_reload (tests.test_entity_registry_persistence.TestEntityRegistryPersistence.test_persistence_and_reload) ... ok
 test_scope_isolation (tests.test_entity_registry_persistence.TestEntityRegistryPersistence.test_scope_isolation) ... ok
 test_ally_constructor_defaults_and_custom (tests.test_ally.TestAllyAgent.test_ally_constructor_defaults_and_custom) ... ok
 test_ally_decide_uses_thinking_level (tests.test_ally.TestAllyAgent.test_ally_decide_uses_thinking_level) ... ok
-test_ally_core_chat_message_unstarted (tests.test_ally_core.TestAllyCore.test_ally_core_chat_message_unstarted) ... FAIL
-test_ally_core_initialization_and_turn (tests.test_ally_core.TestAllyCore.test_ally_core_initialization_and_turn) ... ERROR
+test_ally_core_chat_message_unstarted (tests.test_ally_core.TestAllyCore.test_ally_core_chat_message_unstarted) ... ok
+test_ally_core_initialization_and_turn (tests.test_ally_core.TestAllyCore.test_ally_core_initialization_and_turn) ... ok
+test_gameplay_driven_significant_moment_trigger (tests.test_ally_core.TestAllyCore.test_gameplay_driven_significant_moment_trigger) ... ok
+test_redistill_threshold_accumulation_and_run_ended_flush (tests.test_ally_core.TestAllyCore.test_redistill_threshold_accumulation_and_run_ended_flush) ... ok
 test_missing_file_raises_when_not_following (tests.test_log_reader.TestLogReaderReplay.test_missing_file_raises_when_not_following) ... ok
 test_read_lines_from_start_replay_unchanged (tests.test_log_reader.TestLogReaderReplay.test_read_lines_from_start_replay_unchanged) ... ok
 test_default_start_replays_preexisting_then_follows (tests.test_log_reader.TestLogReaderStartAtEnd.test_default_start_replays_preexisting_then_follows) ... ok
@@ -58,27 +63,7 @@ test_thread_safety (tests.test_shell_bounds_registry.TestShellBoundsRegistry.tes
 test_pubsub_lifecycle (tests.test_logger_pubsub.TestLoggerPubSub.test_pubsub_lifecycle) ... ok
 test_subscriber_exception_safety (tests.test_logger_pubsub.TestLoggerPubSub.test_subscriber_exception_safety) ... ok
 
-======================================================================
-ERROR: test_ally_core_initialization_and_turn (tests.test_ally_core.TestAllyCore.test_ally_core_initialization_and_turn)
 ----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_ally_core.py", line 29, in test_ally_core_initialization_and_turn
-    ended = core.run_turn(obs, include_ui=False)
-  File "c:\Users\Admin\Documents\Dylan\python\Ally\brain\reasoning\core.py", line 293, in run_turn
-    self.on_status_update.emit(observation.screen_name, "turn")
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'function' object has no attribute 'emit'
+Ran 62 tests in 57.297s
 
-======================================================================
-FAIL: test_ally_core_chat_message_unstarted (tests.test_ally_core.TestAllyCore.test_ally_core_chat_message_unstarted)
-----------------------------------------------------------------------
-Traceback (most recent call last):
-  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_ally_core.py", line 44, in test_ally_core_chat_message_unstarted
-    self.assertTrue(any("Game loop hasn't started yet" in m[1] for m in messages))
-    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AssertionError: False is not true
-
-----------------------------------------------------------------------
-Ran 57 tests in 38.557s
-
-FAILED (failures=1, errors=1)
+OK

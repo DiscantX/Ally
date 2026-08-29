@@ -89,6 +89,14 @@ class MemorySystem:
         with self.lock:
             self.narrative.flush_to_cross_session()
 
+    def add_personality_journal_entry(self, text: str) -> None:
+        with self.lock:
+            self.personality.add_journal_entry(text)
+
+    def redistill_personality(self) -> None:
+        with self.lock:
+            self.personality.redistill()
+
     def close_run(self) -> None:
         with self.lock:
             self.narrative.close_run()

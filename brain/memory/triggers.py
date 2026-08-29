@@ -39,6 +39,11 @@ class ExplicitAllyTrigger(Trigger):
         return bool(context.get("explicit_checkpoint", False))
 
 
+class SignificantMomentTrigger(Trigger):
+    def should_trigger(self, context: dict[str, Any]) -> bool:
+        return bool(context.get("significant_moment", False))
+
+
 class CompositeTrigger(Trigger):
     def __init__(self, triggers: list[Trigger]):
         self.triggers = triggers

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import MagicMock
 from PIL import Image
 from brain.reasoning.core import AllyCore
 from ingestion.collectors.base import RawObservation, ConfirmedFact
@@ -42,6 +43,87 @@ class TestAllyCore(unittest.TestCase):
         import time
         time.sleep(0.1)
         self.assertTrue(any("Game loop hasn't started yet" in m[1] for m in messages))
+
+    def test_gameplay_driven_significant_moment_trigger(self):
+        core = AllyCore(image_path=None, personality_name="Scout")
+        core.initialize_run()
+
+        from brain.knowledge.schema.schema import AllyOutput
+        core.ally.decide = MagicMock(return_value=AllyOutput(
+            analysis="We defeated the boss!",
+            actions=[],
+            significant_moment=True
+        ))
+        core.scribe.extract = MagicMock(return_value=MagicMock(screen_elements=[], genre_guess="RPG", genre_confidence=1.0, screen_name_guess="combat"))
+
+        core.memory_manager.add_personality_journal_entry = MagicMock()
+        core.memory_manager.redistill_personality = MagicMock()
+        core.memory_manager.close_run = MagicMock()
+
+        img = Image.new("RGB", (100, 100), color="blue")
+        obs = RawObservation(
+            image=img,
+            screen_name="boss_screen",
+            screen_confidence=1.0,
+            confirmed_facts=[],
+            skip_ally=False
+        )
+
+        core.run_turn(obs, include_ui=True)
+        core.memory_manager.add_personality_journal_entry.assert_called_once()
+
+    def test_redistill_threshold_accumulation_and_run_ended_flush(self):
+        core = AllyCore(image_path=None, personality_name="Scout")
+        core.initialize_run()
+        core.personality_redistill_journal_interval = 2
+        core._personality_journal_writes_since_redistill = 0
+
+        from brain.knowledge.schema.schema import AllyOutput
+        core.ally.decide = MagicMock(return_value=AllyOutput(
+            analysis="Significant moment happening.",
+            actions=[],
+            significant_moment=True
+        ))
+        core.scribe.extract = MagicMock(return_value=MagicMock(screen_elements=[], genre_guess="RPG", genre_confidence=1.0, screen_name_guess="combat"))
+
+        core.memory_manager.add_personality_journal_entry = MagicMock()
+        core.memory_manager.redistill_personality = MagicMock()
+        core.memory_manager.close_run = MagicMock()
+
+        img = Image.new("RGB", (100, 100), color="blue")
+        obs = RawObservation(
+            image=img,
+            screen_name="combat",
+            screen_confidence=1.0,
+            confirmed_facts=[],
+            skip_ally=False
+        )
+
+        # 1st write (count = 1 < 2) -> no redistill
+        core.run_turn(obs, include_ui=True)
+        core.memory_manager.redistill_personality.assert_not_called()
+        self.assertEqual(core._personality_journal_writes_since_redistill, 1)
+
+        # 2nd write (count = 2 >= 2) -> triggers redistill and resets counter to 0
+        core.run_turn(obs, include_ui=True)
+        core.memory_manager.redistill_personality.assert_called_once()
+        self.assertEqual(core._personality_journal_writes_since_redistill, 0)
+
+        # Now test run_ended flush with nonzero writes
+        core._personality_journal_writes_since_redistill = 1
+        obs_ended = RawObservation(
+            image=img,
+            screen_name="victory",
+            screen_confidence=1.0,
+            confirmed_facts=[],
+            skip_ally=False,
+            run_ended=True
+        )
+        core.memory_manager.redistill_personality.reset_mock()
+        core.run_turn(obs_ended, include_ui=True)
+        core.memory_manager.redistill_personality.assert_called_once()
+        self.assertEqual(core._personality_journal_writes_since_redistill, 0)
+        core.memory_manager.close_run.assert_called()
 
 
 if __name__ == "__main__":
