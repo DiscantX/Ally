@@ -10,7 +10,7 @@ from google import genai
 from google.genai import types, errors
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from typing import TypeVar
+from typing import TypeVar, Callable
 import time
 import random
 import functools
@@ -143,3 +143,56 @@ class GeminiProvider:
         if not response.text:
             raise ValueError("Model returned empty response text")
         return schema.model_validate_json(response.text)
+
+    def generate_structured_stream(
+        self,
+        model: str,
+        contents: list,
+        schema: type[T],
+        thinking_level: str | types.ThinkingLevel | None = None,
+        on_thought_chunk: Callable[[str], None] | None = None,
+    ) -> T:
+        """Streaming counterpart to generate_structured(). Requests
+        include_thoughts=True alongside the same response_mime_type/
+        response_schema structured-output config used everywhere else.
+
+        Per Gemini's two-phase stream contract when include_thoughts and a
+        strict response_schema are both set: the model emits ALL thought
+        chunks first (plain text, part.thought=True), then ALL JSON content
+        chunks second (part.text, part.thought falsy). Partial JSON is not
+        valid JSON until the stream completes -- this method never hands a
+        partial chunk to json.loads() or to the caller. If on_thought_chunk
+        is given, it's called once per thought-chunk's text as it arrives
+        (e.g. to print it live to the terminal); JSON content chunks are
+        buffered internally and the full buffer is parsed into `schema`
+        only once the stream ends, exactly like generate_structured()'s
+        non-streaming parse step.
+        """
+        thinking_config = None
+        if thinking_level is not None:
+            lvl = self._map_thinking_level(thinking_level)
+            thinking_config = types.ThinkingConfig(thinking_level=lvl, include_thoughts=True)
+
+        json_buffer = ""
+        stream = self.client.models.generate_content_stream(
+            model=model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=schema,
+                thinking_config=thinking_config,
+            ),
+        )
+        for chunk in stream:
+            if not chunk.candidates:
+                continue
+            for part in chunk.candidates[0].content.parts:
+                if getattr(part, "thought", False):
+                    if part.text and on_thought_chunk is not None:
+                        on_thought_chunk(part.text)
+                elif part.text:
+                    json_buffer += part.text
+
+        if not json_buffer:
+            raise ValueError("Streaming response produced no JSON content")
+        return schema.model_validate_json(json_buffer)

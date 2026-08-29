@@ -62,6 +62,7 @@
   the decision log's Embeddings section) but nothing plugs into it; the
   registry still resolves purely via `difflib` (or exact `external_id`
   matching, where a Collector supplies one).
+- **`perspective_keywords.json` keyword tuning** — [`perspective_keywords.json`](configs/template/perspective_keywords.json:1) keyword lists are an untuned first pass expected to need adjustment against real gameplay across various games.
 
 ## Deferred by explicit decision (not forgotten, not scheduled)
 
@@ -75,3 +76,4 @@
 - Auto-promotion of a CLIP-learned `"normal"` screen category to
   `"low_value"` — a repetition/staleness heuristic risks silently gating
   real gameplay without real playtesting data to tune it against.
+- Real-time JSON streaming (as opposed to thinking-trace streaming via [`generate_structured_stream()`](infrastructure/llm/gemini_provider.py:147)) remains deferred, since partial JSON chunks from structured output streams are not valid JSON until stream completion.

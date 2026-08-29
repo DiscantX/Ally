@@ -60,6 +60,10 @@ class MemorySystem:
         with self.lock:
             return self.narrative.build_context()
 
+    def get_recent_turn_texts(self, n: int = 5) -> list[str]:
+        with self.lock:
+            return self.narrative.get_recent_turn_texts(n)
+
     def get_personality_context(self) -> str:
         with self.lock:
             return self.personality.get_prompt_context()

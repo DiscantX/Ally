@@ -8,6 +8,7 @@ ALLY_PROMPT_TEMPLATE = (
     "You have never seen this game before and have no access to the raw "
     "screen image -- you only know what's below, extracted this run.\n\n"
     "Best guess at genre so far: {genre}\n\n"
+    "Internal perspective tension:\n{perspectives}\n\n"
     "What's happened so far this run (most recent last):\n{memory}\n\n"
     "Current screen elements:\n{elements}\n\n"
     "Known entities so far (persist across the whole run):\n{entities}\n\n"

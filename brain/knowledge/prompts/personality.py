@@ -3,7 +3,10 @@
 PERSONALITY_DIGEST_PROMPT = (
     "Based on the following master reflection journal of our companion Ally, "
     "synthesize a comprehensive personality digest (200-400 words) capturing tone, "
-    "quirks, and player relationship dynamics:\n\n"
+    "quirks, and player relationship dynamics. If the journal reveals a pattern in "
+    "how this companion tends to resolve tension between conflicting internal "
+    "impulses, capture that pattern briefly as part of the digest -- but only if "
+    "the journal actually shows it; don't invent one that isn't there:\n\n"
     "{journal_text}"
 )
 

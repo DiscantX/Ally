@@ -23,6 +23,7 @@ from tests.test_event_hook import TestEventHook
 from tests.test_turn_trace import TestTurnTrace
 from tests.test_shell_bounds_registry import TestShellBoundsRegistry
 from tests.test_logger_pubsub import TestLoggerPubSub
+from tests.test_perspective_engine import TestPerspectiveEngine
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
@@ -51,6 +52,7 @@ if __name__ == "__main__":
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestTurnTrace))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestShellBoundsRegistry))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestLoggerPubSub))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestPerspectiveEngine))
 
     with open("test_results.log", "w") as log_file:
         runner = unittest.TextTestRunner(stream=log_file, verbosity=2)

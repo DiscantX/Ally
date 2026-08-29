@@ -87,6 +87,12 @@ class NarrativeMemoryManager:
         if self.flush_trigger.should_trigger(context):
             self._flush_to_medium_term()
 
+    def get_recent_turn_texts(self, n: int = 5) -> list[str]:
+        """Plain summary strings from the short-term buffer, most recent
+        last -- for consumers that need raw text rather than the formatted
+        [`build_context()`](brain/memory/narrative.py) blob (e.g. [`PerspectiveEngine`](brain/reasoning/perspective_engine.py))."""
+        return [entry.summary for entry in list(self._short_term)[-n:]]
+
     def build_context(self) -> str:
         parts = []
         cross_record = self.db.get_latest_cross_session(self.player_id, self.game_id)

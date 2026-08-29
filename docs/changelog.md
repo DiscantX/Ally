@@ -8,6 +8,14 @@ to the decision log instead of leaving it here.
 
 ---
 
+## 2026-08-29 — Perspectives, Scoring, & Diagnostic Streaming Thinking (Phase 2)
+
+Shipped Phase 2 features covering competing internal psychological framings, zero-API heuristic scoring, and diagnostic streaming thinking:
+
+- **Perspectives Engine**: Introduced [`PERSPECTIVES`](brain/reasoning/perspectives.py:10) (Disco Elysium-inspired internal pressures) separate from stable [`PERSONALITIES`](brain/reasoning/personalities.py:1). Implemented [`PerspectiveEngine`](brain/reasoning/perspective_engine.py:41) for local, text-based, zero-API heuristic scoring using [`perspective_keywords.json`](configs/template/perspective_keywords.json:1).
+- **Diagnostic Streaming Thinking**: Added [`generate_structured_stream()`](infrastructure/llm/gemini_provider.py:147) to [`GeminiProvider`](infrastructure/llm/gemini_provider.py:66), following Gemini's two-phase stream contract (`include_thoughts=True`) with internal JSON buffering and diagnostic terminal output (`tooling/tools/perspective_thinking_diagnostic.py`).
+- **Test Coverage**: Added dedicated unit tests for perspective scoring, conflict margin calculation, and keyword loading (`tests/test_perspective_engine.py`).
+
 ## 2026-08-29 — Personality Digest & Strategic Memory Update Bug Fix (Phase 1)
 
 Fixed an architectural bug where [`redistill()`](brain/memory/personality.py) was only reachable via manual chat feedback in [`AllyCore.send_message()`](brain/reasoning/ally_agent.py) and never updated during gameplay turns.

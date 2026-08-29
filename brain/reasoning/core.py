@@ -20,12 +20,13 @@ from infrastructure.llm.gemini_provider import GeminiProvider
 from brain.memory.manager import MemoryManager
 from brain.memory.db import MemoryDB
 from brain.memory.save_tracker import SaveTracker
-from brain.memory.triggers import resolve_run_ended, CompositeTrigger, TurnCountTrigger, SalienceEventTrigger, SignificantMomentTrigger
+from brain.memory.triggers import resolve_run_ended, CompositeTrigger, TurnCountTrigger, SalienceEventTrigger, SignificantMomentTrigger, PerspectiveConflictTrigger
 from brain.memory.narrative import NarrativeMemoryManager
 from brain.knowledge.schema.schema import AllyOutput
 from brain.state.entity_registry import EntityRegistry
 from brain.state.genre_tracker import GenreTracker
 from brain.state.sandbox import StateSandbox
+from brain.reasoning.perspective_engine import PerspectiveEngine
 from storage.configs.config_manager import load_user_config
 from tooling.tools.init_config import init_config
 from brain.perception.debug_overlay import draw_layout_overlay
@@ -61,6 +62,7 @@ class AllyCore:
         self.provider = GeminiProvider()
         self.scribe = Scribe(self.provider)
         self.ally = Ally(self.provider, base_personality=self.personality_name)
+        self.perspective_engine = PerspectiveEngine()
         self.sandbox = StateSandbox()
         self.genre_tracker = GenreTracker()
 
@@ -84,6 +86,7 @@ class AllyCore:
             TurnCountTrigger(interval=config.get("personality_journal_turn_interval", 20)),
             SalienceEventTrigger(importance_threshold=8),
             SignificantMomentTrigger(),
+            PerspectiveConflictTrigger(margin_threshold=config.get("perspective_conflict_margin_threshold", 2.0)),
         ])
         self.personality_redistill_journal_interval = config.get("personality_redistill_journal_interval", 3)
         self._personality_journal_writes_since_redistill: int = 0
@@ -213,6 +216,7 @@ class AllyCore:
                 for el in self.sandbox.current_elements:
                     log("[{id}] {label}: {description}  box={box}", id=el.id, label=el.label, description=el.description, box=el.box_2d)
 
+                touched_entities = []
                 if self.registry is not None:
                     touched_entities = self.registry.resolve_or_create(cast(Any, scribe_output.screen_elements), self.sandbox.turn)
                     entities_context = self.registry.as_context(touched_entities, max_entities=20)
@@ -237,13 +241,19 @@ class AllyCore:
 
             log("\n--- Ally (blind to the image) ---")
             t0 = time.perf_counter()
-            prompt_sent_to_ally = f"Elements: {elements_context}\nEntities: {entities_context}\nGenre: {genre_context}\nMemory: {memory_context}"
+            recent_turns = self.memory_manager.get_recent_turn_texts(n=5) if self.memory_manager else []
+            entity_facts = [fact for ent in touched_entities for fact in ent.facts[-3:]]
+            perspective_score = self.perspective_engine.score(recent_turns, entity_facts)
+            perspective_context = self.perspective_engine.as_context(perspective_score)
+
+            prompt_sent_to_ally = f"Elements: {elements_context}\nEntities: {entities_context}\nGenre: {genre_context}\nMemory: {memory_context}\nPerspectives: {perspective_context}"
             ally_output = self.ally.decide(
                 elements_context=elements_context,
                 entities_context=entities_context,
                 genre_context=genre_context,
                 memory_context=memory_context,
                 personality=personality_context,
+                perspective_context=perspective_context,
             )
             timings["ally"] = time.perf_counter() - t0
 
@@ -296,6 +306,7 @@ class AllyCore:
                         "turn": self.sandbox.turn,
                         "importance": 8 if ally_output.significant_moment else 0,
                         "significant_moment": ally_output.significant_moment,
+                        "perspective_conflict_margin": perspective_score.conflict_margin,
                     }
                     if self.personality_flush_trigger.should_trigger(personality_trigger_context):
                         self.memory_manager.add_personality_journal_entry(ally_output.analysis)

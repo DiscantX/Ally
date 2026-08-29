@@ -26,5 +26,18 @@ class TestAllyAgent(unittest.TestCase):
         _, kwargs = provider.generate_structured.call_args
         self.assertEqual(kwargs.get("thinking_level"), "LOW")
 
+    def test_ally_decide_perspective_context(self):
+        provider = MagicMock()
+        mock_output = AllyOutput(analysis="test", actions=[], run_boundary="none")
+        provider.generate_structured.return_value = mock_output
+
+        ally = Ally(provider)
+        ally.decide("elements", "entities", perspective_context="Custom perspective tension notes")
+
+        provider.generate_structured.assert_called_once()
+        _, kwargs = provider.generate_structured.call_args
+        contents = kwargs.get("contents")
+        self.assertTrue(any("Custom perspective tension notes" in c for c in contents))
+
 if __name__ == "__main__":
     unittest.main()

@@ -35,6 +35,7 @@ class Ally:
         genre_context: str = "unknown (not yet determined)",
         memory_context: str = "(no memory yet -- this is the first turn)",
         personality: str | None = None,
+        perspective_context: str = "(no strong perspective signal this turn)",
     ) -> AllyOutput:
         prompt = ALLY_PROMPT_TEMPLATE.format(
             personality=personality if personality else self.base_personality,
@@ -42,6 +43,7 @@ class Ally:
             memory=memory_context,
             elements=elements_context,
             entities=entities_context,
+            perspectives=perspective_context,
         )
         return self.provider.generate_structured(
             model=self.model,
