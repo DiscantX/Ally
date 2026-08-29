@@ -241,7 +241,17 @@ class GeminiProvider:
 
         if not json_buffer:
             raise ValueError("Streaming response produced no JSON content")
-        return schema.model_validate_json(json_buffer)
+        try:
+            return schema.model_validate_json(json_buffer)
+        except Exception as json_err:
+            try:
+                partial_obj = partial_json_parser.loads(json_buffer, partial_json_parser.Allow.ALL)
+                if isinstance(partial_obj, dict):
+                    return schema.model_validate(partial_obj)
+                raise json_err
+            except Exception as parse_err:
+                log("Failed to parse final JSON buffer via partial_json_parser: {e}", e=parse_err)
+                raise ValueError(f"Invalid JSON: {json_err}") from json_err
 
     def generate_structured_stream_field(
         self,
@@ -322,7 +332,17 @@ class GeminiProvider:
 
                 if not json_buffer:
                     raise ValueError("Streaming response produced no JSON content")
-                return schema.model_validate_json(json_buffer)
+                try:
+                    return schema.model_validate_json(json_buffer)
+                except Exception as json_err:
+                    try:
+                        partial_obj = partial_json_parser.loads(json_buffer, partial_json_parser.Allow.ALL)
+                        if isinstance(partial_obj, dict):
+                            return schema.model_validate(partial_obj)
+                        raise json_err
+                    except Exception as parse_err:
+                        log("Failed to parse final JSON buffer via partial_json_parser: {e}", e=parse_err)
+                        raise ValueError(f"Invalid JSON: {json_err}") from json_err
 
             except (errors.ClientError, errors.ServerError, ValueError) as e:
                 if thought_begun:

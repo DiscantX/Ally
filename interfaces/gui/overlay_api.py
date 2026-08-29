@@ -5,16 +5,27 @@ Public API update methods and background ETA worker for the Ally Coach Overlay.
 import time
 import threading
 import queue
+import random
 from datetime import datetime
 import tkinter as tk
 from typing import Optional
 from interfaces.gui.models import OverlayConfig, FeedbackData
+
+# Witty fallback messages shown under the [Thoughts] header when the
+# accumulated thinking stream is empty or whitespace-only.
+EMPTY_THOUGHT_FALLBACK_MESSAGES = [
+    "It looks like Ally's tuned out.",
+    "Ally is currently staring blankly into the digital void.",
+    "No thoughts. Head empty. Only vibes.",
+    "Ally's brain gears are spinning, but the hamster fell off the wheel.",
+]
 
 
 class OverlayApiMixin:
     feedback_text: tk.Text
     summary_text: tk.Text
     prompt_text: tk.Text
+    strategic_text: tk.Text
     status_label: tk.Label
     eta_label: tk.Label
     eta_bar: tk.Canvas
@@ -32,6 +43,8 @@ class OverlayApiMixin:
     _eta_generation: int
     _eta_start_time: Optional[float]
     _eta_thread: Optional[threading.Thread]
+    _streaming_feedback_body_start: Optional[str]
+    _streaming_thinking_body_start: Optional[str]
 
     def _init_dispatch_queue(self):
         """Call once from the main thread, after self._running is set."""
@@ -157,7 +170,7 @@ class OverlayApiMixin:
             text.config(state=tk.NORMAL)
             if self._feedback_entry_count > 0:
                 text.insert(tk.END, "\n\n")
-            text.insert(tk.END, f"── {timestamp} [THINKING] ──\n", 'thinking')
+            text.insert(tk.END, f"── {timestamp} [Thoughts] ──\n", 'thinking')
             self._streaming_thinking_body_start = text.index(tk.END)
             text.config(state=tk.DISABLED)
             self._feedback_entry_count += 1
@@ -192,9 +205,23 @@ class OverlayApiMixin:
         self._dispatch(_update)
 
     def finalize_streaming_thinking(self):
-        """Thinking stream complete."""
+        """Thinking stream complete. Checks if accumulated thinking text is empty
+        and displays a witty fallback message under the [Thoughts] header."""
         def _update():
+            text = self.feedback_text
+            start = getattr(self, "_streaming_thinking_body_start", None)
             self._streaming_thinking_body_start = None
+
+            if start is not None:
+                # Check if the accumulated thinking text is empty or whitespace-only
+                current = text.get(start, tk.END).strip()
+                if not current:
+                    # Insert a witty fallback message
+                    fallback = random.choice(EMPTY_THOUGHT_FALLBACK_MESSAGES)
+                    text.config(state=tk.NORMAL)
+                    text.insert(start, fallback, 'thinking_body')
+                    text.config(state=tk.DISABLED)
+
             self.status_label.config(text=f"Thinking finalized: {datetime.now().strftime('%H:%M:%S')}")
         self._dispatch(_update)
 
