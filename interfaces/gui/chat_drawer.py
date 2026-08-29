@@ -189,12 +189,5 @@ class ChatDrawerMixin:
 
     def finalize_streaming_chat_message(self, final_text: str):
         def _update():
-            start = getattr(self, "_streaming_chat_body_start", None)
-            if start is not None:
-                self.chat_text.config(state=tk.NORMAL)
-                current = self.chat_text.get(start, tk.END).rstrip("\n")
-                if current != final_text:
-                    self.chat_text.delete(start, tk.END)
-                    self.chat_text.insert(start, final_text, "coach")
-                self.chat_text.config(state=tk.DISABLED)
+            pass
         self._dispatch(_update)

@@ -94,6 +94,7 @@ class OverlayApiMixin:
         with an empty body, ready to receive live text via
         append_streaming_feedback_chunk(). Mirrors update_feedback()'s
         header-insertion exactly, just split into stages."""
+        print("[DEBUG] begin_streaming_feedback called")
         def _update():
             text = self.feedback_text
             was_at_bottom = self._is_scrolled_to_bottom(text)
@@ -113,6 +114,7 @@ class OverlayApiMixin:
         self._dispatch(_update)
 
     def append_streaming_feedback_chunk(self, chunk_text: str):
+        print(f"[DEBUG] append_streaming_feedback_chunk: {repr(chunk_text)}")
         def _update():
             text = self.feedback_text
             was_at_bottom = self._is_scrolled_to_bottom(text)
@@ -140,21 +142,9 @@ class OverlayApiMixin:
         self._dispatch(_update)
 
     def finalize_streaming_feedback(self, final_text: str):
-        """Stream complete. Corrective step: ensure the displayed body text
-        exactly matches final_text -- guards against any drift between the
-        incremental partial-JSON preview and the fully-validated final field
-        value. Silently replaces the body if they differ (cheap no-op if
-        they already match)."""
+        """Stream complete."""
+        print(f"[DEBUG] finalize_streaming_feedback: {repr(final_text)}")
         def _update():
-            text = self.feedback_text
-            start = getattr(self, "_streaming_feedback_body_start", None)
-            if start is not None:
-                text.config(state=tk.NORMAL)
-                current = text.get(start, tk.END).rstrip("\n")
-                if current != final_text:
-                    text.delete(start, tk.END)
-                    text.insert(start, final_text, 'body')
-                text.config(state=tk.DISABLED)
             self._feedback_data.feedback = final_text
             self._feedback_data.last_update = time.time()
             self.status_label.config(text=f"Updated: {datetime.now().strftime('%H:%M:%S')}")
