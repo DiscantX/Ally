@@ -5,7 +5,7 @@ Persists narrative memory tiers, personality journals, and entity registries.
 import sqlite3
 import os
 from typing import Any
-from infrastructure.logger import log
+from infrastructure.logger import log, pretty_format
 
 DB_PATH = os.path.join("data", "profiles", "default_player", "memory.db")
 
@@ -102,7 +102,7 @@ class MemoryDB:
                     "origin": row["origin"],
                     "columns": columns
                 })
-            log("Entities indexes: {indexes}", indexes=indexes_info)
+            log("Entities indexes:\n{indexes}", indexes=pretty_format(indexes_info, remove_brackets=True))
 
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS cross_session_memory (

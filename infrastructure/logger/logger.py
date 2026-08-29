@@ -2,6 +2,7 @@ import os
 import sys
 import inspect
 import datetime
+import pprint
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Callable, Any
@@ -277,3 +278,15 @@ class Logger:
 
 def get_logger(name: str | None = None) -> Logger:
     return Logger(name=name)
+
+def pretty_format(obj: Any, remove_brackets: bool = False) -> str:
+    """Pretty formats complex objects (lists, dicts) for logs, with optional bracket stripping."""
+    formatted = pprint.pformat(obj, width=100, compact=True)
+    if remove_brackets:
+        formatted = formatted.strip()
+        if formatted.startswith('[') and formatted.endswith(']'):
+            formatted = formatted[1:-1].strip()
+        elif formatted.startswith('{') and formatted.endswith('}'):
+            formatted = formatted[1:-1].strip()
+    return formatted
+

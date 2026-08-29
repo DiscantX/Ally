@@ -31,3 +31,5 @@ storage/
 .qdrant-initialized
 state/memory.db-wal
 state/memory.db-shm
+.roo/
+.roomodes
