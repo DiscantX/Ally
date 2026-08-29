@@ -67,8 +67,13 @@ test_conflict_margin (tests.test_perspective_engine.TestPerspectiveEngine.test_c
 test_missing_keywords_file_fallback (tests.test_perspective_engine.TestPerspectiveEngine.test_missing_keywords_file_fallback) ... ok
 test_neutral_empty_baseline (tests.test_perspective_engine.TestPerspectiveEngine.test_neutral_empty_baseline) ... ok
 test_scoring_heuristics_ataraxia (tests.test_perspective_engine.TestPerspectiveEngine.test_scoring_heuristics_ataraxia) ... ok
+test_generate_structured_stream_field_no_content (tests.test_gemini_provider_stream_field.TestGeminiProviderStreamField.test_generate_structured_stream_field_no_content) ... ok
+test_generate_structured_stream_field_parse_exception_handling (tests.test_gemini_provider_stream_field.TestGeminiProviderStreamField.test_generate_structured_stream_field_parse_exception_handling) ... ok
+test_generate_structured_stream_field_success (tests.test_gemini_provider_stream_field.TestGeminiProviderStreamField.test_generate_structured_stream_field_success) ... ok
+test_optional_callbacks (tests.test_gemini_provider_stream_field.TestGeminiProviderStreamField.test_optional_callbacks) ... ok
+test_retry_with_reset (tests.test_gemini_provider_stream_field.TestGeminiProviderStreamField.test_retry_with_reset) ... ok
 
 ----------------------------------------------------------------------
-Ran 67 tests in 83.971s
+Ran 72 tests in 257.678s
 
 OK

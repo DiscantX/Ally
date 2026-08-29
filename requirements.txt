@@ -11,3 +11,4 @@ pywin32; sys_platform == "win32"
 fastembed
 numpy
 PySide6
+partial-json-parser

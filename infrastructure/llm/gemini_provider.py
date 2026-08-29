@@ -10,10 +10,11 @@ from google import genai
 from google.genai import types, errors
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from typing import TypeVar, Callable
+from typing import TypeVar, Callable, Any
 import time
 import random
 import functools
+import partial_json_parser
 from infrastructure.logger import log
 
 load_dotenv(override=True)
@@ -196,3 +197,112 @@ class GeminiProvider:
         if not json_buffer:
             raise ValueError("Streaming response produced no JSON content")
         return schema.model_validate_json(json_buffer)
+
+    def generate_structured_stream_field(
+        self,
+        model: str,
+        contents: list,
+        schema: type[T],
+        stream_field: str,
+        on_field_chunk: Callable[[str], None] | None = None,
+        on_stream_reset: Callable[[], None] | None = None,
+        thinking_level: str | types.ThinkingLevel | None = None,
+        max_retries: int = 5,
+    ) -> T:
+        """Streams one named string field out of a structured-output response
+        as it's generated, calling on_field_chunk with only the NEW text
+        since the last call (never the whole buffer, never a repeat).
+        """
+        thinking_config = None
+        if thinking_level is not None:
+            lvl = self._map_thinking_level(thinking_level)
+            thinking_config = types.ThinkingConfig(thinking_level=lvl)
+
+        attempt = 0
+        while True:
+            attempt += 1
+            json_buffer = ""
+            emitted_so_far = ""
+            try:
+                stream = self.client.models.generate_content_stream(
+                    model=model,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=schema,
+                        thinking_config=thinking_config,
+                    ),
+                )
+                for chunk in stream:
+                    if not chunk.candidates:
+                        continue
+                    content = chunk.candidates[0].content
+                    if not content or not content.parts:
+                        continue
+                    for part in content.parts:
+                        text = getattr(part, "text", None)
+                        if not text:
+                            continue
+                        json_buffer += text
+                        if on_field_chunk is not None:
+                            new_text, emitted_so_far = self._extract_new_field_text(
+                                json_buffer, stream_field, emitted_so_far
+                            )
+                            if new_text:
+                                on_field_chunk(new_text)
+
+                if not json_buffer:
+                    raise ValueError("Streaming response produced no JSON content")
+                return schema.model_validate_json(json_buffer)
+
+            except (errors.ClientError, errors.ServerError, ValueError) as e:
+                if attempt > max_retries:
+                    log(
+                        "Gemini streaming error (max retries {max_retries} exceeded): {e}",
+                        max_retries=max_retries, e=e,
+                    )
+                    raise
+
+                if on_stream_reset is not None:
+                    on_stream_reset()
+
+                delay = None
+                if isinstance(e, (errors.ClientError, errors.ServerError)):
+                    delay = self._extract_retry_delay(e)
+                if delay is None:
+                    delay = (2 ** attempt) + random.uniform(0, 1)
+
+                log(
+                    "Gemini streaming error ({e}). Retrying attempt {attempt}/{max_retries} in {delay:.2f}s...",
+                    e=e, attempt=attempt, max_retries=max_retries, delay=delay,
+                )
+                time.sleep(delay)
+
+    def _extract_new_field_text(
+        self, json_buffer: str, field_name: str, previous_value: str
+    ) -> tuple[str, str]:
+        """Best-effort incremental extraction of `field_name`'s growing
+        string value from a possibly-incomplete JSON buffer. Returns
+        (new_suffix_to_emit_now, updated_previous_value).
+
+        # Verified against partial_json_parser==0.2.1.1.post7 installed in this
+        # environment.
+        # dir(partial_json_parser): ['ALL', 'ARR', 'ATOM', 'Allow', 'BOOL', 'COLLECTION', 'INF', 'INFINITY', 'JSON', 'JSONDecodeError', 'MalformedJSON', 'NAN', 'NULL', 'NUM', 'OBJ', 'PartialJSON', 'SPECIAL', 'STR', '_INFINITY', '__builtins__', '__cached__', '__doc__', '__file__', '__loader__', '__name__', '__package__', '__path__', '__spec__', 'core', 'decode', 'ensure_json', 'fix', 'fix_fast', 'loads', 'parse_json']
+        # loads('{"analysis": "Hello wor', Allow.ALL) -> {'analysis': 'Hello wor'}
+        """
+        try:
+            partial_obj = partial_json_parser.loads(json_buffer, partial_json_parser.Allow.ALL)
+        except Exception:
+            return "", previous_value
+
+        if not isinstance(partial_obj, dict):
+            return "", previous_value
+
+        current_value = partial_obj.get(field_name)
+        if not isinstance(current_value, str):
+            return "", previous_value
+
+        if current_value.startswith(previous_value) and len(current_value) > len(previous_value):
+            return current_value[len(previous_value):], current_value
+
+        return "", previous_value
