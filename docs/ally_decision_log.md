@@ -424,3 +424,36 @@ Decided on the design for competing internal psychological framings (Perspective
 - **Why**: Production thought-summary streaming never worked reliably after two implementation passes against `generateContent` + `response_schema` due to documented failure clusters where thought parts arrived without `part.thought` flag set or were omitted on low-complexity prompts. The Interactions API's dedicated `thought_summary` event type (`delta.type == "thought_summary"`) completely sidesteps flag-sniffing fragility.
 - **Phase 0 Findings**: Verified against `google-genai==2.19.0`: `client.interactions.create(model=..., input=..., stream=True, response_format=..., generation_config={"thinking_summaries": "auto"})` successfully composes structured output and thinking summaries. Multimodal inputs (`[image, prompt]`) work correctly via `input=contents`.
 - **Scoping**: Public method signatures on [`GeminiProvider`](infrastructure/llm/gemini_provider.py:66) (`generate_structured()`, `generate_structured_stream()`, `generate_structured_stream_field()`) were preserved exactly, ensuring all callers (`Scribe`, `Ally`, etc.) required zero changes.
+
+## Provider-Agnostic LLM Base Interface + Thinking-Stream Parsing Fix
+
+### Root Cause: Nested `delta.content.text` vs. Flat String
+
+- **The bug**: For `thought_summary` deltas in the Interactions API stream, the actual thought text lives at `delta.content.text` — where `delta.content` is a **nested object** with its own `.type` and `.text` attributes, not a plain string.
+- **The extraction code was**: `delta_text = delta_content if isinstance(delta_content, str) else (delta_text_attr if isinstance(delta_text_attr, str) else "")`
+- **`isinstance(delta_content, str)` is `False`** for a `thought_summary` delta (it's an object), so this fell through to `delta.text`, which does not exist on thought_summary deltas. **Result: `delta_text` silently resolved to `""` for every thought chunk.**
+- **This explains**: why text streaming worked fine (text deltas have `.text` at the delta level) but thinking never displayed.
+
+### Fix Applied
+
+- Created [`_iter_gemini_stream_events()`](infrastructure/llm/providers/gemini_provider.py:55) as the **single canonical place** that reads `delta.content.text` for thought_summary deltas.
+- All streaming methods (`generate_structured_stream()`, `generate_structured_stream_field()`) now route through this generator — no method may read delta attributes directly anymore.
+
+### Structured Output + Thinking Composition
+
+- **Confirmed**: `response_format` (structured JSON schema) and `generation_config={"thinking_summaries": "auto"}` **compose correctly** — thought_summary deltas arrive even when strict schema is set.
+- **Soft-schema workaround methods** (`generate_soft_structured_stream_field`, `generate_soft_structured_stream`) were removed as they are no longer needed once the parsing bug is fixed.
+
+### Provider Interface Introduction
+
+- **Created** [`LLMProvider`](infrastructure/llm/base_provider.py:74) abstract base class and [`RetryableProviderMixin`](infrastructure/llm/base_provider.py:58) for shared retry/backoff logic.
+- **Provider-agnostic content types**: [`TextContent`](infrastructure/llm/base_provider.py:23), [`ImageContent`](infrastructure/llm/base_provider.py:28), [`Content`](infrastructure/llm/base_provider.py:31) dataclasses.
+- **Moved**: `GeminiProvider` to [`infrastructure/llm/providers/gemini_provider.py`](infrastructure/llm/providers/gemini_provider.py:1), inheriting `LLMProvider` + `RetryableProviderMixin`.
+- **Compatibility import**: [`infrastructure/llm/gemini_provider.py`](infrastructure/llm/gemini_provider.py:1) is now a thin re-export, keeping existing `from infrastructure.llm.gemini_provider import GeminiProvider` imports working unchanged.
+- **Created** [`ProviderRouter`](infrastructure/llm/provider_router.py:10) (fallback + concurrent execution) with tests — not wired in this pass, exists as a tested seam for future fallback/A/B features.
+
+### Decisions Not Made This Pass
+
+- **`send_message()`'s chat path**: deferred decision on whether to adopt `previous_interaction_id` stateful mode for Ally's chat — ties reasoning to Gemini-specific threading, and Ally's context is synthesized fresh from StateSandbox/EntityRegistry/MemoryManager each turn.
+- **`infrastructure/llm/model_lister.py`**: deferred folding into `LLMProvider.list_available_models()` — out of scope for this pass.
+- **OpenRouter provider**: designed for, not built.

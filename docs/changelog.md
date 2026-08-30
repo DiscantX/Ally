@@ -8,6 +8,19 @@ to the decision log instead of leaving it here.
 
 ---
 
+
+## 2026-08-30 — Provider-Agnostic LLM Base Interface + Thinking-Stream Parsing Fix
+
+Fixed the thinking-stream parsing bug (nested `delta.content.text` vs. flat string), introduced `LLMProvider` base interface + `providers/` subpackage, moved `GeminiProvider` under it, consolidated streaming methods into one shared event-parsing core, removed soft-schema workaround methods, and added `ProviderRouter`:
+
+- **Thinking-stream parsing fix**: Created [`_iter_gemini_stream_events()`](infrastructure/llm/providers/gemini_provider.py:55) as the single canonical place that reads `delta.content.text` for `thought_summary` deltas (not `delta.content` cast as a string or `delta.text`). All streaming methods now route through this generator.
+- **Provider interface**: Created [`LLMProvider`](infrastructure/llm/base_provider.py:74) abstract base class and [`RetryableProviderMixin`](infrastructure/llm/base_provider.py:58) with shared retry/backoff logic. Provider-agnostic content types: [`TextContent`](infrastructure/llm/base_provider.py:23), [`ImageContent`](infrastructure/llm/base_provider.py:28), [`Content`](infrastructure/llm/base_provider.py:31).
+- **New file structure**: [`infrastructure/llm/providers/gemini_provider.py`](infrastructure/llm/providers/gemini_provider.py:1) now contains the actual `GeminiProvider` class (inheriting `LLMProvider` + `RetryableProviderMixin`); [`infrastructure/llm/gemini_provider.py`](infrastructure/llm/gemini_provider.py:1) is now a thin re-export for backward compatibility.
+- **Soft-schema methods removed**: `generate_soft_structured_stream_field()` and `generate_soft_structured_stream()` were removed — they were workarounds for a bug that's now actually fixed.
+- **ProviderRouter**: Added [`infrastructure/llm/provider_router.py`](infrastructure/llm/provider_router.py:1) with `call_with_fallback()` and `call_concurrent()` methods — built and tested, not wired in this pass.
+- **Tests**: Updated `tests/test_gemini_provider_stream.py` with nested-object mock for `delta.content` (the shape that would have caught the original bug). Added `tests/test_provider_router.py`.
+- **Diagnostic**: Added [`debug_raw_thinking_stream_shape.py`](debug_raw_thinking_stream_shape.py:1) for live verification of the thinking stream event shape.
+
 ## 2026-08-29 — Migrate GeminiProvider to Interactions API & GUI Thinking Panel
 
 Migrated [`GeminiProvider`](infrastructure/llm/gemini_provider.py:66) from legacy `generateContent` to the Google GenAI Interactions API (`client.interactions.create`), resolved thought-streaming reliability issues, wired the Tkinter GUI thinking panel, and added diagnostic tooling:

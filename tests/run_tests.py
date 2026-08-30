@@ -26,6 +26,7 @@ from tests.test_logger_pubsub import TestLoggerPubSub
 from tests.test_perspective_engine import TestPerspectiveEngine
 from tests.test_gemini_provider_stream_field import TestGeminiProviderStreamField
 from tests.test_ally_stream import TestAllyStream
+from tests.test_provider_router import TestProviderRouter
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
@@ -41,6 +42,7 @@ if __name__ == "__main__":
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestAllyAgent))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestAllyCore))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestLogReaderReplay))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestRunReaderStartAtEnd if hasattr(sys, 'RunReaderStartAtEnd') else TestLogReaderStartAtEnd))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestLogReaderStartAtEnd))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestLogReaderTruncation))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestChatLockRelease))
@@ -57,6 +59,7 @@ if __name__ == "__main__":
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestPerspectiveEngine))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestGeminiProviderStreamField))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestAllyStream))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestProviderRouter))
 
     with open("test_results.log", "w") as log_file:
         runner = unittest.TextTestRunner(stream=log_file, verbosity=2)

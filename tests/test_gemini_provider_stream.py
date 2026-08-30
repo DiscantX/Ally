@@ -11,17 +11,19 @@ class SampleSchema(BaseModel):
     answer: str
 
 class TestGeminiProviderStream(unittest.TestCase):
-    def test_generate_structured_stream(self):
+    def test_generate_structured_stream_with_nested_thought_content(self):
         mock_client = MagicMock()
         
-        # Mock interactions events with delta types and text
+        # Mock interactions events with nested thought content (delta.content.text)
         event1 = MagicMock()
         event1.delta.type = "thought_summary"
-        event1.delta.text = "Thinking process step 1..."
+        event1.delta.content = MagicMock()
+        event1.delta.content.type = "text"
+        event1.delta.content.text = "Thinking process step 1..."
         
         event2 = MagicMock()
         event2.delta.type = "thought_summary"
-        event2.delta.text = "Thinking process step 2..."
+        event2.delta.content = "Thinking process step 2..." # also test flat string fallback
         
         event3 = MagicMock()
         event3.delta.type = "text"
@@ -62,7 +64,7 @@ class TestGeminiProviderStream(unittest.TestCase):
 
     def test_build_interactions_input_text_only(self):
         provider = GeminiProvider()
-        res = provider._build_interactions_input(["a plain prompt"])
+        res = provider._to_provider_input(["a plain prompt"])
         self.assertEqual(len(res), 1)
         self.assertIsInstance(res[0], TextContent)
         self.assertEqual(res[0].text, "a plain prompt")
@@ -71,7 +73,7 @@ class TestGeminiProviderStream(unittest.TestCase):
     def test_build_interactions_input_multimodal(self):
         provider = GeminiProvider()
         img = Image.new("RGB", (10, 10), color="red")
-        res = provider._build_interactions_input([img, "a prompt"])
+        res = provider._to_provider_input([img, "a prompt"])
         self.assertEqual(len(res), 2)
         self.assertIsInstance(res[0], ImageContent)
         self.assertEqual(res[0].type, "image")
@@ -84,7 +86,7 @@ class TestGeminiProviderStream(unittest.TestCase):
     def test_build_interactions_input_unsupported_type(self):
         provider = GeminiProvider()
         with self.assertRaises(TypeError):
-            provider._build_interactions_input([12345])
+            provider._to_provider_input([12345])
 
     def test_multimodal_input_formatting(self):
         mock_client = MagicMock()

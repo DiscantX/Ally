@@ -64,6 +64,19 @@
   registry still resolves purely via `difflib` (or exact `external_id`
   matching, where a Collector supplies one).
 - **`perspective_keywords.json` keyword tuning** — [`perspective_keywords.json`](configs/template/perspective_keywords.json:1) keyword lists are an untuned first pass expected to need adjustment against real gameplay across various games.
+- **Hot-swappable provider settings** (model/thinking-level changes
+  applied without a restart) — the `LLMProvider.refresh_config()` seam
+  exists as a no-op but is not wired to GUI settings-save callbacks yet;
+  own focused follow-up task.
+- **OpenRouter provider implementation** — not built in this pass;
+  `LLMProvider` base interface is designed for it but the provider class
+  itself does not exist.
+- **`infrastructure/llm/model_lister.py` folding** into the new
+  `LLMProvider.list_available_models()` interface method — deferred,
+  out-of-scope for the current pass.
+- **Wiring `ProviderRouter` into `AllyCore`/`Scribe`/`Ally`** — the
+  router class is built and tested but not yet integrated; future
+  pass will wire up fallback / A/B testing.
 
 ## Deferred by explicit decision (not forgotten, not scheduled)
 
@@ -77,3 +90,9 @@
 - Auto-promotion of a CLIP-learned `"normal"` screen category to
   `"low_value"` — a repetition/staleness heuristic risks silently gating
   real gameplay without real playtesting data to tune it against.
+- **Adopting `previous_interaction_id` stateful mode** for Ally's main
+  reasoning loop — ties reasoning to Gemini-specific threading; Ally's
+  context is synthesized fresh from StateSandbox/EntityRegistry/
+  MemoryManager each turn, so there is nothing meaningful to offload.
+  Left open specifically for `send_message()`'s chat path as a separate
+  deferred design question.
