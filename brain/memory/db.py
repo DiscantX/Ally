@@ -5,7 +5,7 @@ Persists narrative memory tiers, personality journals, and entity registries.
 import sqlite3
 import os
 from typing import Any
-from infrastructure.logger import log, pretty_format
+from infrastructure.logger import log, pretty_format, timed
 
 DB_PATH = os.path.join("data", "profiles", "default_player", "memory.db")
 
@@ -21,6 +21,7 @@ class MemoryDB:
         conn.row_factory = sqlite3.Row
         return conn
 
+    @timed
     def _init_db(self) -> None:
         conn = self._connect()
         try:
@@ -252,6 +253,7 @@ class MemoryDB:
         finally:
             conn.close()
 
+    @timed
     def upsert_entities(self, player_id: str, game_id: str, save_id: str, entities: list[dict[str, Any]]) -> None:
         conn = self._connect()
         try:

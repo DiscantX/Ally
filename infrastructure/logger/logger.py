@@ -220,16 +220,19 @@ def log(message: str, *args, name: str | None = None, level: str = "info", **kwa
     dim_code = "2"
     ALIGN_WIDTH = 32  # Total character width reserved for the [Module][Method] block
 
-    # Precision expanded to 5 decimal places
-    time_str = f" +{elapsed:.5f}s" if elapsed is not None else ""
+    time_str = f"[{elapsed:.5f}s]" if elapsed is not None else ""
 
     # 1. Build the Raw Strings
     if method_name:
-        raw_prefix = f"[{brain_name}][{method_name}{time_str}]"
-        terminal_prefix = f"\033[{color_code}m[{brain_name}]\033[{color_code};{dim_code}m[{method_name}\033[0;{dim_code}m{time_str}]\033[{reset_code}m"
+        raw_prefix = f"[{brain_name}][{method_name}]{time_str}"
+        terminal_prefix = f"\033[{color_code}m[{brain_name}]\033[{color_code};{dim_code}m[{method_name}]\033[0;{dim_code}m{time_str}\033[{reset_code}m"
     else:
-        raw_prefix = f"[{brain_name}]"
-        terminal_prefix = f"\033[{color_code}m[{brain_name}]\033[{reset_code}m"
+        if elapsed is not None:
+            raw_prefix = f"[{brain_name}]{time_str}"
+            terminal_prefix = f"\033[{color_code}m[{brain_name}]\033[0;{dim_code}m{time_str}\033[{reset_code}m"
+        else:
+            raw_prefix = f"[{brain_name}]"
+            terminal_prefix = f"\033[{color_code}m[{brain_name}]\033[{reset_code}m"
 
     # 2. Calculate the Padding Needed
     padding_spaces = " " * max(0, ALIGN_WIDTH - len(raw_prefix))

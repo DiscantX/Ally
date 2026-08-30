@@ -22,7 +22,7 @@ from ingestion.collectors.window_manager import ClientRect
 from brain.perception.change_detector import ChangeDetector  # This was added/changed as a part of the ZOO CODE idle safeguard pass
 from brain.state.shell_bounds_registry import SHELL_BOUNDS
 from storage.configs.config_manager import load_user_config
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 
 class ScreenCollector:
@@ -68,6 +68,7 @@ class ScreenCollector:
             pass
         return image
 
+    @timed
     def capture(self) -> RawObservation:
         start_t = time.perf_counter()
         if not self._prepared:
@@ -84,6 +85,7 @@ class ScreenCollector:
             log("Completed first screen capture in {duration:.4f}s", duration=duration)
         return RawObservation(image=image, changed=changed)
 
+    @timed
     def capture_bgr(self) -> np.ndarray | None:
         """Raw BGR numpy frame. Exposed separately (not just via capture())
         so OpenCV-based readers -- e.g. a plugin's HUD OCR -- can reuse the

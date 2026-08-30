@@ -1,5 +1,5 @@
 from typing import Callable, Any
-from infrastructure.logger.logger import log
+from infrastructure.logger.logger import log, timed
 
 MODULE_NAME = "EventHook"
 
@@ -16,6 +16,7 @@ class EventHook:
         if callback in self._subscribers:
             self._subscribers.remove(callback)
 
+    @timed
     def emit(self, *args: Any, **kwargs: Any) -> None:
         for callback in list(self._subscribers):
             try:

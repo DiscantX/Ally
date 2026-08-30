@@ -23,7 +23,7 @@ import numpy as np
 
 from brain.perception.geometry import normalized_box_to_pixels
 from brain.perception.ocr import extract_text, preprocess_for_ocr, looks_like_real_text
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 
 def _sanitize(raw: str, fallback: str) -> str:
@@ -41,6 +41,7 @@ class BootstrapResult:
 class ScreenBootstrapper:
     _first_setup_done = False
 
+    @timed
     def __init__(self, layout_dir: str, unknown_streak_threshold: int | None = None):
         start_t = time.perf_counter()
         config = load_user_config()
@@ -63,6 +64,7 @@ class ScreenBootstrapper:
     def reset(self) -> None:
         self._unknown_streak = 0
 
+    @timed
     def bootstrap(self, frame_bgr: np.ndarray, screen_elements: list, screen_name_guess: str) -> BootstrapResult:
         h, w = frame_bgr.shape[:2]
         base = _sanitize(screen_name_guess, "unknown_screen")

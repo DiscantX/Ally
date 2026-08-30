@@ -11,9 +11,10 @@ Nothing upstream should silently assume one format means the other;
 every call site converts explicitly through here.
 """
 
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 
+@timed
 def normalized_box_to_pixels(box_2d: list[int], frame_w: int, frame_h: int) -> tuple[int, int, int, int]:
     """Scribe's [y_min, x_min, y_max, x_max] (0-1000) -> (x, y, w, h) pixels."""
     if not isinstance(box_2d, (list, tuple)) or len(box_2d) != 4:

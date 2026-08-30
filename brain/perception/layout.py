@@ -6,7 +6,7 @@ care what's in it. Calibrated with tools/inspect_coords.py.
 
 import json
 import os
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 
 class UIElement:
@@ -46,6 +46,7 @@ class LayoutManager:
         self.elements = {}
         self.load_layouts()
 
+    @timed
     def load_layouts(self):
         if not os.path.exists(self.filepath):
             log("Warning: {filepath} not found.", filepath=self.filepath)

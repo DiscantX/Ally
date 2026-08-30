@@ -7,7 +7,7 @@ Extended to add SSIM-based comparison and ROI masking (see set_ignore_regions).
 import time
 import cv2
 import numpy as np
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 from storage.configs.config_manager import load_user_config
 
 try:
@@ -99,6 +99,7 @@ class ChangeDetector:
                 masked[y0:y1, x0:x1] = 0
         return masked
 
+    @timed
     def has_changed(self, frame_bgr: np.ndarray) -> bool:
         """Compares current BGR frame against the previous frame with
         luminance normalization and ROI masking. Returns True if changed

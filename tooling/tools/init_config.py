@@ -40,7 +40,7 @@ import sys
 
 import win32gui
 
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 
 def get_focused_window_title() -> str | None:
@@ -65,6 +65,7 @@ def build_config(game_id: str, window_title: str) -> dict:
     }
 
 
+@timed
 def init_config(game_id: str | None = None, window_title: str | None = None) -> str:
     """Creates configs/<game_id>/config.json. Returns the path (whether
     freshly written, or an already-existing config left untouched).

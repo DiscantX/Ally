@@ -17,7 +17,7 @@ import os
 from dataclasses import dataclass
 
 from brain.reasoning.perspectives import PERSPECTIVES
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 KEYWORDS_FILE = "configs/template/perspective_keywords.json"
 BASELINE_PERSPECTIVE = "Phronesis"
@@ -42,6 +42,7 @@ class PerspectiveEngine:
     def __init__(self, keywords_path: str = KEYWORDS_FILE):
         self._keywords: dict[str, list[str]] = self._load_keywords(keywords_path)
 
+    @timed
     def _load_keywords(self, path: str) -> dict[str, list[str]]:
         if not os.path.exists(path):
             log("No perspective keywords file at {path} -- every perspective will score 0 (Phronesis baseline always wins).", path=path)

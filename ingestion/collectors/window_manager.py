@@ -8,12 +8,13 @@ Linux/macOS capture backend can drop in without touching callers.
 import time
 import win32con
 import win32gui
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 
 class ClientRect:
     _first_setup_done = False
 
+    @timed
     def __init__(self, window_title="Slay the Spire"):
         start_t = time.perf_counter()
         self.window_title = window_title
@@ -26,6 +27,7 @@ class ClientRect:
             ClientRect._first_setup_done = True
             log("Initialized window manager for '{title}' in {duration:.4f}s (handle={handle})", title=window_title, duration=duration, handle=self.handle)
 
+    @timed
     def _get_window_handle(self, window_title):
         handle = win32gui.FindWindow(None, window_title)
         if not handle:

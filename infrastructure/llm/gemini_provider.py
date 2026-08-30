@@ -18,7 +18,7 @@ import random
 import functools
 from PIL import Image
 import partial_json_parser
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 load_dotenv(override=True)
 
@@ -29,6 +29,7 @@ def retry_with_gemini_backoff(max_retries: int = 5):
     """Decorator for handling Gemini rate limits (429) using retryDelay or exponential backoff."""
     def decorator(func):
         @functools.wraps(func)
+        @timed
         def wrapper(self, *args, **kwargs):
             attempt = 0
             while True:
@@ -159,6 +160,7 @@ class GeminiProvider:
         return formatted
 
     @retry_with_gemini_backoff(max_retries=5)
+    @timed
     def generate_structured(
         self,
         model: str,
@@ -195,6 +197,7 @@ class GeminiProvider:
             raise ValueError("Model returned empty response text")
         return schema.model_validate_json(text_content)
 
+    @timed
     def generate_structured_stream(
         self,
         model: str,
@@ -253,6 +256,7 @@ class GeminiProvider:
                 log("Failed to parse final JSON buffer via partial_json_parser: {e}", e=parse_err)
                 raise ValueError(f"Invalid JSON: {json_err}") from json_err
 
+    @timed
     def generate_structured_stream_field(
         self,
         model: str,

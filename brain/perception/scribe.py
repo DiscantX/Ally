@@ -13,7 +13,7 @@ from infrastructure.llm.gemini_provider import GeminiProvider
 from brain.knowledge.schema.schema import ScribeOutput
 from brain.knowledge.prompts.scribe import SCRIBE_PROMPT_UI, SCRIBE_PROMPT_NO_UI
 from storage.configs.config_manager import load_user_config, get_model, get_thinking_level
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 class Scribe:
     _first_extract_done = False
@@ -24,6 +24,7 @@ class Scribe:
         self.model = model or get_model("scribe_model", config)
         self.thinking_level = thinking_level or get_thinking_level("scribe", config)
 
+    @timed
     def extract(self, image: Image.Image, include_ui: bool = True) -> ScribeOutput:
         start_t = time.perf_counter()
         prompt = SCRIBE_PROMPT_UI if include_ui else SCRIBE_PROMPT_NO_UI

@@ -36,7 +36,7 @@ import numpy as np
 from storage.configs.config_manager import load_user_config
 from brain.memory.db import MemoryDB
 from brain.perception.clip_classifier import ClipClassifier
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 SEED_FILE = "storage/configs/template/clip_seed_categories.json"
 
@@ -69,6 +69,7 @@ class ScreenCategoryStore:
         self._matrix: np.ndarray | None = None  # (N, D) stacked embeddings, kept in sync with _rows
         self._load_global()
 
+    @timed
     def _ensure_seeded(self) -> None:
         if self.db.count_screen_categories(source="seed") > 0:
             return

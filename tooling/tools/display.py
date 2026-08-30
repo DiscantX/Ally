@@ -3,7 +3,7 @@ import time
 import cv2
 import numpy as np
 from PIL import Image
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 _lock = threading.Lock()
 _latest_image = None
@@ -27,6 +27,7 @@ def _display_loop():
             
     cv2.destroyAllWindows()
 
+@timed
 def show_image(image, delay=1):
     global _latest_image, _thread_started
     if image is None:

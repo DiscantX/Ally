@@ -1,8 +1,9 @@
 import ctypes
-from infrastructure.logger.logger import log
+from infrastructure.logger.logger import log, timed
 
 MODULE_NAME = "CaptureExclusion"
 
+@timed
 def exclude_hwnd_from_capture(hwnd: int) -> bool:
     """Excludes a window from screen captures using the Windows DWM API (SetWindowDisplayAffinity)."""
     try:

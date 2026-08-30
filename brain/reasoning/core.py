@@ -32,7 +32,7 @@ from tooling.tools.init_config import init_config
 from brain.perception.debug_overlay import draw_layout_overlay
 from brain.perception.clip_classifier import ClipClassifier
 from brain.perception.screen_category_store import ScreenCategoryStore
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 from tooling.tools.display import show_image
 
 TURN_INTERVAL_SECONDS = 0.01
@@ -152,6 +152,7 @@ class AllyCore:
         layout = reader.layout if reader else None
         return draw_layout_overlay(frame_bgr, layout, observation.confirmed_facts)
 
+    @timed
     def run_turn(self, observation: RawObservation, include_ui: bool = True) -> bool:
         if observation.image is None:
             return False
@@ -384,6 +385,7 @@ class AllyCore:
 
         return run_ended
 
+    @timed
     def run_loop(self, interval_seconds: float = TURN_INTERVAL_SECONDS) -> None:
         if self.collector is None:
             log("No collector configured for run_loop.")

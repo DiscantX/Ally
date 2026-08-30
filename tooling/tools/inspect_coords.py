@@ -6,7 +6,7 @@ import numpy as np
 import pytesseract
 from dotenv import load_dotenv
 from ingestion.collectors.screen_collector import ScreenCollector
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 
 load_dotenv(override=True)
@@ -45,6 +45,7 @@ def load_existing_layout():
         layouts = {}
 
 
+@timed
 def save_to_disk():
     os.makedirs(os.path.dirname(CONFIG_FILE) or ".", exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
@@ -144,6 +145,7 @@ def process_and_ocr_crop(crop, w, h):
     return thresh, text
 
 
+@timed
 def show_ocr_preview(x1, y1, w, h):
     """Triggers the OCR preview window for a given crop region."""
     global original_frame
@@ -163,6 +165,7 @@ def show_ocr_preview(x1, y1, w, h):
         log(f"OCR: '{detected_text}'")
 
 
+@timed
 def mouse_callback(event, x, y, flags, param):
     global current_frame, original_frame, box_to_save, awaiting_input, input_text
     global requires_hover_flag, selected_box_name, layouts, interaction_mode, drag_start_x, drag_start_y, initial_box_state, anchor_flag
@@ -336,6 +339,7 @@ def draw_ui_overlay(frame):
     cv2.putText(frame, sub_str, (20, h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1, cv2.LINE_AA)
     return frame
 
+@timed
 def seed_from_scribe():
     """Run the Scribe once against the current frame and stage its
     detected elements as draft layout boxes (source: 'scribe_auto').
@@ -377,6 +381,7 @@ def seed_from_scribe():
     log(f"Added {added} draft box(es) from Scribe. Review before trusting for OCR.")
 
 
+@timed
 def main():
     global current_frame, original_frame, awaiting_input, input_text, box_to_save, requires_hover_flag, selected_box_name, layouts, anchor_flag, ignore_motion_flag, CONFIG_FILE
 

@@ -16,7 +16,7 @@ import numpy as np
 from PIL import Image
 
 from storage.configs.config_manager import load_user_config
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 try:
     from fastembed import ImageEmbedding, TextEmbedding
@@ -52,6 +52,7 @@ class ClipClassifier:
             log("Failed to load CLIP models ({e}) -- disabling CLIP gating.", e=e)
             self.enabled = False
 
+    @timed
     def encode_image(self, frame_bgr: np.ndarray) -> np.ndarray | None:
         """BGR numpy frame (as produced by ScreenCollector.capture_bgr())
         -> a single L2-normalized embedding vector, or None if disabled/
@@ -69,6 +70,7 @@ class ClipClassifier:
             log("Image encode failed: {e}", e=e)
             return None
 
+    @timed
     def encode_text(self, text: str) -> np.ndarray | None:
         """Single sentence -> a single L2-normalized embedding vector, in
         the same space as encode_image's output."""

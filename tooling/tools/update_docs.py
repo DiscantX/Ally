@@ -14,7 +14,7 @@ import ast
 import os
 import re
 import sys
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 
 def parse_existing_readme(readme_path: str) -> dict[str, str]:
@@ -64,6 +64,7 @@ def extract_file_description(file_path: str, file_ext: str = ".md") -> str:
     return "Historical documentation and implementation plans." if file_ext == ".md" else "Test module."
 
 
+@timed
 def update_readme(target_dir: str, readme_path: str, file_ext: str = ".md", header_lines: list[str] | None = None, footer_lines: list[str] | None = None) -> None:
     """Scans target_dir for files with file_ext and updates readme_path."""
     if not os.path.exists(target_dir):
@@ -128,6 +129,7 @@ def update_readme(target_dir: str, readme_path: str, file_ext: str = ".md", head
     log("Successfully updated {readme_path} with {count} items.", readme_path=readme_path, count=len(items))
 
 
+@timed
 def install_git_hook() -> None:
     """Installs a git pre-commit hook that automatically runs update_docs.py."""
     git_dir = ".git"

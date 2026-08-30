@@ -34,7 +34,7 @@ from brain.perception.screen_classifier import ScreenClassifier
 from brain.perception.screen_bootstrapper import ScreenBootstrapper
 from brain.perception.clip_classifier import ClipClassifier
 from brain.perception.screen_category_store import ScreenCategoryStore
-from infrastructure.logger import log
+from infrastructure.logger import log, timed
 
 
 @dataclass
@@ -64,6 +64,7 @@ def _decode_anchor(b64_png: str) -> np.ndarray:
     return cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
 
 
+@timed
 def build_screen_layouts(layout_dir: str, source_tag_prefix: str) -> tuple[dict[str, LayoutOCRReader], ScreenClassifier]:
     """One layout.json per named screen (combat.json, map.json, ...),
     filename stem = screen name. Missing directory is a logged, non-fatal
@@ -177,6 +178,7 @@ class GenericHudCollector:
         obs.skip_ally = skip_ally
         return obs
 
+    @timed
     def bootstrap_screen(self, screen_elements: list, screen_name_guess: str):
         """Called from main.py right after Scribe runs, only when capture()
         flagged bootstrap_ready this turn."""
