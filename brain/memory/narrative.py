@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 from pydantic import BaseModel
 
-from infrastructure.llm.gemini_provider import GeminiProvider
+from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.memory.db import MemoryDB
 from brain.memory.triggers import Trigger, TurnCountTrigger, CompositeTrigger, SalienceEventTrigger, ExplicitAllyTrigger
 from brain.knowledge.prompts.narrative import NARRATIVE_MEDIUM_TERM_PROMPT, NARRATIVE_LONG_TERM_PROMPT, CROSS_SESSION_SUMMARY_PROMPT

@@ -5,7 +5,7 @@ from PIL import Image
 from google.genai import types
 from google.genai._gaos.types.interactions.textcontent import TextContent
 from google.genai._gaos.types.interactions.imagecontent import ImageContent
-from infrastructure.llm.gemini_provider import GeminiProvider
+from infrastructure.llm.providers.gemini_provider import GeminiProvider
 
 class SampleSchema(BaseModel):
     answer: str

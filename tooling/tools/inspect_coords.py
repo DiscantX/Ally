@@ -352,7 +352,7 @@ def seed_from_scribe():
 
     from PIL import Image
     import cv2
-    from infrastructure.llm.gemini_provider import GeminiProvider
+    from infrastructure.llm.providers.gemini_provider import GeminiProvider
     from brain.perception.scribe import Scribe
     from brain.perception.geometry import normalized_box_to_pixels
 

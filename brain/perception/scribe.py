@@ -9,7 +9,7 @@ only what comes out the other end.
 import time
 from PIL import Image
 
-from infrastructure.llm.gemini_provider import GeminiProvider
+from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.knowledge.schema.schema import ScribeOutput
 from brain.knowledge.prompts.scribe import SCRIBE_PROMPT_UI, SCRIBE_PROMPT_NO_UI
 from storage.configs.config_manager import load_user_config, get_model, get_thinking_level

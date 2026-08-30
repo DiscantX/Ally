@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from pydantic import BaseModel
 from google.genai import errors
-from infrastructure.llm.gemini_provider import GeminiProvider
+from infrastructure.llm.providers.gemini_provider import GeminiProvider
 
 class AnalysisSchema(BaseModel):
     analysis: str

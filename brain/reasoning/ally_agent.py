@@ -11,7 +11,7 @@ Personality/player-relationship memory is wired via MemorySystem
 """
 
 from typing import Callable
-from infrastructure.llm.gemini_provider import GeminiProvider
+from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.knowledge.schema.schema import AllyOutput, AllyChatOutput
 from brain.reasoning.personalities import PERSONALITIES
 from brain.knowledge.prompts.ally import ALLY_PROMPT_TEMPLATE, ALLY_CHAT_PROMPT_TEMPLATE

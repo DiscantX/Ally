@@ -5,7 +5,7 @@ drop-in compatible with the existing MemoryManager class.
 
 from typing import Any
 import threading
-from infrastructure.llm.gemini_provider import GeminiProvider
+from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.memory.db import MemoryDB
 from brain.memory.narrative import NarrativeMemoryManager
 from brain.memory.personality import PersonalityMemoryManager

@@ -16,7 +16,7 @@ from brain.reasoning.personalities import PERSONALITIES
 from ingestion.collectors.base import RawObservation
 from ingestion.collectors.configured_collector import build_collector, GenericHudCollector
 from brain.perception.scribe import Scribe
-from infrastructure.llm.gemini_provider import GeminiProvider
+from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.memory.manager import MemoryManager
 from brain.memory.db import MemoryDB
 from brain.memory.save_tracker import SaveTracker

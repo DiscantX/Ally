@@ -5,7 +5,7 @@ Manages Master append-only reflection journals, Digest summaries, and Micro prom
 from typing import Any
 from pydantic import BaseModel
 
-from infrastructure.llm.gemini_provider import GeminiProvider
+from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.memory.db import MemoryDB
 from brain.knowledge.prompts.personality import PERSONALITY_DIGEST_PROMPT, PERSONALITY_MICRO_PROMPT
 from storage.configs.config_manager import load_user_config, get_model, get_thinking_level

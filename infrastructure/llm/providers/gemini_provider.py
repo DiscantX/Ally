@@ -167,9 +167,10 @@ class GeminiProvider(LLMProvider, RetryableProviderMixin):
                 formatted.append(GenaiTextContent(type="text", text=item.text))
             elif isinstance(item, ImageContent):
                 import base64
+                from typing import cast
                 from google.genai._gaos.types.interactions.imagecontent import ImageContent as GenaiImageContent
                 b64_data = base64.b64encode(item.data).decode("utf-8")
-                formatted.append(GenaiImageContent(type="image", data=b64_data, mime_type=item.mime_type))
+                formatted.append(GenaiImageContent(type="image", data=b64_data, mime_type=cast(Any, item.mime_type)))
         return formatted
 
     def generate_structured(

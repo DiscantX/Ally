@@ -8,7 +8,7 @@ import sys
 from PIL import Image
 from dotenv import load_dotenv
 
-from infrastructure.llm.gemini_provider import GeminiProvider
+from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.perception.scribe import Scribe
 from brain.state.sandbox import StateSandbox
 from brain.state.entity_registry import EntityRegistry
