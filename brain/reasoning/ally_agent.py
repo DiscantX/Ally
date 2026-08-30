@@ -102,7 +102,7 @@ class Ally:
             entities=entities_context,
             perspectives=perspective_context,
         )
-        return self.provider.generate_structured_stream_field(
+        return self.provider.generate_soft_structured_stream_field(
             model=self.model,
             contents=[prompt],
             schema=AllyOutput,
@@ -141,7 +141,7 @@ class Ally:
             entities=entities_context,
             question=question,
         )
-        return self.provider.generate_structured_stream_field(
+        return self.provider.generate_soft_structured_stream_field(
             model=self.model,
             contents=[prompt],
             schema=AllyChatOutput,

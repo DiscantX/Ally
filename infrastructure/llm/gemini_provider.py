@@ -197,6 +197,255 @@ class GeminiProvider:
             raise ValueError("Model returned empty response text")
         return schema.model_validate_json(text_content)
 
+    @retry_with_gemini_backoff(max_retries=5)
+    @timed
+    def generate_soft_structured_stream_field(
+        self,
+        model: str,
+        contents: list,
+        schema: type[T],
+        stream_field: str,
+        on_field_chunk: Callable[[str], None] | None = None,
+        on_stream_reset: Callable[[], None] | None = None,
+        thinking_level: str | types.ThinkingLevel | None = None,
+        thinking_budget: int | None = None,
+        max_retries: int = 5,
+        on_thought_chunk: Callable[[str], None] | None = None,
+        on_thought_begin: Callable[[], None] | None = None,
+        on_thought_finalize: Callable[[], None] | None = None,
+        on_thought_reset: Callable[[], None] | None = None,
+    ) -> T:
+        """Streams one named string field out of a soft-schema structured-output response using client.interactions.create(..., stream=True)."""
+        generation_config: dict[str, Any] = {"thinking_summaries": "auto"}
+        if thinking_level is not None:
+            lvl = self._map_thinking_level(thinking_level)
+            generation_config["thinking_level"] = lvl
+
+        schema_instruction = f"You must respond ONLY with a single JSON object that strictly adheres to this schema: {schema.model_json_schema()}"
+
+        attempt = 0
+        while True:
+            attempt += 1
+            json_buffer = ""
+            emitted_so_far = ""
+            thought_begun = False
+            try:
+                response_stream = self.client.interactions.create(
+                    model=model,
+                    input=self._build_interactions_input(contents),
+                    stream=True,
+                    generation_config=generation_config,
+                    system_instruction=schema_instruction,
+                )
+                for event in response_stream:
+                    if hasattr(event, "step") and event.step:
+                        step = event.step
+                        if getattr(step, "type", None) == "thought" or "thought" in str(getattr(step, "type", "")).lower():
+                            if not thought_begun:
+                                thought_begun = True
+                                if on_thought_begin is not None:
+                                    on_thought_begin()
+                            step_text = getattr(step, "text", None) or getattr(step, "content", None)
+                            if isinstance(step_text, str) and step_text and on_thought_chunk is not None:
+                                on_thought_chunk(step_text)
+                            continue
+
+                    delta = getattr(event, "delta", None)
+                    if delta:
+                        delta_type = getattr(delta, "type", None)
+                        if not isinstance(delta_type, str):
+                            delta_type = None
+                        delta_content = getattr(delta, "content", None)
+                        delta_text_attr = getattr(delta, "text", None)
+                        delta_text = delta_content if isinstance(delta_content, str) else (delta_text_attr if isinstance(delta_text_attr, str) else "")
+                        
+                        if delta_type == "thought_summary":
+                            if not thought_begun:
+                                thought_begun = True
+                                if on_thought_begin is not None:
+                                    on_thought_begin()
+                            if on_thought_chunk is not None and delta_text:
+                                on_thought_chunk(delta_text)
+                        elif delta_type == "text" or delta_type is None:
+                            if delta_text:
+                                json_buffer += delta_text
+
+                    chunk_text = getattr(event, "output_text", None)
+                    if not chunk_text and hasattr(event, "text"):
+                        chunk_text = event.text
+                    if chunk_text and not delta:
+                        json_buffer += chunk_text
+
+                    if on_field_chunk is not None and json_buffer:
+                        try:
+                            cleaned_partial = json_buffer.strip()
+                            if cleaned_partial.startswith("```"):
+                                cleaned_partial = cleaned_partial.split("\n", 1)[-1]
+                            partial_obj = partial_json_parser.loads(cleaned_partial, partial_json_parser.Allow.ALL)
+                            if isinstance(partial_obj, dict) and stream_field in partial_obj:
+                                val = partial_obj[stream_field]
+                                if isinstance(val, str) and val.startswith(emitted_so_far):
+                                    delta_val = val[len(emitted_so_far):]
+                                    if delta_val:
+                                        emitted_so_far = val
+                                        on_field_chunk(delta_val)
+                        except Exception:
+                            pass
+
+                if thought_begun and on_thought_finalize is not None:
+                    on_thought_finalize()
+
+                if not json_buffer:
+                    log("Soft schema stream yielded empty buffer. Raw response object: {resp}", resp=str(response_stream))
+                    raise ValueError("Soft schema streaming response produced no JSON content")
+
+                try:
+                    cleaned_json = json_buffer.strip()
+                    if cleaned_json.startswith("```"):
+                        cleaned_json = cleaned_json.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                        if cleaned_json.startswith("json"):
+                            cleaned_json = cleaned_json[4:].strip()
+                    parsed = schema.model_validate_json(cleaned_json)
+                    final_val = getattr(parsed, stream_field, "")
+                    if isinstance(final_val, str) and final_val.startswith(emitted_so_far):
+                        remainder = final_val[len(emitted_so_far):]
+                        if remainder and on_field_chunk is not None:
+                            on_field_chunk(remainder)
+                    return parsed
+                except Exception as json_err:
+                    try:
+                        cleaned_json = json_buffer.strip()
+                        if cleaned_json.startswith("```"):
+                            cleaned_json = cleaned_json.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                            if cleaned_json.startswith("json"):
+                                cleaned_json = cleaned_json[4:].strip()
+                        partial_obj = partial_json_parser.loads(cleaned_json, partial_json_parser.Allow.ALL)
+                        if isinstance(partial_obj, dict):
+                            parsed = schema.model_validate(partial_obj)
+                            final_val = getattr(parsed, stream_field, "")
+                            if isinstance(final_val, str) and final_val.startswith(emitted_so_far):
+                                remainder = final_val[len(emitted_so_far):]
+                                if remainder and on_field_chunk is not None:
+                                    on_field_chunk(remainder)
+                            return parsed
+                        raise json_err
+                    except Exception as parse_err:
+                        log("Failed to parse soft schema Interactions API output into schema. Raw text: {text}. Error: {e}", text=json_buffer, e=parse_err)
+                        raise ValueError(f"Invalid JSON: {json_err}") from json_err
+
+            except (errors.ClientError, errors.ServerError, Exception) as e:
+                if attempt > max_retries:
+                    log("Soft schema streaming error (max retries {max_retries} exceeded): {e}", max_retries=max_retries, e=e)
+                    raise
+                delay = self._extract_retry_delay(e)
+                if delay is None:
+                    delay = (2 ** attempt) + random.uniform(0, 1)
+                log("Soft schema streaming error ({e}). Retrying attempt {attempt}/{max_retries} in {delay:.2f}s...", e=e, attempt=attempt, max_retries=max_retries, delay=delay)
+                if on_stream_reset is not None:
+                    on_stream_reset()
+                if thought_begun and on_thought_reset is not None:
+                    on_thought_reset()
+                time.sleep(delay)
+
+    @timed
+    def generate_soft_structured_stream(
+        self,
+        model: str,
+        contents: list,
+        schema: type[T],
+        thinking_level: str | types.ThinkingLevel | None = None,
+        thinking_budget: int | None = None,
+        thought_callback: Callable[[str], None] | None = None,
+    ) -> T:
+        """Alternative structured streaming method using client.interactions.create(..., stream=True)
+        with soft schema instructions instead of strict response_format JSON schema constraints.
+
+        Detailed Explanation:
+        Strict JSON schema constraints in response_format can suppress or interfere with Gemini's
+        internal thinking traces (thought summaries). By using soft schema instructions via system_instruction
+        and client.interactions.create(..., stream=True), we allow the model to freely generate internal thought steps
+        while guiding it to output a valid JSON object matching the requested Pydantic schema.
+        """
+        start_t = time.perf_counter()
+        
+        generation_config: dict[str, Any] = {"thinking_summaries": "auto"}
+        if thinking_level is not None:
+            generation_config["thinking_level"] = self._map_thinking_level(thinking_level)
+
+        schema_instruction = f"You must respond ONLY with a single JSON object that strictly adheres to this schema: {schema.model_json_schema()}"
+
+        response_stream = self.client.interactions.create(
+            model=model,
+            input=self._build_interactions_input(contents),
+            stream=True,
+            generation_config=generation_config,
+            system_instruction=schema_instruction,
+        )
+
+        full_text_response = ""
+
+        for event in response_stream:
+            if hasattr(event, "step") and event.step:
+                step = event.step
+                if getattr(step, "type", None) == "thought" or "thought" in str(getattr(step, "type", "")).lower():
+                    step_text = getattr(step, "text", None) or getattr(step, "content", None)
+                    if isinstance(step_text, str) and step_text and thought_callback:
+                        thought_callback(step_text)
+                    continue
+
+            delta = getattr(event, "delta", None)
+            if delta:
+                delta_type = getattr(delta, "type", None)
+                if not isinstance(delta_type, str):
+                    delta_type = None
+                delta_content = getattr(delta, "content", None)
+                delta_text_attr = getattr(delta, "text", None)
+                delta_text = delta_content if isinstance(delta_content, str) else (delta_text_attr if isinstance(delta_text_attr, str) else "")
+                
+                if delta_type == "thought_summary":
+                    if thought_callback and delta_text:
+                        thought_callback(delta_text)
+                elif delta_type == "text" or delta_type is None:
+                    if delta_text:
+                        full_text_response += delta_text
+
+            chunk_text = getattr(event, "output_text", None)
+            if not chunk_text and hasattr(event, "text"):
+                chunk_text = event.text
+            if chunk_text and not delta:
+                full_text_response += chunk_text
+
+        duration = time.perf_counter() - start_t
+        if not GeminiProvider._first_gen_done:
+            GeminiProvider._first_gen_done = True
+            log("Completed first soft-schema LLM generation (model={model}) in {duration:.4f}s", model=model, duration=duration)
+
+        if not full_text_response:
+            log("Soft schema stream yielded empty full_text_response. Raw response object: {resp}", resp=str(response_stream))
+            raise ValueError("Soft schema streaming response produced no JSON content")
+
+        try:
+            cleaned_json = full_text_response.strip()
+            if cleaned_json.startswith("```"):
+                cleaned_json = cleaned_json.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                if cleaned_json.startswith("json"):
+                    cleaned_json = cleaned_json[4:].strip()
+            return schema.model_validate_json(cleaned_json)
+        except Exception as e:
+            try:
+                cleaned_json = full_text_response.strip()
+                if cleaned_json.startswith("```"):
+                    cleaned_json = cleaned_json.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                    if cleaned_json.startswith("json"):
+                        cleaned_json = cleaned_json[4:].strip()
+                partial_obj = partial_json_parser.loads(cleaned_json, partial_json_parser.Allow.ALL)
+                if isinstance(partial_obj, dict):
+                    return schema.model_validate(partial_obj)
+                raise e
+            except Exception as parse_err:
+                log("Failed to parse soft schema Interactions API output into schema. Raw text: {text}. Error: {e}", text=full_text_response, e=parse_err)
+                raise parse_err
+
     @timed
     def generate_structured_stream(
         self,
