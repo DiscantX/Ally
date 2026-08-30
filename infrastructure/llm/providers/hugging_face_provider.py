@@ -6,6 +6,19 @@
 # When rewriting, look to the existing base_provider and gemini_provider modules for
 # hints on expected architecture aand structure.
 
+# The following were flagged as concerns by Gemini:
+
+# Key Request Architecture Rules
+
+# The Task Filter: Multimodal models that take an image and text and spit out text are indexed under
+# the task keyword image-text-to-text
+# 
+# The image_url object: Even if you are using a local image, the
+# InferenceClient.chat_completion architecture accepts images inside the chat message array using an
+# OpenAI-style format (passing either a remote web URL or a base64 encoded data string).
+
+# Current design decision is to import API keys from a .env file in the root directory.
+
 import os
 from PIL import Image
 from huggingface_hub import HfApi, InferenceClient
