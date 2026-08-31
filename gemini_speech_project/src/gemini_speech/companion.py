@@ -10,6 +10,7 @@ import numpy as np
 
 from .config import MODEL_ID, CHOSEN_VOICE, SYSTEM_PROMPT, SYNC_TEXT_TO_SPEECH
 from .player import AudioPlayer
+from .plugins.loopback.plugin import LoopbackPluginManager
 
 
 class GameCompanion:
@@ -27,7 +28,7 @@ class GameCompanion:
         client: genai.Client,
         player: AudioPlayer,
         model_id: str = MODEL_ID,
-        loopback_plugin: Optional[object] = None,
+        loopback_plugin: Optional["LoopbackPluginManager"] = None,
         system_prompt: Optional[str] = None,
     ):
         self._client = client
@@ -50,9 +51,6 @@ class GameCompanion:
             ),
             session_resumption=types.SessionResumptionConfig(handle=self._session_handle),
         )
-
-# Backwards compatibility alias
-VoiceCompanion = GameCompanion
 
     async def run(
         self,
@@ -139,3 +137,6 @@ VoiceCompanion = GameCompanion
                 while self._player.is_playing():
                     await asyncio.sleep(0.05)
                 player_turn.set()
+
+# Backwards compatibility alias
+VoiceCompanion = GameCompanion

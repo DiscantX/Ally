@@ -46,6 +46,9 @@ def polish_phrase(phrase: str) -> str:
         cleaned += "?"
     else:
         cleaned += "."
+
+    cleaned = f"{cleaned}" # put voice instructions here. Temporary location TODO: Breakout to own method
+
     return cleaned
 
 

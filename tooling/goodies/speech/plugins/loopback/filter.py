@@ -8,15 +8,6 @@ import sys
 import numpy as np
 from typing import Optional
 
-class EchoCanceller:
-    """Fallback mock EchoCanceller when pyaec is not installed."""
-    def __init__(self, tail_length_ms: int = 200, sample_rate: int = 16000) -> None:
-        pass
-
-    def process(self, near_end: bytes, far_end: bytes) -> bytes:
-        return near_end
-
-
 try:
     from pyaec import EchoCanceller
     HAS_PYAEC = True

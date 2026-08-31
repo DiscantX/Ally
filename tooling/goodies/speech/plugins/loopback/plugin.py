@@ -63,7 +63,7 @@ class LoopbackPluginManager:
                     ref_mono = ref_chunk
                 if player._samplerate != self._target_sample_rate:
                     num_samples = int(len(ref_mono) * self._target_sample_rate / player._samplerate)
-                    ref_mono = np.asarray(signal.resample(ref_mono, num_samples))
+                    ref_mono = signal.resample(ref_mono, num_samples)
                 self._filter_engine.analyze_reference(ref_mono.astype(np.int16))
 
             # Poll loopback audio chunk, downmix stereo to mono, resample, and apply AEC
@@ -76,7 +76,7 @@ class LoopbackPluginManager:
 
                     if self._capture._actual_sample_rate != self._target_sample_rate:
                         num_samples = int(len(audio_array) * self._target_sample_rate / self._capture._actual_sample_rate)
-                        audio_array = np.asarray(signal.resample(audio_array, num_samples))
+                        audio_array = signal.resample(audio_array, num_samples)
 
                     cleaned_array = self._filter_engine.process_stream(audio_array.astype(np.int16))
                     buffer = np.concatenate((buffer, cleaned_array.astype(np.int16)))

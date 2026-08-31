@@ -2,12 +2,13 @@
 Gapless audio playback via a persistent sounddevice OutputStream.
 """
 
-from typing import Optional, Callable
+from typing import Optional, Callable, Any
 import sys
 import threading
 import queue
 from collections import deque
 import numpy as np
+import sounddevice as sd
 
 from .config import TTS_SAMPLE_RATE
 
@@ -49,9 +50,7 @@ class AudioPlayer:
         self._prebuffer_samples = int(samplerate * prebuffer_ms / 1000)
         self._reference_callback = reference_callback
         self._reference_queue: "queue.Queue[np.ndarray]" = queue.Queue()
-        self._stream = np.ndarray([])  # placeholder type hint for safety
-        import sounddevice as sd
-        self._stream = sd.OutputStream(
+        self._stream: sd.OutputStream = sd.OutputStream(
             samplerate=samplerate,
             channels=1,
             dtype="int16",
