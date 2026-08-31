@@ -5,10 +5,11 @@ Orchestration loops for microphone polling, game audio loopback metering, and co
 import asyncio
 import time
 import sys
+from typing import Optional
 
 from .config import WAVE_WIDTH, WAVE_REFRESH_SECONDS, RECONNECT_DELAY_SECONDS
 from .recognizer import SpeechRecognizer
-from .loopback import SystemLoopbackCapture
+from .plugins.loopback.plugin import LoopbackPluginManager
 from .assembler import UtteranceAssembler
 from .utils import is_meaningful_phrase, polish_phrase, render_wave
 from .companion import GameCompanion
@@ -16,11 +17,11 @@ from .companion import GameCompanion
 
 async def dual_input_meter_loop(
     recognizer: SpeechRecognizer,
-    loopback_capture: SystemLoopbackCapture,
+    loopback_plugin: Optional[LoopbackPluginManager],
     phrase_queue: "asyncio.Queue[str]",
     player_turn: asyncio.Event,
 ) -> None:
-    """Manages dual live ASCII meters for [Player] mic and [Audio] game loopback during turns.
+    """Manages dual live ASCII meters for [Player] mic and optional [Audio] game loopback during turns.
 
     Renders:
         [Player]: [####----------------]
@@ -37,15 +38,20 @@ async def dual_input_meter_loop(
         if not player_turn.is_set():
             if prompt_shown:
                 # Clear meter lines when turn switches to AI
-                sys.stdout.write("\r" + " " * (WAVE_WIDTH + 12) + "\n" + " " * (WAVE_WIDTH + 12) + "\r")
+                if loopback_plugin:
+                    sys.stdout.write("\033[1A\r" + " " * (WAVE_WIDTH + 12) + "\n\r" + " " * (WAVE_WIDTH + 12) + "\r")
+                else:
+                    sys.stdout.write("\r" + " " * (WAVE_WIDTH + 12) + "\r")
                 sys.stdout.flush()
                 prompt_shown = False
             assembler = UtteranceAssembler()
             continue
 
         if not prompt_shown:
-            print("\n[Player]: ", end="", flush=True)
-            print("[Audio]:  ", end="", flush=True)
+            if loopback_plugin:
+                print("\n[Player]: \n[Audio]:  ", end="", flush=True)
+            else:
+                print("\n[Player]: ", end="", flush=True)
             prompt_shown = True
 
         fragment = recognizer.poll()
@@ -56,9 +62,12 @@ async def dual_input_meter_loop(
             phrase = assembler.flush()
             if is_meaningful_phrase(phrase):
                 phrase = polish_phrase(phrase)
-                # Move up one line to [Player], overwrite with finalized phrase, clear audio meter line below
-                sys.stdout.write("\033[1A\r[Player]: " + phrase + " " * (WAVE_WIDTH + 2) + "\n")
-                sys.stdout.write(" " * (WAVE_WIDTH + 12) + "\r")
+                # Overwrite lines with finalized phrase
+                if loopback_plugin:
+                    sys.stdout.write("\033[1A\r[Player]: " + phrase + " " * (WAVE_WIDTH + 2) + "\n")
+                    sys.stdout.write(" " * (WAVE_WIDTH + 12) + "\r")
+                else:
+                    sys.stdout.write("\r[Player]: " + phrase + " " * (WAVE_WIDTH + 2) + "\n")
                 sys.stdout.flush()
                 player_turn.clear()
                 await phrase_queue.put(phrase)
@@ -71,16 +80,17 @@ async def dual_input_meter_loop(
         now = time.monotonic()
         if now - last_wave_draw >= WAVE_REFRESH_SECONDS:
             mic_wave = render_wave(recognizer.level())
-            audio_wave = render_wave(loopback_capture.level())
-            # Redraw both lines in place using ANSI escape cursor up (\033[1A)
-            sys.stdout.write(f"\033[1A\r[Player]: {mic_wave}\n\r[Audio]:  {audio_wave}")
+            if loopback_plugin:
+                audio_wave = render_wave(loopback_plugin.level())
+                sys.stdout.write(f"\033[1A\r[Player]: {mic_wave}\n\r[Audio]:  {audio_wave}")
+            else:
+                sys.stdout.write(f"\r[Player]: {mic_wave}")
             sys.stdout.flush()
             last_wave_draw = now
 
 
 async def run_with_reconnect(
     companion: GameCompanion,
-    loopback_capture: SystemLoopbackCapture,
     phrase_queue: "asyncio.Queue[str]",
     player_turn: asyncio.Event,
 ) -> None:
@@ -88,7 +98,7 @@ async def run_with_reconnect(
     while True:
         player_turn.clear()
         try:
-            await companion.run(phrase_queue, player_turn, loopback_capture)
+            await companion.run(phrase_queue, player_turn)
         except asyncio.CancelledError:
             raise
         except Exception as e:

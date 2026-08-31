@@ -46,7 +46,7 @@ def polish_phrase(phrase: str) -> str:
         cleaned += "?"
     else:
         cleaned += "."
-    cleaned = f"[Tone Instruction: The player is whispering to you right now. Respond with a soft, quiet, conspiratorial whisper or low voice.] Player: {cleaned}"
+    cleaned = f"{cleaned}" # put voice instructions here. Temporary location TODO: Breakout to own method
     return cleaned
 
 

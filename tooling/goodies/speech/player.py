@@ -2,6 +2,7 @@
 Gapless audio playback via a persistent sounddevice OutputStream.
 """
 
+from typing import Optional, Callable
 import sys
 import threading
 import queue
@@ -36,6 +37,7 @@ class AudioPlayer:
         samplerate: int = TTS_SAMPLE_RATE,
         prebuffer_ms: int = 150,
         latency: str = "high",
+        reference_callback: Optional[Callable] = None,
     ):
         self._samplerate = samplerate
         self._chunks: "deque[np.ndarray]" = deque()
@@ -45,6 +47,7 @@ class AudioPlayer:
         self._playing = threading.Event()
         self._priming = True
         self._prebuffer_samples = int(samplerate * prebuffer_ms / 1000)
+        self._reference_callback = reference_callback
         self._reference_queue: "queue.Queue[np.ndarray]" = queue.Queue()
         self._stream = np.ndarray([])  # placeholder type hint for safety
         import sounddevice as sd
@@ -89,11 +92,18 @@ class AudioPlayer:
                 self._playing.clear()
                 self._priming = True  # re-arm so the next utterance also gets a prebuffer
 
-        # Mirror output frames to reference queue for AEC (Slice 4.3)
-        try:
-            self._reference_queue.put_nowait(outdata[:, 0].copy())
-        except Exception:
-            pass
+        # Mirror output frames to reference callback or fallback queue
+        ref_chunk = outdata[:, 0].copy()
+        if self._reference_callback is not None:
+            try:
+                self._reference_callback(ref_chunk)
+            except Exception:
+                pass
+        else:
+            try:
+                self._reference_queue.put_nowait(ref_chunk)
+            except Exception:
+                pass
 
     def poll_reference(self) -> Optional[np.ndarray]:
         try:
