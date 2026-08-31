@@ -115,7 +115,26 @@ def run_header_splash():
     anim_thread.start()
     
     start_time = time.time()
+    
+    gui_ready_event = threading.Event()
+    
+    def on_log(entry):
+        if "GUI displayed" in entry.message or "Initializing" in entry.message or "Main" in entry.brain_name or "Run" in entry.brain_name:
+            gui_ready_event.set()
+            
+    try:
+        from infrastructure.logger import subscribe, unsubscribe
+        subscribe(on_log)
+    except Exception:
+        pass
+    
     import main
+    
+    gui_ready_event.wait(timeout=3.0)
+    try:
+        unsubscribe(on_log)
+    except Exception:
+        pass
     
     elapsed = time.time() - start_time
     if elapsed < MIN_SPLASH_DURATION:

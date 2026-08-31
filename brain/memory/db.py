@@ -91,11 +91,14 @@ class MemoryDB:
                 pass
             
             cursor = conn.execute("PRAGMA index_list(entities)")
+            index_rows = cursor.fetchall()
+            cursor.close()
             indexes_info = []
-            for row in cursor.fetchall():
+            for row in index_rows:
                 idx_name = row["name"]
                 info_cursor = conn.execute(f"PRAGMA index_info({idx_name})")
                 columns = [info_row["name"] for info_row in info_cursor.fetchall()]
+                info_cursor.close()
                 indexes_info.append({
                     "table": "entities",
                     "name": idx_name,

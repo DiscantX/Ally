@@ -200,6 +200,12 @@ class ProdOverlayWindow(QWidget):
         """
         pass
 
+    def set_registry(self, registry: EntityRegistry) -> None:
+        """Sets or updates entity registry on feed panel.
+        """
+        self._registry = registry
+        self._feed_panel.set_registry(registry)
+
     def add_ally_message(self, personality_name: str, text: str) -> None:
         """Public method to add an incoming Ally message to the feed.
         """

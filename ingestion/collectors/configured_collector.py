@@ -120,7 +120,14 @@ class GenericHudCollector:
     def capture(self) -> RawObservation:
         self.screen.rect.refresh()
         if not self.screen.rect.is_foreground():
+            if not getattr(self, "_logged_not_foreground", False):
+                self._logged_not_foreground = True
+                log("Target window '{window}' is not currently in foreground -- waiting for window focus...", window=self.config.window_title, level="info")
             return RawObservation(image=None, changed=False, skip_scribe_reason="not_foreground")
+
+        if getattr(self, "_logged_not_foreground", False):
+            self._logged_not_foreground = False
+            log("Target window '{window}' is back in foreground -- resuming capture loop.", window=self.config.window_title, level="info")
 
         frame_bgr = self.screen.capture_bgr()
         if frame_bgr is None:

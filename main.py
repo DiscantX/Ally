@@ -2,11 +2,10 @@
 
 import argparse
 import threading
-from PIL import Image
+from typing import Any
 import time
+import sys
 
-from brain.reasoning.core import AllyCore
-from ingestion.collectors.base import RawObservation
 from infrastructure.logger import log
 
 STATE_LOCK = threading.Lock()
@@ -86,95 +85,144 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def initialize_application():
-    """Application entry point invoked cleanly after splash screen processes terminate."""
+def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
+    """Runs the Qt application with an already-instantiated and shown ProdOverlayWindow."""
+    args = parse_args()
+    from PySide6.QtCore import QTimer
+    from gui_qt.dev.dev_window import DevInspectorWindow
+    from gui_qt.dev.bridge import CoreBridge
+    from brain.reasoning.core import AllyCore
+    from ingestion.collectors.base import RawObservation
+    from PIL import Image
+
+    core_holder: dict[str, Any] = {"core": None}
+
+    def _on_core_initialized(loaded_core: AllyCore) -> None:
+        log("Core initialization completed, setting up Qt bridge and signals...", level="info")
+        try:
+            core_holder["core"] = loaded_core
+            overlay.set_registry(loaded_core.entity_registry)
+
+            bridge = CoreBridge(loaded_core)
+            bridge.chat_message_ready.connect(lambda sender, msg: overlay.add_ally_message(sender, msg))
+            bridge.analysis_stream_finalize.connect(lambda analysis: overlay.add_ally_message("Ally", analysis))
+            bridge.connection_status_ready.connect(lambda stat: overlay._status_strip.update_connection(stat))
+
+            overlay._status_strip.dev_window_requested.connect(
+                lambda: DevInspectorWindow.get_instance(loaded_core, overlay._theme)
+            )
+            overlay._input_bar.message_sent.connect(
+                lambda text, mode: loaded_core.send_message(text, mode)
+            )
+
+            overlay.add_ally_message("System", "Ally is online and ready!")
+            log("ProdOverlayWindow bridge signals connected successfully.", level="info")
+
+            if args.image:
+                def _run_single() -> None:
+                    log("Executing single-shot image observation turn...")
+                    observation = RawObservation(image=Image.open(str(args.image)))
+                    loaded_core.run_turn(observation)
+                    loaded_core.stop()
+                threading.Thread(target=_run_single, daemon=True).start()
+            else:
+                log("Spawning AllyCore.run_loop background thread...", level="info")
+                threading.Thread(target=loaded_core.run_loop, daemon=True).start()
+        except Exception as e:
+            log("Error in _on_core_initialized: {e}", e=e, level="error")
+
+    def _async_init() -> None:
+        log("Starting asynchronous AllyCore instantiation...", level="info")
+        try:
+            loaded_core = AllyCore(
+                config_path=args.config,
+                game_id=args.game,
+                image_path=args.image,
+            )
+            log("AllyCore instantiated. Calling initialize_run()...", level="info")
+            loaded_core.initialize_run()
+            log("AllyCore.initialize_run() finished successfully. Scheduling _on_core_initialized...", level="info")
+            QTimer.singleShot(0, overlay, lambda: _on_core_initialized(loaded_core))
+        except Exception as e:
+            log("Exception in _async_init: {e}", e=e, level="error")
+            import traceback
+            log("Traceback:\n{tb}", tb=traceback.format_exc(), level="error")
+            QTimer.singleShot(0, overlay, lambda: overlay.add_ally_message("System", f"Initialization error: {e}"))
+
+    threading.Thread(target=_async_init, daemon=True).start()
+    app.exec()
+
+
+def initialize_application() -> None:
+    """Application entry point invoked cleanly after splash screen processes terminate or in headless/tkinter modes."""
     args = parse_args()
 
-    core = AllyCore(
-        config_path=args.config,
-        game_id=args.game,
-        image_path=args.image,
-    )
-    core.initialize_run()
-
-    if getattr(args, "gui_qt", False):
+    if getattr(args, "gui_qt", False) or (not getattr(args, "headless", False) and not getattr(args, "gui", False)):
         from PySide6.QtWidgets import QApplication
         from gui_qt.prod.overlay_window import ProdOverlayWindow
-        from gui_qt.dev.dev_window import DevInspectorWindow
-        from gui_qt.dev.bridge import CoreBridge
-
-        app = QApplication([])
-        overlay = ProdOverlayWindow(registry=core.entity_registry)
-
-        bridge = CoreBridge(core)
-        bridge.chat_message_ready.connect(lambda sender, msg: overlay.add_ally_message(sender, msg))
-        bridge.analysis_stream_finalize.connect(lambda analysis: overlay.add_ally_message("Ally", analysis))
-
-        overlay._status_strip.dev_window_requested.connect(
-            lambda: DevInspectorWindow.get_instance(core, overlay._theme)
-        )
-        overlay._input_bar.message_sent.connect(
-            lambda text, mode: core.send_message(text, mode)
-        )
-
+        app = QApplication(sys.argv)
+        overlay = ProdOverlayWindow(registry=None)
         overlay.show()
-
-        if args.image:
-            observation = RawObservation(image=Image.open(args.image))
-            core.run_turn(observation)
-            core.stop()
-        else:
-            import threading
-            threading.Thread(target=core.run_loop, daemon=True).start()
-
-        app.exec()
-    elif args.gui:
-        from interfaces.gui.tkinter_app import AllyOverlay
-        gui_app = AllyOverlay(core=core)
-        gui_app.set_connection_status(True)
-
-        if args.image:
-            observation = RawObservation(image=Image.open(args.image))
-            core.run_turn(observation)
-            core.stop()
-        else:
-            import threading
-            threading.Thread(target=core.run_loop, daemon=True).start()
-
-        gui_app.mainloop()
+        overlay.add_ally_message("System", "Initializing Ally & Perception pipeline...")
+        run_qt_app_with_overlay(app, overlay)
     else:
-        # Headless terminal mode
-        core.on_status_update.connect(lambda screen, event: None)
-        core.on_state_summary.connect(lambda summary: log("Summary:\n{summary}", summary=summary))
-        core.on_prompt_update.connect(lambda prompt: None)
-        core.on_chat_message.connect(lambda sender, msg: log("{sender}: {msg}", sender=sender, msg=msg))
-        core.on_connection_status.connect(lambda conn: log("Connection: {conn}", conn=conn))
+        from brain.reasoning.core import AllyCore
+        from ingestion.collectors.base import RawObservation
+        from PIL import Image
 
-        analysis_printer = TerminalStreamPrinter(prefix="\nAlly: ")
-        chat_printer = TerminalStreamPrinter(prefix="\nAlly (chat): ")
-        thinking_printer = TerminalStreamPrinter(prefix="\nAlly (thinking): ")
+        core = AllyCore(
+            config_path=args.config,
+            game_id=args.game,
+            image_path=args.image,
+        )
+        core.initialize_run()
 
-        core.on_thinking_stream_begin.connect(thinking_printer.begin)
-        core.on_thinking_stream_chunk.connect(thinking_printer.chunk)
-        core.on_thinking_stream_reset.connect(thinking_printer.reset)
-        core.on_thinking_stream_finalize.connect(lambda: print("", flush=True))
+        if args.gui:
+            from interfaces.gui.tkinter_app import AllyOverlay
+            gui_app = AllyOverlay(core=core)
+            gui_app.set_connection_status(True)
 
-        core.on_analysis_stream_begin.connect(analysis_printer.begin)
-        core.on_analysis_stream_chunk.connect(analysis_printer.chunk)
-        core.on_analysis_stream_reset.connect(analysis_printer.reset)
-        core.on_analysis_stream_finalize.connect(lambda text: analysis_printer.finalize(text))
+            if args.image:
+                observation = RawObservation(image=Image.open(args.image))
+                core.run_turn(observation)
+                core.stop()
+            else:
+                threading.Thread(target=core.run_loop, daemon=True).start()
 
-        core.on_chat_stream_begin.connect(chat_printer.begin)
-        core.on_chat_stream_chunk.connect(chat_printer.chunk)
-        core.on_chat_stream_reset.connect(chat_printer.reset)
-        core.on_chat_stream_finalize.connect(lambda text: chat_printer.finalize(text))
-
-        if args.image:
-            observation = RawObservation(image=Image.open(args.image))
-            core.run_turn(observation)
-            core.stop()
+            gui_app.mainloop()
         else:
-            core.run_loop()
+            # Headless terminal mode
+            core.on_status_update.connect(lambda screen, event: None)
+            core.on_state_summary.connect(lambda summary: log("Summary:\n{summary}", summary=summary))
+            core.on_prompt_update.connect(lambda prompt: None)
+            core.on_chat_message.connect(lambda sender, msg: log("{sender}: {msg}", sender=sender, msg=msg))
+            core.on_connection_status.connect(lambda conn: log("Connection: {conn}", conn=conn))
+
+            analysis_printer = TerminalStreamPrinter(prefix="\nAlly: ")
+            chat_printer = TerminalStreamPrinter(prefix="\nAlly (chat): ")
+            thinking_printer = TerminalStreamPrinter(prefix="\nAlly (thinking): ")
+
+            core.on_thinking_stream_begin.connect(thinking_printer.begin)
+            core.on_thinking_stream_chunk.connect(thinking_printer.chunk)
+            core.on_thinking_stream_reset.connect(thinking_printer.reset)
+            core.on_thinking_stream_finalize.connect(lambda: print("", flush=True))
+
+            core.on_analysis_stream_begin.connect(analysis_printer.begin)
+            core.on_analysis_stream_chunk.connect(analysis_printer.chunk)
+            core.on_analysis_stream_reset.connect(analysis_printer.reset)
+            core.on_analysis_stream_finalize.connect(lambda text: analysis_printer.finalize(text))
+
+            core.on_chat_stream_begin.connect(chat_printer.begin)
+            core.on_chat_stream_chunk.connect(chat_printer.chunk)
+            core.on_chat_stream_reset.connect(chat_printer.reset)
+            core.on_chat_stream_finalize.connect(lambda text: chat_printer.finalize(text))
+
+            if args.image:
+                observation = RawObservation(image=Image.open(args.image))
+                core.run_turn(observation)
+                core.stop()
+            else:
+                core.run_loop()
 
 # Allows main.py to still be run directly if needed during rapid headless testing
 if __name__ == "__main__":

@@ -92,6 +92,11 @@ class FeedPanel(QWidget):
         if is_at_bottom:
             self._scroll_to_bottom()
 
+    def set_registry(self, registry: EntityRegistry) -> None:
+        """Sets or updates the entity registry for rich text formatting.
+        """
+        self._registry = registry
+
     def clear_messages(self) -> None:
         """Clears all messages from the feed.
         """

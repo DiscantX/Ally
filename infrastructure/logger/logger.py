@@ -96,6 +96,8 @@ REGISTRY = {
     "narrative.py": {"name": "NarrativeMemory", "color": "pink"},
     "personality.py": {"name": "PersonalityMemory", "color": "purple"},
     "save_tracker.py": {"name": "SaveTracker", "color": "dark_grey"},
+    "run.py": {"name": "Run", "color": "bright_cyan"},
+    "overlay_window.py": {"name": "ProdOverlay", "color": "cyan"},
 }
 
 @dataclass
@@ -160,6 +162,8 @@ def timed(func: Callable) -> Callable:
                 if not stack[code_obj]:
                     del stack[code_obj]
     return wrapper
+
+timer = timed
 
 def resolve_module_info(explicit_name: str | None = None) -> tuple[str, str, str, float | None]:
     """Resolves brain name, color, calling function/method name, and active execution timing."""
