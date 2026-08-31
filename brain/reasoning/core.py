@@ -72,6 +72,7 @@ class AllyCore:
         self.category_store = ScreenCategoryStore(db=self.db, clip=self.clip_classifier)
         self.memory_manager: Optional[MemoryManager] = None
         self.registry: Optional[EntityRegistry] = None
+
         self.collector: Optional[GenericHudCollector] = None
         self.gui_app: Optional[Any] = None
 
@@ -119,6 +120,14 @@ class AllyCore:
         self.on_thinking_stream_chunk: EventHook = EventHook("on_thinking_stream_chunk")
         self.on_thinking_stream_reset: EventHook = EventHook("on_thinking_stream_reset")
         self.on_thinking_stream_finalize: EventHook = EventHook("on_thinking_stream_finalize")
+
+    @property
+    def entity_registry(self) -> Optional[EntityRegistry]:
+        return self.registry
+
+    @entity_registry.setter
+    def entity_registry(self, value: Optional[EntityRegistry]) -> None:
+        self.registry = value
 
     def push_memory_states(self):
         if self.memory_manager is not None:

@@ -25,13 +25,13 @@ test_scope_isolation (tests.test_entity_registry_persistence.TestEntityRegistryP
 test_ally_constructor_defaults_and_custom (tests.test_ally.TestAllyAgent.test_ally_constructor_defaults_and_custom) ... ok
 test_ally_decide_perspective_context (tests.test_ally.TestAllyAgent.test_ally_decide_perspective_context) ... ok
 test_ally_decide_uses_thinking_level (tests.test_ally.TestAllyAgent.test_ally_decide_uses_thinking_level) ... ok
-test_ally_core_chat_message_unstarted (tests.test_ally_core.TestAllyCore.test_ally_core_chat_message_unstarted) ... ok
-test_ally_core_chat_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_chat_streaming) ... ok
-test_ally_core_initialization_and_turn (tests.test_ally_core.TestAllyCore.test_ally_core_initialization_and_turn) ... ok
-test_ally_core_run_turn_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_run_turn_streaming) ... ok
-test_ally_core_skip_ally_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_skip_ally_streaming) ... ok
-test_gameplay_driven_significant_moment_trigger (tests.test_ally_core.TestAllyCore.test_gameplay_driven_significant_moment_trigger) ... ok
-test_redistill_threshold_accumulation_and_run_ended_flush (tests.test_ally_core.TestAllyCore.test_redistill_threshold_accumulation_and_run_ended_flush) ... ok
+test_ally_core_chat_message_unstarted (tests.test_ally_core.TestAllyCore.test_ally_core_chat_message_unstarted) ... ERROR
+test_ally_core_chat_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_chat_streaming) ... ERROR
+test_ally_core_initialization_and_turn (tests.test_ally_core.TestAllyCore.test_ally_core_initialization_and_turn) ... ERROR
+test_ally_core_run_turn_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_run_turn_streaming) ... ERROR
+test_ally_core_skip_ally_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_skip_ally_streaming) ... ERROR
+test_gameplay_driven_significant_moment_trigger (tests.test_ally_core.TestAllyCore.test_gameplay_driven_significant_moment_trigger) ... ERROR
+test_redistill_threshold_accumulation_and_run_ended_flush (tests.test_ally_core.TestAllyCore.test_redistill_threshold_accumulation_and_run_ended_flush) ... ERROR
 test_missing_file_raises_when_not_following (tests.test_log_reader.TestLogReaderReplay.test_missing_file_raises_when_not_following) ... ok
 test_read_lines_from_start_replay_unchanged (tests.test_log_reader.TestLogReaderReplay.test_read_lines_from_start_replay_unchanged) ... ok
 test_default_start_replays_preexisting_then_follows (tests.test_log_reader.TestLogReaderStartAtEnd.test_default_start_replays_preexisting_then_follows) ... ok
@@ -44,7 +44,7 @@ Verify that EntityRegistry handles concurrent resolve_or_create calls safely. ..
 test_shared_state_locking (tests.test_race_conditions.TestRaceConditions.test_shared_state_locking)
 Verify that STATE_LOCK prevents race conditions on shared data. ... ok
 test_concurrent_sandbox_and_registry_access (tests.test_concurrent_sandbox_and_registry_access.TestConcurrentStateAccess.test_concurrent_sandbox_and_registry_access) ... ok
-test_skip_ally_does_not_crash (tests.test_run_turn_skip_ally.TestRunTurnSkipAlly.test_skip_ally_does_not_crash) ... ok
+test_skip_ally_does_not_crash (tests.test_run_turn_skip_ally.TestRunTurnSkipAlly.test_skip_ally_does_not_crash) ... ERROR
 test_dedup_negative (tests.test_screen_category_store.TestScreenCategoryStore.test_dedup_negative) ... ok
 test_dedup_positive (tests.test_screen_category_store.TestScreenCategoryStore.test_dedup_positive) ... ok
 test_game_id_scoping (tests.test_screen_category_store.TestScreenCategoryStore.test_game_id_scoping) ... ok
@@ -52,8 +52,8 @@ test_seed_idempotency (tests.test_screen_category_store.TestScreenCategoryStore.
 test_is_foreground_false (tests.test_window_manager_refresh.TestWindowManagerRefresh.test_is_foreground_false) ... ok
 test_is_foreground_true (tests.test_window_manager_refresh.TestWindowManagerRefresh.test_is_foreground_true) ... ok
 test_refresh_window_gone (tests.test_window_manager_refresh.TestWindowManagerRefresh.test_refresh_window_gone) ... ok
-test_ally_core_normal_run_turn (tests.test_clip_gate_integration.TestClipGateIntegration.test_ally_core_normal_run_turn) ... ok
-test_ally_core_off_game_run_turn (tests.test_clip_gate_integration.TestClipGateIntegration.test_ally_core_off_game_run_turn) ... ok
+test_ally_core_normal_run_turn (tests.test_clip_gate_integration.TestClipGateIntegration.test_ally_core_normal_run_turn) ... ERROR
+test_ally_core_off_game_run_turn (tests.test_clip_gate_integration.TestClipGateIntegration.test_ally_core_off_game_run_turn) ... ERROR
 test_capture_not_foreground (tests.test_clip_gate_integration.TestClipGateIntegration.test_capture_not_foreground) ... ok
 test_capture_off_game_skip (tests.test_clip_gate_integration.TestClipGateIntegration.test_capture_off_game_skip) ... ok
 test_disconnect (tests.test_event_hook.TestEventHook.test_disconnect) ... ok
@@ -87,6 +87,127 @@ test_call_concurrent (tests.test_provider_router.TestProviderRouter.test_call_co
 test_call_with_fallback_all_fail (tests.test_provider_router.TestProviderRouter.test_call_with_fallback_all_fail) ... ok
 test_call_with_fallback_success_first (tests.test_provider_router.TestProviderRouter.test_call_with_fallback_success_first) ... ok
 test_call_with_fallback_triggers_fallback (tests.test_provider_router.TestProviderRouter.test_call_with_fallback_triggers_fallback) ... ok
+test_build_stylesheet_custom_override (tests.test_theming.TestThemingSystem.test_build_stylesheet_custom_override) ... ok
+test_build_stylesheet_template (tests.test_theming.TestThemingSystem.test_build_stylesheet_template) ... ok
+test_palette_hash_empty (tests.test_theming.TestThemingSystem.test_palette_hash_empty) ... ok
+test_palette_hash_stability (tests.test_theming.TestThemingSystem.test_palette_hash_stability) ... ok
+test_themes_defined (tests.test_theming.TestThemingSystem.test_themes_defined) ... ok
+
+======================================================================
+ERROR: test_ally_core_chat_message_unstarted (tests.test_ally_core.TestAllyCore.test_ally_core_chat_message_unstarted)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_ally_core.py", line 39, in test_ally_core_chat_message_unstarted
+    core.on_chat_message.connect(lambda sender, msg: messages.append((sender, msg)))
+    ^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AllyCore' object has no attribute 'on_chat_message'
+
+======================================================================
+ERROR: test_ally_core_chat_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_chat_streaming)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_ally_core.py", line 205, in test_ally_core_chat_streaming
+    core.on_chat_stream_begin.connect(lambda: begins.append(True))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AllyCore' object has no attribute 'on_chat_stream_begin'
+
+======================================================================
+ERROR: test_ally_core_initialization_and_turn (tests.test_ally_core.TestAllyCore.test_ally_core_initialization_and_turn)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_ally_core.py", line 14, in test_ally_core_initialization_and_turn
+    core.on_status_update.connect(lambda screen, event: events.append(("status", screen, event)))
+    ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AllyCore' object has no attribute 'on_status_update'
+
+======================================================================
+ERROR: test_ally_core_run_turn_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_run_turn_streaming)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_ally_core.py", line 146, in test_ally_core_run_turn_streaming
+    core.on_analysis_stream_begin.connect(lambda: begins.append(True))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AllyCore' object has no attribute 'on_analysis_stream_begin'
+
+======================================================================
+ERROR: test_ally_core_skip_ally_streaming (tests.test_ally_core.TestAllyCore.test_ally_core_skip_ally_streaming)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_ally_core.py", line 172, in test_ally_core_skip_ally_streaming
+    core.on_analysis_stream_chunk.connect(lambda t: chunks.append(t))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AllyCore' object has no attribute 'on_analysis_stream_chunk'
+
+======================================================================
+ERROR: test_gameplay_driven_significant_moment_trigger (tests.test_ally_core.TestAllyCore.test_gameplay_driven_significant_moment_trigger)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_ally_core.py", line 72, in test_gameplay_driven_significant_moment_trigger
+    core.run_turn(obs, include_ui=True)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\infrastructure\logger\logger.py", line 156, in wrapper
+    return func(*args, **kwargs)
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\brain\reasoning\core.py", line 171, in run_turn
+    self.on_pipeline_image.emit("observation", observation.image, "RGB PIL Image Observation")
+    ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AllyCore' object has no attribute 'on_pipeline_image'. Did you mean: 'update_pipeline_image'?
+
+======================================================================
+ERROR: test_redistill_threshold_accumulation_and_run_ended_flush (tests.test_ally_core.TestAllyCore.test_redistill_threshold_accumulation_and_run_ended_flush)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_ally_core.py", line 103, in test_redistill_threshold_accumulation_and_run_ended_flush
+    core.run_turn(obs, include_ui=True)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\infrastructure\logger\logger.py", line 156, in wrapper
+    return func(*args, **kwargs)
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\brain\reasoning\core.py", line 171, in run_turn
+    self.on_pipeline_image.emit("observation", observation.image, "RGB PIL Image Observation")
+    ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AllyCore' object has no attribute 'on_pipeline_image'. Did you mean: 'update_pipeline_image'?
+
+======================================================================
+ERROR: test_skip_ally_does_not_crash (tests.test_run_turn_skip_ally.TestRunTurnSkipAlly.test_skip_ally_does_not_crash)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_run_turn_skip_ally.py", line 38, in test_skip_ally_does_not_crash
+    result = core.run_turn(obs)
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\infrastructure\logger\logger.py", line 156, in wrapper
+    return func(*args, **kwargs)
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\brain\reasoning\core.py", line 171, in run_turn
+    self.on_pipeline_image.emit("observation", observation.image, "RGB PIL Image Observation")
+    ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AllyCore' object has no attribute 'on_pipeline_image'. Did you mean: 'update_pipeline_image'?
+
+======================================================================
+ERROR: test_ally_core_normal_run_turn (tests.test_clip_gate_integration.TestClipGateIntegration.test_ally_core_normal_run_turn)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\unittest\mock.py", line 1432, in patched
+    return func(*newargs, **newkeywargs)
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_clip_gate_integration.py", line 90, in test_ally_core_normal_run_turn
+    ended = core.run_turn(obs)
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\infrastructure\logger\logger.py", line 156, in wrapper
+    return func(*args, **kwargs)
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\brain\reasoning\core.py", line 171, in run_turn
+    self.on_pipeline_image.emit("observation", observation.image, "RGB PIL Image Observation")
+    ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AllyCore' object has no attribute 'on_pipeline_image'. Did you mean: 'update_pipeline_image'?
+
+======================================================================
+ERROR: test_ally_core_off_game_run_turn (tests.test_clip_gate_integration.TestClipGateIntegration.test_ally_core_off_game_run_turn)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Admin\AppData\Local\Programs\Python\Python314\Lib\unittest\mock.py", line 1432, in patched
+    return func(*newargs, **newkeywargs)
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\tests\test_clip_gate_integration.py", line 60, in test_ally_core_off_game_run_turn
+    ended = core.run_turn(obs)
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\infrastructure\logger\logger.py", line 156, in wrapper
+    return func(*args, **kwargs)
+  File "c:\Users\Admin\Documents\Dylan\python\Ally\brain\reasoning\core.py", line 171, in run_turn
+    self.on_pipeline_image.emit("observation", observation.image, "RGB PIL Image Observation")
+    ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AllyCore' object has no attribute 'on_pipeline_image'. Did you mean: 'update_pipeline_image'?
 
 ======================================================================
 ERROR: test_generate_structured_stream_field_parse_exception_handling (tests.test_gemini_provider_stream_field.TestGeminiProviderStreamField.test_generate_structured_stream_field_parse_exception_handling)
@@ -113,6 +234,6 @@ Traceback (most recent call last):
 AttributeError: module 'infrastructure.llm' has no attribute 'gemini_provider'
 
 ----------------------------------------------------------------------
-Ran 87 tests in 313.763s
+Ran 92 tests in 269.643s
 
-FAILED (errors=1)
+FAILED (errors=11)

@@ -126,6 +126,14 @@ class MemoryDB:
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            try:
+                conn.execute("ALTER TABLE screen_categories ADD COLUMN source TEXT NOT NULL DEFAULT 'learned'")
+            except sqlite3.OperationalError:
+                pass
+            try:
+                conn.execute("ALTER TABLE screen_categories ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
+            except sqlite3.OperationalError:
+                pass
             conn.commit()
         finally:
             conn.close()
@@ -326,5 +334,7 @@ class MemoryDB:
                 cursor = conn.execute("SELECT COUNT(*) as c FROM screen_categories")
             row = cursor.fetchone()
             return row["c"] if row else 0
+        except sqlite3.OperationalError:
+            return 0
         finally:
             conn.close()

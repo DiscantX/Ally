@@ -28,6 +28,7 @@ from tests.test_gemini_provider_stream import TestGeminiProviderStream
 from tests.test_gemini_provider_stream_field import TestGeminiProviderStreamField
 from tests.test_ally_stream import TestAllyStream
 from tests.test_provider_router import TestProviderRouter
+from tests.test_theming import TestThemingSystem
 
 if __name__ == "__main__":
     suite = unittest.TestSuite()
@@ -61,6 +62,7 @@ if __name__ == "__main__":
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestGeminiProviderStreamField))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestAllyStream))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestProviderRouter))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(TestThemingSystem))
 
     with open("test_results.log", "w") as log_file:
         runner = unittest.TextTestRunner(stream=log_file, verbosity=2)
