@@ -46,9 +46,10 @@ async def dual_input_meter_loop(
             continue
 
         if not prompt_shown:
-            print("\n[Player]: ", end="", flush=True)
             if loopback_plugin:
-                print("[Audio]:  ", end="", flush=True)
+                print("\n[Player]: \n[Audio]:  ", end="", flush=True)
+            else:
+                print("\n[Player]: ", end="", flush=True)
             prompt_shown = True
 
         fragment = recognizer.poll()
@@ -61,10 +62,10 @@ async def dual_input_meter_loop(
                 phrase = polish_phrase(phrase)
                 # Overwrite lines with finalized phrase
                 if loopback_plugin:
-                    sys.stdout.write("\033[2A\r[Player]: " + phrase + " " * (WAVE_WIDTH + 2) + "\n")
-                    sys.stdout.write(" " * (WAVE_WIDTH + 12) + "\r")
-                else:
                     sys.stdout.write("\033[1A\r[Player]: " + phrase + " " * (WAVE_WIDTH + 2) + "\n")
+                    sys.stdout.write("\r" + " " * (WAVE_WIDTH + 12) + "\n")
+                else:
+                    sys.stdout.write("\n\033[1A\r[Player]: " + phrase + " " * (WAVE_WIDTH + 2) + "\n")
                 sys.stdout.flush()
                 player_turn.clear()
                 await phrase_queue.put(phrase)
@@ -79,7 +80,7 @@ async def dual_input_meter_loop(
             mic_wave = render_wave(recognizer.level())
             if loopback_plugin:
                 audio_wave = render_wave(loopback_plugin.level())
-                sys.stdout.write(f"\033[2A\r[Player]: {mic_wave}\n\r[Audio]:  {audio_wave}")
+                sys.stdout.write(f"\033[1A\r[Player]: {mic_wave}\n\r[Audio]:  {audio_wave}")
             else:
                 sys.stdout.write(f"\r[Player]: {mic_wave}")
             sys.stdout.flush()
