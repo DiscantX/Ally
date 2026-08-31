@@ -1,0 +1,110 @@
+/* Base QSS Template for PySide6 GUI */
+
+QWidget {{
+    background-color: {bg_base};
+    color: {fg_primary};
+    font-family: "Segoe UI", sans-serif;
+    font-size: 9pt;
+}}
+
+QMainWindow, QDialog {{
+    background-color: {bg_base};
+    border: 1px solid {border};
+}}
+
+QFrame#feedPanel, QFrame#inputBar, QFrame#statusStrip {{
+    background-color: {bg_surface};
+    border: 1px solid {border};
+    border-radius: 4px;
+}}
+
+QScrollArea {{
+    background-color: {bg_surface};
+    border: none;
+}}
+
+QWidget#messageRow {{
+    background-color: transparent;
+    border-bottom: 1px solid {border};
+    padding: 4px;
+}}
+
+QLabel#messageRow__nameLabel {{
+    color: {accent_primary};
+    font-weight: bold;
+}}
+
+QLabel#messageRow__bodyLabel {{
+    color: {fg_primary};
+}}
+
+QWidget#inputBar {{
+    background-color: {bg_elevated};
+    border-top: 1px solid {border};
+}}
+
+QLineEdit, QTextEdit, QPlainTextEdit {{
+    background-color: {bg_base};
+    color: {fg_primary};
+    border: 1px solid {border};
+    border-radius: 3px;
+    padding: 4px;
+    selection-background-color: {accent_primary};
+    selection-color: {bg_base};
+}}
+
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
+    border: 1px solid {focus_ring};
+}}
+
+QPushButton {{
+    background-color: {bg_elevated};
+    color: {fg_primary};
+    border: 1px solid {border};
+    border-radius: 3px;
+    padding: 5px 12px;
+    font-weight: bold;
+}}
+
+QPushButton:hover {{
+    background-color: {accent_primary};
+    color: {bg_base};
+    border-color: {accent_primary};
+}}
+
+QPushButton:pressed {{
+    background-color: {accent_secondary};
+    color: {bg_base};
+}}
+
+QComboBox {{
+    background-color: {bg_base};
+    color: {fg_primary};
+    border: 1px solid {border};
+    border-radius: 3px;
+    padding: 3px;
+}}
+
+QComboBox::drop-down {{
+    border: 0px;
+}}
+
+QScrollBar:vertical {{
+    background-color: {bg_base};
+    width: 8px;
+    margin: 0px;
+}}
+
+QScrollBar::handle:vertical {{
+    background-color: {border};
+    min-height: 20px;
+    border-radius: 4px;
+}}
+
+QScrollBar::handle:vertical:hover {{
+    background-color: {fg_muted};
+}}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+    height: 0px;
+}}

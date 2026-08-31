@@ -78,6 +78,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Launch the standalone Ally GUI overlay.",
     )
+    parser.add_argument(
+        "--gui-qt",
+        action="store_true",
+        help="Launch the standalone PySide6 Ally GUI overlay.",
+    )
     return parser.parse_args()
 
 
@@ -92,7 +97,38 @@ def initialize_application():
     )
     core.initialize_run()
 
-    if args.gui:
+    if getattr(args, "gui_qt", False):
+        from PySide6.QtWidgets import QApplication
+        from gui_qt.prod.overlay_window import ProdOverlayWindow
+        from gui_qt.dev.dev_window import DevInspectorWindow
+        from gui_qt.dev.bridge import CoreBridge
+
+        app = QApplication([])
+        overlay = ProdOverlayWindow(registry=core.entity_registry)
+
+        bridge = CoreBridge(core)
+        bridge.chat_message_ready.connect(lambda sender, msg: overlay.add_ally_message(sender, msg))
+        bridge.analysis_stream_finalize.connect(lambda analysis: overlay.add_ally_message("Ally", analysis))
+
+        overlay._status_strip.dev_window_requested.connect(
+            lambda: DevInspectorWindow.get_instance(core, overlay._theme)
+        )
+        overlay._input_bar.message_sent.connect(
+            lambda text, mode: core.send_message(text, mode)
+        )
+
+        overlay.show()
+
+        if args.image:
+            observation = RawObservation(image=Image.open(args.image))
+            core.run_turn(observation)
+            core.stop()
+        else:
+            import threading
+            threading.Thread(target=core.run_loop, daemon=True).start()
+
+        app.exec()
+    elif args.gui:
         from interfaces.gui.tkinter_app import AllyOverlay
         gui_app = AllyOverlay(core=core)
         gui_app.set_connection_status(True)

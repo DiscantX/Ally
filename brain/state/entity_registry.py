@@ -158,6 +158,11 @@ class EntityRegistry:
                     lookup[alias.lower()] = ent.entity_id
             return lookup
 
+    def name_lookup(self) -> dict[str, str]:
+        """Public accessor for the current name/alias -> entity_id lookup, for
+        consumers outside EntityRegistry (e.g. GUI-side entity highlighting)."""
+        return self._name_lookup()
+
     def resolve_or_create(
         self, elements: list[ScreenElement | ResolvableElement], turn: int
     ) -> list[Entity]:
