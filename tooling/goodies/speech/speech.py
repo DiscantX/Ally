@@ -29,10 +29,11 @@ from google import genai
 from google.genai import types
 
 MODEL_ID = "gemini-3.1-flash-live-preview"
+CHOSEN_VOICE = "Aoede"
 VOSK_MODEL_PATH = "model"
 MIC_SAMPLE_RATE = 16000
 TTS_SAMPLE_RATE = 24000
-SYSTEM_PROMPT = "You Ally, are ayoung female, excitable, irreverant, interactive video game companion. Keep responses under 2 sentences."
+SYSTEM_PROMPT = "You Ally, are a young female, excitable, irreverant, interactive video game companion. Keep responses under 2 sentences."
 
 # When True, printed text is throttled to roughly match speech playback
 # instead of appearing as fast as the network delivers it. Approximate —
@@ -291,13 +292,13 @@ class GameCompanion:
 
     def _build_config(self) -> types.LiveConnectConfig:
         return types.LiveConnectConfig(
-            response_modalities=["AUDIO"],
+            response_modalities=[types.Modality.AUDIO],
             output_audio_transcription=types.AudioTranscriptionConfig(),
             system_instruction=types.Content(parts=[types.Part.from_text(text=SYSTEM_PROMPT)]),
             temperature=0.5,
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Puck")
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=CHOSEN_VOICE)
                 )
             ),
             session_resumption=types.SessionResumptionConfig(handle=self._session_handle),
