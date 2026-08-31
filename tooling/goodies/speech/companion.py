@@ -7,12 +7,10 @@ from typing import Optional
 from google import genai
 from google.genai import types
 import numpy as np
-import scipy.signal as signal
 
 from .config import MODEL_ID, CHOSEN_VOICE, SYSTEM_PROMPT, SYNC_TEXT_TO_SPEECH
 from .player import AudioPlayer
-from .loopback import SystemLoopbackCapture
-from .filter import EchoCancellationFilter
+from .plugins.loopback.plugin import LoopbackPluginManager
 
 
 class GameCompanion:
@@ -25,10 +23,17 @@ class GameCompanion:
     2 hours after the previous session ended.
     """
 
-    def __init__(self, client: genai.Client, player: AudioPlayer, model_id: str = MODEL_ID):
+    def __init__(
+        self,
+        client: genai.Client,
+        player: AudioPlayer,
+        model_id: str = MODEL_ID,
+        loopback_plugin: Optional[LoopbackPluginManager] = None,
+    ):
         self._client = client
         self._model_id = model_id
         self._player = player
+        self._loopback_plugin = loopback_plugin
         self._session_handle: Optional[str] = None
 
     def _build_config(self) -> types.LiveConnectConfig:
@@ -45,7 +50,11 @@ class GameCompanion:
             session_resumption=types.SessionResumptionConfig(handle=self._session_handle),
         )
 
-    async def run(self, phrase_queue: "asyncio.Queue[str]", player_turn: asyncio.Event, loopback_capture: SystemLoopbackCapture) -> None:
+    async def run(
+        self,
+        phrase_queue: "asyncio.Queue[str]",
+        player_turn: asyncio.Event,
+    ) -> None:
         config = self._build_config()
         async with self._client.aio.live.connect(model=self._model_id, config=config) as session:
             if self._session_handle:
@@ -55,106 +64,18 @@ class GameCompanion:
             player_turn.set()  # only now is it safe for the mic loop to start prompting
             sender = asyncio.create_task(self._send_loop(session, phrase_queue, player_turn))
             receiver = asyncio.create_task(self._receive_loop(session, player_turn))
-            loopback_sender = asyncio.create_task(self._loopback_send_loop(session, loopback_capture))
+
+            tasks = [sender, receiver]
+            if self._loopback_plugin:
+                loopback_sender = asyncio.create_task(self._loopback_plugin.stream_loop(session, self._player))
+                tasks.append(loopback_sender)
+
             try:
-                await asyncio.gather(sender, receiver, loopback_sender)
+                await asyncio.gather(*tasks)
             finally:
-                sender.cancel()
-                receiver.cancel()
-                loopback_sender.cancel()
-                await asyncio.gather(sender, receiver, loopback_sender, return_exceptions=True)
-
-    async def _loopback_send_loop(self, session, capture: SystemLoopbackCapture) -> None:
-        filter_engine = EchoCancellationFilter(
-            sample_rate=16000,
-            channels=1
-        )
-        buffer = np.array([], dtype=np.int16)
-        chunk_size_samples = 320  # 20ms micro-bursts at 16kHz
-
-        # DIAGNOSTIC CODE: Track time for periodic end_of_turn force-flush
-        last_force_flush_time = asyncio.get_event_loop().time()
-
-        # TEMPORARY CODE: Diagnostic recording of what Gemini hears
-        import wave
-        temp_wav = wave.open("gemini_hears_test.wav", "wb")
-        temp_wav.setnchannels(1)
-        temp_wav.setsampwidth(2)
-        temp_wav.setframerate(16000)
-        temp_bytes_written = 0
-        max_temp_bytes = 16000 * 2 * 30  # 30 seconds at 16kHz 16-bit mono
-
-        try:
-            while True:
-                # DIAGNOSTIC CODE: Every 12 seconds, force-close the turn to make Gemini reply to heard audio
-                now_time = asyncio.get_event_loop().time()
-                if now_time - last_force_flush_time > 12.0:
-                    try:
-                        print("\n=== [DIAGNOSTIC]: Force-flushing turn (end_of_turn=True) to test VAD audio reception ===", flush=True)
-                        await session.send(end_of_turn=True)
-                    except Exception as e:
-                        import sys
-                        print(f"Error force-flushing turn: {e}", file=sys.stderr)
-                    last_force_flush_time = now_time
-
-                # Feed playback reference audio to AEC filter (downmixed & resampled to 16kHz mono)
-                ref_chunk = self._player.poll_reference()
-                if ref_chunk is not None:
-                    if len(ref_chunk.shape) > 1:
-                        ref_mono = ref_chunk.mean(axis=1)
-                    else:
-                        ref_mono = ref_chunk
-                    if self._player._samplerate != 16000:
-                        num_samples = int(len(ref_mono) * 16000 / self._player._samplerate)
-                        ref_mono = signal.resample(ref_mono, num_samples)
-                    filter_engine.analyze_reference(ref_mono.astype(np.int16))
-
-                # Poll loopback audio chunk, downmix stereo to mono, resample to 16kHz, and filter echo
-                data = capture.poll_audio()
-                if data:
-                    try:
-                        audio_array = np.frombuffer(data, dtype=np.int16)
-                        if capture._actual_channels > 1:
-                            audio_array = audio_array.reshape(-1, capture._actual_channels).mean(axis=1)
-
-                        if capture._actual_sample_rate != 16000:
-                            num_samples = int(len(audio_array) * 16000 / capture._actual_sample_rate)
-                            audio_array = signal.resample(audio_array, num_samples)
-
-                        cleaned_array = filter_engine.process_stream(audio_array.astype(np.int16))
-                        buffer = np.concatenate((buffer, cleaned_array.astype(np.int16)))
-
-                        # Dispatch in strict 20ms micro-bursts (320 samples each)
-                        while len(buffer) >= chunk_size_samples:
-                            packet = buffer[:chunk_size_samples]
-                            buffer = buffer[chunk_size_samples:]
-                            packet_bytes = packet.tobytes()
-
-                            # TEMPORARY CODE: Write to diagnostic wav file
-                            if temp_bytes_written < max_temp_bytes:
-                                temp_wav.writeframes(packet_bytes)
-                                temp_bytes_written += len(packet_bytes)
-                                if temp_bytes_written >= max_temp_bytes:
-                                    temp_wav.close()
-                                    print("\n=== [TEMPORARY DIAGNOSTIC]: Saved 30s audio to `gemini_hears_test.wav` ===")
-
-                            await session.send(
-                                input=types.LiveClientRealtimeInput(
-                                    audio=types.Blob(
-                                        data=packet_bytes,
-                                        mime_type="audio/pcm;rate=16000"
-                                    )
-                                )
-                            )
-                    except Exception as e:
-                        import sys
-                        print(f"Error sending filtered loopback audio: {e}", file=sys.stderr)
-                await asyncio.sleep(0.005)
-        finally:
-            try:
-                temp_wav.close()
-            except Exception:
-                pass
+                for t in tasks:
+                    t.cancel()
+                await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _send_loop(
         self, session, phrase_queue: "asyncio.Queue[str]", player_turn: asyncio.Event
