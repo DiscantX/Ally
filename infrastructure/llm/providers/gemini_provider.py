@@ -7,11 +7,17 @@ parsing bug (reading delta.content.text for thought_summary deltas).
 
 from google import genai
 from google.genai import errors, types
+from google.genai._gaos.types.interactions.textcontent import TextContent as GenaiTextContent
+from google.genai._gaos.types.interactions.imagecontent import ImageContent as GenaiImageContent
 from pydantic import BaseModel
 from typing import TypeVar, Callable, Any, Iterator, Literal
 from dataclasses import dataclass
+import json
 import time
 import random
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 from infrastructure.llm.base_provider import (
     LLMProvider,
@@ -20,35 +26,65 @@ from infrastructure.llm.base_provider import (
     TextContent,
     ImageContent,
 )
-from infrastructure.llm.model_lister import get_available_models as lister_get_available_models
 from infrastructure.logger import log, timed
 import partial_json_parser
 
 T = TypeVar("T", bound=BaseModel)
 
 
+@timed
+def get_available_models() -> list[str]:
+    """Fetch models dynamically from Gemini SDK, fallback to static file on error."""
+    try:
+        client = genai.Client()
+        models_list = list(client.models.list())
+        models = [
+            m.name.replace("models/", "") for m in models_list
+            if m.name and "gemini" in m.name and "embedding" not in m.name and "veo" not in m.name and "aqa" not in m.name
+        ]
+        return sorted(models)
+    except Exception as e:
+        log("Failed to fetch models dynamically: {e}. Falling back to static config.", e=e)
+        try:
+            with open("configs/supported_models.json", "r") as f:
+                return json.load(f)["supported_models"]
+        except Exception as e_static:
+            log("Failed to load fallback static config: {e_static}", e_static=e_static)
+            return ["gemini-3.5-flash-lite"]
+
+
 def get_available_thinking_levels() -> list[str]:
     """Dynamically extract valid thinking levels from google.genai.types.ThinkingLevel."""
-    levels = []
     try:
         if hasattr(types, "ThinkingLevel"):
-            for item in types.ThinkingLevel:
-                if hasattr(item, "name"):
-                    levels.append(item.name.lower())
-                elif isinstance(item, str):
-                    levels.append(item.lower())
+            levels = [
+                (item.name if hasattr(item, "name") else str(item)).lower()
+                for item in types.ThinkingLevel
+                if (item.name if hasattr(item, "name") else str(item)).upper() != "THINKING_LEVEL_UNSPECIFIED"
+            ]
+            if levels:
+                return levels
     except Exception:
         pass
-    if not levels:
-        levels = ["minimal", "low", "medium", "high"]
-    return levels
-
+    return ["minimal", "low", "medium", "high"]
 
 
 @dataclass
 class ParsedStreamEvent:
     kind: Literal["thought_chunk", "text_chunk"]
     text: str
+
+
+def _extract_delta_text(content: Any, text_attr: Any) -> str:
+    """Extract text from delta content or text attribute."""
+    if content is not None:
+        if hasattr(content, "text") and isinstance(content.text, str):
+            return content.text
+        if isinstance(content, str):
+            return content
+    if isinstance(text_attr, str):
+        return text_attr
+    return ""
 
 
 def _iter_gemini_stream_events(raw_stream) -> Iterator[ParsedStreamEvent]:
@@ -73,28 +109,12 @@ def _iter_gemini_stream_events(raw_stream) -> Iterator[ParsedStreamEvent]:
         content = getattr(delta, "content", None)
         text_attr = getattr(delta, "text", None)
 
-        if delta_type == "thought_summary":
-            thought_text = ""
-            if content is not None:
-                if hasattr(content, "text") and isinstance(content.text, str):
-                    thought_text = content.text
-                elif isinstance(content, str):
-                    thought_text = content
-            if not thought_text and isinstance(text_attr, str):
-                thought_text = text_attr
-            if thought_text:
-                yield ParsedStreamEvent(kind="thought_chunk", text=thought_text)
-        elif delta_type == "text" or delta_type is None:
-            chunk_text = ""
-            if isinstance(text_attr, str):
-                chunk_text = text_attr
-            elif content is not None:
-                if hasattr(content, "text") and isinstance(content.text, str):
-                    chunk_text = content.text
-                elif isinstance(content, str):
-                    chunk_text = content
-            if chunk_text:
-                yield ParsedStreamEvent(kind="text_chunk", text=chunk_text)
+        text = _extract_delta_text(content, text_attr)
+        if text:
+            if delta_type == "thought_summary":
+                yield ParsedStreamEvent(kind="thought_chunk", text=text)
+            elif delta_type == "text" or delta_type is None:
+                yield ParsedStreamEvent(kind="text_chunk", text=text)
 
 
 class GeminiProvider(LLMProvider, RetryableProviderMixin):
@@ -124,54 +144,94 @@ class GeminiProvider(LLMProvider, RetryableProviderMixin):
         if thinking_level is None:
             return None
         if isinstance(thinking_level, types.ThinkingLevel):
-            if thinking_level == getattr(types.ThinkingLevel, "THINKING_LEVEL_UNSPECIFIED", None):
+            name = getattr(thinking_level, "name", "").lower()
+            if not name or name == "thinking_level_unspecified":
                 return None
-            return thinking_level.name.lower()
-        if isinstance(thinking_level, str):
-            s = thinking_level.lower()
-            if s == "thinking_level_unspecified" or s == "":
-                return None
-            val_upper = thinking_level.upper()
-            try:
-                if hasattr(types.ThinkingLevel, val_upper):
-                    item = getattr(types.ThinkingLevel, val_upper)
-                    if item != getattr(types.ThinkingLevel, "THINKING_LEVEL_UNSPECIFIED", None):
-                        if hasattr(item, "name"):
-                            return item.name.lower()
-            except Exception:
-                pass
-            try:
+            return name
+
+        s = str(thinking_level).strip().lower()
+        for prefix in ["thinking_level_", "thinking_"]:
+            if s.startswith(prefix):
+                s = s[len(prefix):]
+
+        if not s or s == "unspecified":
+            return None
+
+        try:
+            if hasattr(types, "ThinkingLevel"):
                 for item in types.ThinkingLevel:
-                    if item.name.upper() == val_upper or str(item.value).upper() == val_upper:
-                        if item != getattr(types.ThinkingLevel, "THINKING_LEVEL_UNSPECIFIED", None):
-                            if hasattr(item, "name"):
-                                return item.name.lower()
-            except Exception:
-                pass
-            for item in types.ThinkingLevel:
-                if item.name.lower() == s:
-                    if item != getattr(types.ThinkingLevel, "THINKING_LEVEL_UNSPECIFIED", None):
-                        if hasattr(item, "name"):
-                            return item.name.lower()
-            if s in ["minimal", "low", "medium", "high"]:
-                return s
-            return s
-        return str(thinking_level).lower()
+                    item_name = getattr(item, "name", "").lower()
+                    pure_name = item_name
+                    for prefix in ["thinking_level_", "thinking_"]:
+                        if pure_name.startswith(prefix):
+                            pure_name = pure_name[len(prefix):]
+                    if item_name == s or pure_name == s or str(getattr(item, "value", "")).lower() == s:
+                        if item_name == "thinking_level_unspecified":
+                            return None
+                        return item_name
+        except Exception:
+            pass
+
+        return s
 
     def _to_provider_input(self, contents: Any) -> list[Any]:
         normalized = _normalize_contents(contents)
         formatted = []
         for item in normalized:
             if isinstance(item, TextContent):
-                from google.genai._gaos.types.interactions.textcontent import TextContent as GenaiTextContent
                 formatted.append(GenaiTextContent(type="text", text=item.text))
             elif isinstance(item, ImageContent):
                 import base64
                 from typing import cast
-                from google.genai._gaos.types.interactions.imagecontent import ImageContent as GenaiImageContent
                 b64_data = base64.b64encode(item.data).decode("utf-8")
                 formatted.append(GenaiImageContent(type="image", data=b64_data, mime_type=cast(Any, item.mime_type)))
         return formatted
+
+    def _create_interaction(
+        self,
+        model: str,
+        contents: Any,
+        schema: type[T],
+        thinking_level: str | types.ThinkingLevel | None = None,
+        thinking_budget: int | None = None,
+        stream: bool = False,
+    ) -> Any:
+        generation_config: dict[str, Any] = {"thinking_summaries": "auto"}
+        lvl = self._map_thinking_level(thinking_level)
+        if lvl is not None:
+            generation_config["thinking_level"] = lvl
+        if thinking_budget is not None:
+            generation_config["thinking_budget"] = thinking_budget
+
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "input": self._to_provider_input(contents),
+            "response_format": {
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": schema.model_json_schema(),
+            },
+            "generation_config": generation_config,
+        }
+        if stream:
+            kwargs["stream"] = True
+
+        return self.client.interactions.create(**kwargs)
+
+    def _parse_json_buffer(self, json_buffer: str, schema: type[T]) -> T:
+        if not json_buffer:
+            raise ValueError("Streaming response produced no JSON content")
+        try:
+            return schema.model_validate_json(json_buffer)
+        except Exception as json_err:
+            try:
+                partial_obj = partial_json_parser.loads(json_buffer, partial_json_parser.Allow.ALL)
+                if isinstance(partial_obj, dict):
+                    return schema.model_validate(partial_obj)
+                raise json_err
+            except Exception as parse_err:
+                log("Failed to parse final JSON buffer via partial_json_parser: {e}", e=parse_err)
+                raise ValueError(f"Invalid JSON: {json_err}") from json_err
 
     def generate_structured(
         self,
@@ -183,22 +243,7 @@ class GeminiProvider(LLMProvider, RetryableProviderMixin):
     ) -> T:
         def _call() -> T:
             start_t = time.perf_counter()
-            generation_config: dict[str, Any] = {"thinking_summaries": "auto"}
-            if thinking_level is not None:
-                lvl = self._map_thinking_level(thinking_level)
-                generation_config["thinking_level"] = lvl
-
-            response = self.client.interactions.create(
-                model=model,
-                input=self._to_provider_input(contents),
-                response_format={
-                    "type": "text",
-                    "mime_type": "application/json",
-                    "schema": schema.model_json_schema(),
-                },
-                generation_config=generation_config,
-            )
-
+            response = self._create_interaction(model, contents, schema, thinking_level, thinking_budget, stream=False)
             duration = time.perf_counter() - start_t
             if not GeminiProvider._first_gen_done:
                 GeminiProvider._first_gen_done = True
@@ -221,23 +266,7 @@ class GeminiProvider(LLMProvider, RetryableProviderMixin):
         on_thought_chunk: Callable[[str], None] | None = None,
     ) -> T:
         def _call() -> T:
-            generation_config: dict[str, Any] = {"thinking_summaries": "auto"}
-            if thinking_level is not None:
-                lvl = self._map_thinking_level(thinking_level)
-                generation_config["thinking_level"] = lvl
-
-            stream = self.client.interactions.create(
-                model=model,
-                input=self._to_provider_input(contents),
-                stream=True,
-                response_format={
-                    "type": "text",
-                    "mime_type": "application/json",
-                    "schema": schema.model_json_schema(),
-                },
-                generation_config=generation_config,
-            )
-
+            stream = self._create_interaction(model, contents, schema, thinking_level, thinking_budget, stream=True)
             json_buffer = ""
             for event in _iter_gemini_stream_events(stream):
                 if event.kind == "thought_chunk":
@@ -246,19 +275,7 @@ class GeminiProvider(LLMProvider, RetryableProviderMixin):
                 elif event.kind == "text_chunk":
                     json_buffer += event.text
 
-            if not json_buffer:
-                raise ValueError("Streaming response produced no JSON content")
-            try:
-                return schema.model_validate_json(json_buffer)
-            except Exception as json_err:
-                try:
-                    partial_obj = partial_json_parser.loads(json_buffer, partial_json_parser.Allow.ALL)
-                    if isinstance(partial_obj, dict):
-                        return schema.model_validate(partial_obj)
-                    raise json_err
-                except Exception as parse_err:
-                    log("Failed to parse final JSON buffer via partial_json_parser: {e}", e=parse_err)
-                    raise ValueError(f"Invalid JSON: {json_err}") from json_err
+            return self._parse_json_buffer(json_buffer, schema)
 
         return self._retry_with_backoff(_call, max_retries=5)
 
@@ -285,22 +302,7 @@ class GeminiProvider(LLMProvider, RetryableProviderMixin):
             emitted_so_far = ""
             thought_begun = False
             try:
-                generation_config: dict[str, Any] = {"thinking_summaries": "auto"}
-                if thinking_level is not None:
-                    lvl = self._map_thinking_level(thinking_level)
-                    generation_config["thinking_level"] = lvl
-
-                stream = self.client.interactions.create(
-                    model=model,
-                    input=self._to_provider_input(contents),
-                    stream=True,
-                    response_format={
-                        "type": "text",
-                        "mime_type": "application/json",
-                        "schema": schema.model_json_schema(),
-                    },
-                    generation_config=generation_config,
-                )
+                stream = self._create_interaction(model, contents, schema, thinking_level, thinking_budget, stream=True)
 
                 for event in _iter_gemini_stream_events(stream):
                     if event.kind == "thought_chunk":
@@ -328,19 +330,7 @@ class GeminiProvider(LLMProvider, RetryableProviderMixin):
                     if on_thought_finalize is not None:
                         on_thought_finalize()
 
-                if not json_buffer:
-                    raise ValueError("Streaming response produced no JSON content")
-                try:
-                    return schema.model_validate_json(json_buffer)
-                except Exception as json_err:
-                    try:
-                        partial_obj = partial_json_parser.loads(json_buffer, partial_json_parser.Allow.ALL)
-                        if isinstance(partial_obj, dict):
-                            return schema.model_validate(partial_obj)
-                        raise json_err
-                    except Exception as parse_err:
-                        log("Failed to parse final JSON buffer via partial_json_parser: {e}", e=parse_err)
-                        raise ValueError(f"Invalid JSON: {json_err}") from json_err
+                return self._parse_json_buffer(json_buffer, schema)
 
             except (errors.ClientError, errors.ServerError, ValueError) as e:
                 if thought_begun:
@@ -384,7 +374,7 @@ class GeminiProvider(LLMProvider, RetryableProviderMixin):
         return "", previous_value
 
     def list_available_models(self) -> list[str]:
-        return lister_get_available_models()
+        return get_available_models()
 
     def list_thinking_levels(self) -> list[str]:
         return get_available_thinking_levels()

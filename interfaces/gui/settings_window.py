@@ -10,8 +10,7 @@ from typing import Any, Callable
 
 from storage.configs.config_manager import load_user_config, save_user_config
 from brain.reasoning.personalities import PERSONALITIES
-from infrastructure.llm.model_lister import get_available_models
-from infrastructure.llm.providers.gemini_provider import get_available_thinking_levels
+from infrastructure.llm.providers.gemini_provider import get_available_models, get_available_thinking_levels
 
 
 class SettingsWindow(tk.Toplevel):

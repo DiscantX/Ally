@@ -455,5 +455,5 @@ Decided on the design for competing internal psychological framings (Perspective
 ### Decisions Not Made This Pass
 
 - **`send_message()`'s chat path**: deferred decision on whether to adopt `previous_interaction_id` stateful mode for Ally's chat — ties reasoning to Gemini-specific threading, and Ally's context is synthesized fresh from StateSandbox/EntityRegistry/MemoryManager each turn.
-- **`infrastructure/llm/model_lister.py`**: deferred folding into `LLMProvider.list_available_models()` — out of scope for this pass.
+- **`infrastructure/llm/model_lister.py`**: folded directly into [`infrastructure/llm/providers/gemini_provider.py`](infrastructure/llm/providers/gemini_provider.py:1) and eliminated as a separate root-level module, since model listing is 100% Gemini-specific.
 - **OpenRouter provider**: designed for, not built.
