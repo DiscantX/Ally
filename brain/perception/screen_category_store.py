@@ -71,6 +71,7 @@ class ScreenCategoryStore:
 
     @timed
     def _ensure_seeded(self) -> None:
+        import time
         if self.db.count_screen_categories(source="seed") > 0:
             return
         if not os.path.exists(SEED_FILE):
@@ -89,6 +90,8 @@ class ScreenCategoryStore:
                 game_id=None, kind="off_game", text=entry["text"],
                 embedding=embedding.astype(np.float32).tobytes(), source="seed",
             )
+            # Yield GIL briefly so GUI/main event loop remains responsive/draggable during seeding
+            time.sleep(0.01)
         log("Seeded {n} off_game categories.", n=len(seeds))
 
     def _load_global(self) -> None:

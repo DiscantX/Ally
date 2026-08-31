@@ -149,7 +149,8 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
             log("Traceback:\n{tb}", tb=traceback.format_exc(), level="error")
             QTimer.singleShot(0, overlay, lambda: overlay.add_ally_message("System", f"Initialization error: {e}"))
 
-    threading.Thread(target=_async_init, daemon=True).start()
+    # Defer async init slightly via QTimer so the event loop spins and renders/makes the window responsive/draggable immediately
+    QTimer.singleShot(50, overlay, lambda: threading.Thread(target=_async_init, daemon=True).start())
     app.exec()
 
 
