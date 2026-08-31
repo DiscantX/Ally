@@ -15,3 +15,5 @@ python-dotenv==1.2.3
 pywin32==312
 scikit-image==0.26.0
 pyaudiowpatch==0.2.12.7
+pyaec>=0.1.5
+scipy>=1.10.0

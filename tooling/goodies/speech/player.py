@@ -4,6 +4,7 @@ Gapless audio playback via a persistent sounddevice OutputStream.
 
 import sys
 import threading
+import queue
 from collections import deque
 import numpy as np
 
@@ -44,6 +45,7 @@ class AudioPlayer:
         self._playing = threading.Event()
         self._priming = True
         self._prebuffer_samples = int(samplerate * prebuffer_ms / 1000)
+        self._reference_queue: "queue.Queue[np.ndarray]" = queue.Queue()
         self._stream = np.ndarray([])  # placeholder type hint for safety
         import sounddevice as sd
         self._stream = sd.OutputStream(
@@ -86,6 +88,18 @@ class AudioPlayer:
                 self._buffered_samples = 0
                 self._playing.clear()
                 self._priming = True  # re-arm so the next utterance also gets a prebuffer
+
+        # Mirror output frames to reference queue for AEC (Slice 4.3)
+        try:
+            self._reference_queue.put_nowait(outdata[:, 0].copy())
+        except Exception:
+            pass
+
+    def poll_reference(self) -> Optional[np.ndarray]:
+        try:
+            return self._reference_queue.get_nowait()
+        except queue.Empty:
+            return None
 
     def enqueue(self, audio_array: np.ndarray) -> None:
         """Append a chunk of int16 PCM audio to the continuous playback buffer."""

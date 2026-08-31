@@ -10,8 +10,9 @@ from google import genai
 from .config import MODEL_ID
 from .player import AudioPlayer
 from .recognizer import SpeechRecognizer
+from .loopback import SystemLoopbackCapture
 from .companion import GameCompanion
-from .orchestrator import microphone_loop, run_with_reconnect
+from .orchestrator import dual_input_meter_loop, run_with_reconnect
 
 
 async def main() -> None:
@@ -28,15 +29,18 @@ async def main() -> None:
 
     print(f"\n=== Connecting to {MODEL_ID} Live API Stream ===")
     with SpeechRecognizer() as recognizer:
-        mic_task = asyncio.create_task(microphone_loop(recognizer, phrase_queue, player_turn))
-        try:
-            await run_with_reconnect(companion, phrase_queue, player_turn)
-        except KeyboardInterrupt:
-            print("\nExiting stream session...")
-        finally:
-            mic_task.cancel()
-            await asyncio.gather(mic_task, return_exceptions=True)
-            player.close()
+        with SystemLoopbackCapture() as loopback_capture:
+            meter_task = asyncio.create_task(
+                dual_input_meter_loop(recognizer, loopback_capture, phrase_queue, player_turn)
+            )
+            try:
+                await run_with_reconnect(companion, loopback_capture, phrase_queue, player_turn)
+            except KeyboardInterrupt:
+                print("\nExiting stream session...")
+            finally:
+                meter_task.cancel()
+                await asyncio.gather(meter_task, return_exceptions=True)
+                player.close()
 
 
 if __name__ == "__main__":
