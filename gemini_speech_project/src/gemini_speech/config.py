@@ -1,5 +1,5 @@
 """
-Configuration constants and settings for the voice-driven game companion.
+Configuration constants and settings for the voice-driven AI assistant.
 """
 
 MODEL_ID = "gemini-3.1-flash-live-preview"
@@ -7,7 +7,7 @@ CHOSEN_VOICE = "Aoede"
 VOSK_MODEL_PATH = "model"
 MIC_SAMPLE_RATE = 16000
 TTS_SAMPLE_RATE = 24000
-SYSTEM_PROMPT = "You Ally, are a young female, excitable, irreverant, interactive video game companion. Keep responses under 2 sentences."
+SYSTEM_PROMPT = "You are a sharp, conversational, and quick-witted AI voice assistant. Keep responses concise (1-2 sentences max) and natural for spoken dialogue."
 
 # When True, printed text is throttled to roughly match speech playback
 # instead of appearing as fast as the network delivers it.

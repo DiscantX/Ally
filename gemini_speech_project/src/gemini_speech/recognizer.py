@@ -20,8 +20,7 @@ class SpeechRecognizer:
 
     def __init__(self, model_path: str = VOSK_MODEL_PATH, samplerate: int = MIC_SAMPLE_RATE):
         if not os.path.exists(model_path):
-            print(f"Please place your local offline Vosk '{model_path}' folder in this directory.")
-            sys.exit(1)
+            raise FileNotFoundError(f"Local offline Vosk model folder not found at '{model_path}'. Please download and place model files there.")
         self._recognizer = KaldiRecognizer(Model(model_path), samplerate)
         self._audio_queue: "queue.Queue[bytes]" = queue.Queue()
         self._level = 0.0  # crude, cosmetic loudness reading for the terminal meter

@@ -9,7 +9,6 @@ from typing import Optional
 
 from .config import WAVE_WIDTH, WAVE_REFRESH_SECONDS, RECONNECT_DELAY_SECONDS
 from .recognizer import SpeechRecognizer
-from .plugins.loopback.plugin import LoopbackPluginManager
 from .assembler import UtteranceAssembler
 from .utils import is_meaningful_phrase, polish_phrase, render_wave
 from .companion import GameCompanion
@@ -17,7 +16,7 @@ from .companion import GameCompanion
 
 async def dual_input_meter_loop(
     recognizer: SpeechRecognizer,
-    loopback_plugin: Optional[LoopbackPluginManager],
+    loopback_plugin: Optional[object],
     phrase_queue: "asyncio.Queue[str]",
     player_turn: asyncio.Event,
 ) -> None:

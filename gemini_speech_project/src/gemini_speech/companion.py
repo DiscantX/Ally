@@ -1,5 +1,5 @@
 """
-GameCompanion class owning the Gemini Live API session.
+VoiceCompanion / GameCompanion class owning the Gemini Live API session.
 """
 
 import asyncio
@@ -10,7 +10,6 @@ import numpy as np
 
 from .config import MODEL_ID, CHOSEN_VOICE, SYSTEM_PROMPT, SYNC_TEXT_TO_SPEECH
 from .player import AudioPlayer
-from .plugins.loopback.plugin import LoopbackPluginManager
 
 
 class GameCompanion:
@@ -28,19 +27,21 @@ class GameCompanion:
         client: genai.Client,
         player: AudioPlayer,
         model_id: str = MODEL_ID,
-        loopback_plugin: Optional[LoopbackPluginManager] = None,
+        loopback_plugin: Optional[object] = None,
+        system_prompt: Optional[str] = None,
     ):
         self._client = client
         self._model_id = model_id
         self._player = player
         self._loopback_plugin = loopback_plugin
+        self._system_prompt = system_prompt or SYSTEM_PROMPT
         self._session_handle: Optional[str] = None
 
     def _build_config(self) -> types.LiveConnectConfig:
         return types.LiveConnectConfig(
             response_modalities=[types.Modality.AUDIO],
             output_audio_transcription=types.AudioTranscriptionConfig(),
-            system_instruction=types.Content(parts=[types.Part.from_text(text=SYSTEM_PROMPT)]),
+            system_instruction=types.Content(parts=[types.Part.from_text(text=self._system_prompt)]),
             temperature=0.5,
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
@@ -49,6 +50,9 @@ class GameCompanion:
             ),
             session_resumption=types.SessionResumptionConfig(handle=self._session_handle),
         )
+
+# Backwards compatibility alias
+VoiceCompanion = GameCompanion
 
     async def run(
         self,

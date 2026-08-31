@@ -1,3 +1,0 @@
-"""
-Voice companion speech package.
-"""

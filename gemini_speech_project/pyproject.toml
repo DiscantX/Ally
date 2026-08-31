@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gemini-live-speech"
+version = "0.1.0"
+description = "Voice-driven AI companion library using Google GenAI Live API, Vosk speech recognition, and sounddevice."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "google-genai>=0.3.0",
+    "numpy>=1.20.0",
+    "sounddevice>=0.4.0",
+    "vosk>=0.3.30",
+    "scipy>=1.7.0",
+    "pyaudiowpatch>=0.2.12",
+]
+
+[project.scripts]
+gemini-speech = "gemini_speech.main:main"
+
+[project.urls]
+Homepage = "https://github.com/username/gemini-live-speech"
