@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QFormLayout,
 )
-from storage.configs.config_manager import load_user_config, save_user_config
+from cabinet.configs.config_manager import load_user_config, save_user_config
 from brain.reasoning.personalities import PERSONALITIES
 from gui_qt.theming.theme import Theme
 

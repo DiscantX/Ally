@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 from brain.reasoning.ally_agent import Ally
 from brain.knowledge.schema.schema import AllyOutput
-from storage.configs.config_manager import load_user_config, get_thinking_level
+from cabinet.configs.config_manager import load_user_config, get_thinking_level
 
 class TestAllyAgent(unittest.TestCase):
     def test_ally_constructor_defaults_and_custom(self):

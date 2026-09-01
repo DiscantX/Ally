@@ -8,7 +8,7 @@ import time
 import cv2
 import numpy as np
 from infrastructure.logger import log, timed
-from storage.configs.config_manager import load_user_config
+from cabinet.configs.config_manager import load_user_config
 
 try:
     from skimage.metrics import structural_similarity as ssim
@@ -52,21 +52,21 @@ class ChangeDetector:
         gui_app = None,
     ):
         config = load_user_config()
-        self.threshold_percent = threshold_percent if threshold_percent is not None else config["threshold_percent"]
-        self.pixel_diff_threshold = pixel_diff_threshold if pixel_diff_threshold is not None else config["pixel_diff_threshold"]
+        self.threshold_percent = threshold_percent if threshold_percent is not None else config.get("threshold_percent", 15)
+        self.pixel_diff_threshold = pixel_diff_threshold if pixel_diff_threshold is not None else config.get("pixel_diff_threshold", 25)
         self._last_frame_gray: np.ndarray | None = None
         self.gui_app = gui_app
 
-        self.enable_cooldown = enable_cooldown if enable_cooldown is not None else config["enable_cooldown"]
-        self.cooldown_seconds = cooldown_seconds if cooldown_seconds is not None else config["cooldown_seconds"]
-        self.major_change_threshold = major_change_threshold if major_change_threshold is not None else config["major_change_threshold"]
+        self.enable_cooldown = enable_cooldown if enable_cooldown is not None else config.get("enable_cooldown", True)
+        self.cooldown_seconds = cooldown_seconds if cooldown_seconds is not None else config.get("cooldown_seconds", 2.0)
+        self.major_change_threshold = major_change_threshold if major_change_threshold is not None else config.get("major_change_threshold", 50.0)
         self._last_trigger_timestamp: float = 0.0
 
-        self.enable_stability_check = enable_stability_check if enable_stability_check is not None else config["enable_stability_check"]
-        self.stability_threshold_percent = stability_threshold_percent if stability_threshold_percent is not None else config["stability_threshold_percent"]
+        self.enable_stability_check = enable_stability_check if enable_stability_check is not None else config.get("enable_stability_check", True)
+        self.stability_threshold_percent = stability_threshold_percent if stability_threshold_percent is not None else config.get("stability_threshold_percent", 2.0)
         self._in_transition: bool = False
 
-        use_ssim_val = use_ssim if use_ssim is not None else config["use_ssim"]
+        use_ssim_val = use_ssim if use_ssim is not None else config.get("use_ssim", True)
         self.use_ssim = use_ssim_val and _SSIM_AVAILABLE
         if use_ssim_val and not _SSIM_AVAILABLE:
             log(

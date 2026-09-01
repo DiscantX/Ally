@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.memory.db import MemoryDB
 from brain.knowledge.prompts.personality import PERSONALITY_DIGEST_PROMPT, PERSONALITY_MICRO_PROMPT
-from storage.configs.config_manager import load_user_config, get_model, get_thinking_level
+from cabinet.configs.config_manager import load_user_config, get_model, get_thinking_level
 
 
 class TextSummary(BaseModel):

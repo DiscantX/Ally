@@ -15,7 +15,7 @@ from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.knowledge.schema.schema import AllyOutput, AllyChatOutput
 from brain.reasoning.personalities import PERSONALITIES
 from brain.knowledge.prompts.ally import ALLY_PROMPT_TEMPLATE, ALLY_CHAT_PROMPT_TEMPLATE
-from storage.configs.config_manager import load_user_config, get_model, get_thinking_level
+from cabinet.configs.config_manager import load_user_config, get_model, get_thinking_level
 
 class Ally:
     def __init__(self, provider: GeminiProvider, base_personality: str | None = None, model: str | None = None, thinking_level: str | None = None):

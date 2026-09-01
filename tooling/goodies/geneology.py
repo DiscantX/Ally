@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from brain.reasoning.personalities import PERSONALITIES
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
-from storage.configs.config_manager import load_user_config, get_model, get_thinking_level
+from cabinet.configs.config_manager import load_user_config, get_model, get_thinking_level
 
 
 class PersonalityFusion(BaseModel):

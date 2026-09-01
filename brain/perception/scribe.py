@@ -12,7 +12,7 @@ from PIL import Image
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.knowledge.schema.schema import ScribeOutput
 from brain.knowledge.prompts.scribe import SCRIBE_PROMPT_UI, SCRIBE_PROMPT_NO_UI
-from storage.configs.config_manager import load_user_config, get_model, get_thinking_level
+from cabinet.configs.config_manager import load_user_config, get_model, get_thinking_level
 from infrastructure.logger import log, timed
 
 class Scribe:

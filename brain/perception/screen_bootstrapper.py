@@ -17,7 +17,7 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from storage.configs.config_manager import load_user_config
+from cabinet.configs.config_manager import load_user_config
 
 import numpy as np
 

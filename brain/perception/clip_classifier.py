@@ -15,7 +15,7 @@ once and cache the vector," never updating the model itself.
 import numpy as np
 from PIL import Image
 
-from storage.configs.config_manager import load_user_config
+from cabinet.configs.config_manager import load_user_config
 from infrastructure.logger import log, timed
 
 try:

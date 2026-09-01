@@ -35,7 +35,7 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
-from storage.configs.config_manager import load_user_config
+from cabinet.configs.config_manager import load_user_config
 
 try:
     from skimage.metrics import structural_similarity as ssim

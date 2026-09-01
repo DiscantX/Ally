@@ -21,7 +21,7 @@ from ingestion.collectors.base import RawObservation
 from ingestion.collectors.window_manager import ClientRect
 from brain.perception.change_detector import ChangeDetector  # This was added/changed as a part of the ZOO CODE idle safeguard pass
 from brain.state.shell_bounds_registry import SHELL_BOUNDS
-from storage.configs.config_manager import load_user_config
+from cabinet.configs.config_manager import load_user_config
 from infrastructure.logger import log, timed
 
 

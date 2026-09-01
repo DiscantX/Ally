@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Any, Callable
 
-from storage.configs.config_manager import load_user_config, save_user_config
+from cabinet.configs.config_manager import load_user_config, save_user_config
 from brain.reasoning.personalities import PERSONALITIES
 from infrastructure.llm.providers.gemini_provider import get_available_models, get_available_thinking_levels
 

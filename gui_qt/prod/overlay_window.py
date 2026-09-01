@@ -8,6 +8,7 @@ from gui_qt.prod.feed_panel import FeedPanel
 from gui_qt.prod.input_bar import InputBar
 from gui_qt.prod.status_strip import StatusStrip
 from gui_qt.prod.settings_dialog import SettingsDialog
+from gui_qt.prod.voice_input_controller import VoiceInputController
 from interfaces.gui_qt.shell.capture_exclusion import exclude_hwnd_from_capture
 from brain.state.shell_bounds_registry import SHELL_BOUNDS
 from gui_qt.theming.theme import Theme, SIGNAL, SYNTHWAVE, build_stylesheet
@@ -26,8 +27,8 @@ class ProdOverlayWindow(QWidget):
         self._registry = registry
         self._snapped_edge: Optional[Literal["left", "right", "top", "bottom"]] = None
         self._snap_threshold = 28
-        self._docked_width = 340
-        self._expanded_max_width = 560
+        self._docked_width = 372
+        self._expanded_max_width = 592
         self._is_dragging = False
         self._drag_position = QPoint()
 
@@ -57,16 +58,51 @@ class ProdOverlayWindow(QWidget):
         self._feed_panel = FeedPanel(self._theme, self._registry, parent=self._container)
         container_layout.addWidget(self._feed_panel, stretch=1)
 
-        self._input_bar = InputBar(self._theme, parent=self._container)
+        # Resolve STT mode from user config (lazy import — module may not be
+        # importable during early bootstrap; tolerant fallback to default)
+        try:
+            from cabinet.configs.config_manager import load_user_config
+            cfg = load_user_config() or {}
+            speech = cfg.get("speech") or {}
+            stt_mode_raw = speech.get("stt_mode") or cfg.get("stt_mode") or "push_to_talk"
+            stt_mode = str(stt_mode_raw).strip().lower()
+            if stt_mode not in ("push_to_talk", "open_mic"):
+                stt_mode = "push_to_talk"
+        except Exception:
+            stt_mode = "push_to_talk"
+
+        self._input_bar = InputBar(self._theme, stt_mode=stt_mode, parent=self._container)
         self._input_bar.message_sent.connect(self._on_message_sent)
         self._input_bar.expand_toggled.connect(self._on_expand_toggled)
         container_layout.addWidget(self._input_bar)
+
+        # Voice input controller — owned by ProdOverlayWindow because it is
+        # tightly coupled to the input bar's mic button. VoiceOutputController
+        # is owned separately in main.py (it attaches to AllyCore, not to GUI).
+        self._voice_input_controller = VoiceInputController(parent=self)
+        self._wire_voice_input_signals()
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self._container)
 
         self._apply_theme()
+
+    def _wire_voice_input_signals(self) -> None:
+        """Wire voice input controller signals to/from the input bar."""
+        vic = self._voice_input_controller
+
+        # Controller → input bar
+        vic.transcript_ready.connect(self._input_bar.on_transcript_ready)
+        vic.listening_state_changed.connect(self._input_bar.on_listening_state_changed)
+        vic.unavailable.connect(
+            lambda reason: self._input_bar.set_mic_available(False, reason)
+        )
+
+        # Input bar → controller
+        self._input_bar.mic_pressed.connect(vic.start_listening)
+        self._input_bar.mic_released.connect(vic.stop_listening)
+        self._input_bar.mic_toggled.connect(vic.set_open_mic_enabled)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)

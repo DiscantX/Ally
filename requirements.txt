@@ -17,3 +17,5 @@ scikit-image==0.26.0
 pyaudiowpatch==0.2.12.7
 pyaec>=0.1.5
 scipy>=1.10.0
+sounddevice==0.5.0
+vosk==0.3.45

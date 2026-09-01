@@ -12,7 +12,7 @@ from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.memory.db import MemoryDB
 from brain.memory.triggers import Trigger, TurnCountTrigger, CompositeTrigger, SalienceEventTrigger, ExplicitAllyTrigger
 from brain.knowledge.prompts.narrative import NARRATIVE_MEDIUM_TERM_PROMPT, NARRATIVE_LONG_TERM_PROMPT, CROSS_SESSION_SUMMARY_PROMPT
-from storage.configs.config_manager import load_user_config, get_model, get_thinking_level
+from cabinet.configs.config_manager import load_user_config, get_model, get_thinking_level
 
 
 class TextSummary(BaseModel):

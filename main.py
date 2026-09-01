@@ -16,8 +16,8 @@ class TerminalStreamPrinter:
     with an ANSI-based visual reset for mid-stream retries.
 
     LIMITATION, stated explicitly rather than silently: this only tracks
-    explicit '\\n' characters it has printed. If the terminal soft-wraps
-    a long unbroken line (no '\\n' in it) because it's wider than the
+    explicit '\n' characters it has printed. If the terminal soft-wraps
+    a long unbroken line (no '\n' in it) because it's wider than the
     terminal's column count, reset() will NOT correctly clear the
     wrapped portion -- that would require querying the terminal's actual
     column width, which this does not do. This is a best-effort
@@ -115,6 +115,24 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
                 lambda text, mode: loaded_core.send_message(text, mode)
             )
 
+            # Voice output: construct VoiceOutputController if enabled in config.
+            # VoiceInputController is already owned by ProdOverlayWindow (wired in overlay_window.py).
+            try:
+                from infrastructure.tts.providers.gemini_tts_provider import GeminiTTSProvider
+                from infrastructure.tts.audio_player import AudioPlayer
+                from brain.reasoning.voice_output_controller import VoiceOutputController
+                from cabinet.configs.config_manager import load_user_config
+
+                config = load_user_config() or {}
+                if config.get("voice_output_enabled", False):
+                    tts_provider = GeminiTTSProvider()
+                    audio_player = AudioPlayer()
+                    voice_output = VoiceOutputController(tts_provider, audio_player, enabled=True)
+                    voice_output.attach(loaded_core)
+                    log("VoiceOutputController attached to AllyCore.", level="info")
+            except Exception as exc:
+                log("Could not initialise VoiceOutputController: {}", exc, level="warning")
+
             overlay.add_ally_message("System", "Ally is online and ready!")
             log("ProdOverlayWindow bridge signals connected successfully.", level="info")
 
@@ -147,7 +165,8 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
             log("Exception in _async_init: {e}", e=e, level="error")
             import traceback
             log("Traceback:\n{tb}", tb=traceback.format_exc(), level="error")
-            QTimer.singleShot(0, overlay, lambda: overlay.add_ally_message("System", f"Initialization error: {e}"))
+            err_msg = str(e)
+            QTimer.singleShot(0, overlay, lambda: overlay.add_ally_message("System", f"Initialization error: {err_msg}"))
 
     # Defer async init slightly via QTimer so the event loop spins and renders/makes the window responsive/draggable immediately
     QTimer.singleShot(50, overlay, lambda: threading.Thread(target=_async_init, daemon=True).start())

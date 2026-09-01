@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from PIL import Image
-from storage.configs.config_manager import load_user_config, get_model
+from cabinet.configs.config_manager import load_user_config, get_model
 from brain.knowledge.schema.schema import AllyOutput
 
 # Force UTF-8 stdout on Windows

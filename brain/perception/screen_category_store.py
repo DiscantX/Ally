@@ -33,7 +33,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from storage.configs.config_manager import load_user_config
+from cabinet.configs.config_manager import load_user_config
 from brain.memory.db import MemoryDB
 from brain.perception.clip_classifier import ClipClassifier
 from infrastructure.logger import log, timed
