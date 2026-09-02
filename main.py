@@ -73,7 +73,8 @@ def _handle_sigint(signum: int, frame: Any) -> None:
     """Signal handler for SIGINT (Ctrl+C)."""
     log("\nReceived Ctrl+C (SIGINT). Shutting down gracefully...", level="info")
     try:
-        signal.siginterrupt(signum, True)
+        if hasattr(signal, "siginterrupt"):
+            signal.siginterrupt(signum, True)
     except Exception as e:
         log("Error setting signal interrupt: {error}", error=str(e), level="warning")
     
