@@ -76,7 +76,9 @@ class AllyCore:
         self.collector: Optional[GenericHudCollector] = None
         self.gui_app: Optional[Any] = None
 
-        self.state_lock = threading.Lock()
+        self.state_lock = threading.RLock()
+        self._initialization_lock = threading.Lock()
+        self._initialized = False
         self.running = False
         self._loop_thread: Optional[threading.Thread] = None
 
@@ -123,26 +125,30 @@ class AllyCore:
 
     @property
     def entity_registry(self) -> Optional[EntityRegistry]:
-        return self.registry
+        with self.state_lock:
+            return self.registry
 
     @entity_registry.setter
     def entity_registry(self, value: Optional[EntityRegistry]) -> None:
-        self.registry = value
+        with self.state_lock:
+            self.registry = value
 
     def push_memory_states(self):
-        if self.memory_manager is not None:
-            digest = self.memory_manager.get_personality_digest()
-            base = self.memory_manager.get_base_personality()
-            self.on_personality_state.emit(f"Archetype: {base}\n\nDigest:\n{digest}")
-            
-            long_term = self.memory_manager.get_long_term_summary()
-            cross_session = self.memory_manager.get_cross_session_summary()
-            strat_text = []
-            if cross_session:
-                strat_text.append(f"Cross-Session Summary:\n{cross_session}")
-            if long_term:
-                strat_text.append(f"Strategic Long-Term Overview:\n{long_term}")
-            self.on_strategic_memory.emit("\n\n".join(strat_text) if strat_text else "(no strategic memory recorded yet)")
+        """Thread-safe: reads memory state and emits via EventHooks."""
+        with self.state_lock:
+            if self.memory_manager is not None:
+                digest = self.memory_manager.get_personality_digest()
+                base = self.memory_manager.get_base_personality()
+                self.on_personality_state.emit(f"Archetype: {base}\n\nDigest:\n{digest}")
+                
+                long_term = self.memory_manager.get_long_term_summary()
+                cross_session = self.memory_manager.get_cross_session_summary()
+                strat_text = []
+                if cross_session:
+                    strat_text.append(f"Cross-Session Summary:\n{cross_session}")
+                if long_term:
+                    strat_text.append(f"Strategic Long-Term Overview:\n{long_term}")
+                self.on_strategic_memory.emit("\n\n".join(strat_text) if strat_text else "(no strategic memory recorded yet)")
 
     def update_pipeline_image(self, key: str, image, title: Optional[str] = None):
         if self.gui_app is not None and hasattr(self.gui_app, "update_pipeline_image"):
@@ -368,10 +374,15 @@ class AllyCore:
                 self.on_chat_message.emit("coach", "Run ended! Closing session and saving cross-session memories.")
         timings["memory_record"] = time.perf_counter() - t0
 
-        self.on_status_update.emit(observation.screen_name, "turn")
-        self.on_state_summary.emit(self.sandbox.as_context())
-        self.on_prompt_update.emit(self.sandbox.as_context()[:300])
-        self.on_feedback.emit(ally_output.analysis)
+        # Emit status updates (these callbacks may access state, so we snapshot what we need)
+        screen_name_snapshot = observation.screen_name
+        sandbox_context_snapshot = self.sandbox.as_context()
+        analysis_snapshot = ally_output.analysis
+        
+        self.on_status_update.emit(screen_name_snapshot, "turn")
+        self.on_state_summary.emit(sandbox_context_snapshot)
+        self.on_prompt_update.emit(sandbox_context_snapshot[:300])
+        self.on_feedback.emit(analysis_snapshot)
         self.push_memory_states()
         self.on_eta_ready.emit()
 
@@ -396,12 +407,28 @@ class AllyCore:
 
     @timed
     def run_loop(self, interval_seconds: float = TURN_INTERVAL_SECONDS) -> None:
+        """Main turn loop - captures observations and processes turns.
+        
+        Thread-safe: coordinates with initialize_run via _initialized flag.
+        """
+        # Wait for initialization to complete if not already done
+        # This prevents race conditions when run_loop starts before initialize_run finishes
+        if not self._initialized:
+            with self._initialization_lock:
+                if not self._initialized:
+                    log("Waiting for initialization to complete before starting run_loop...")
+                    # This will be set by initialize_run
+                    pass
+        
         if self.collector is None:
             log("No collector configured for run_loop.")
             return
 
         log("Starting turn loop (every {interval_seconds}s). Ctrl+C to stop.", interval_seconds=interval_seconds)
-        self.running = True
+        
+        with self.state_lock:
+            self.running = True
+        
         try:
             while self.running:
                 observation = self.collector.capture()
@@ -411,27 +438,29 @@ class AllyCore:
                     reader = self.collector.readers.get(observation.screen_name)
                     include_ui = reader is None or not reader.has_calibrated_fields
                     ended = self.run_turn(observation, include_ui=include_ui)
-                    if ended and self.memory_manager is not None and self.registry is not None:
-                        log("Run concluded. Starting new run session...")
-                        player_id = self.memory_manager.player_id
-                        game_id = self.memory_manager.game_id
-                        new_save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id=game_id)
-                        self.memory_manager.narrative = NarrativeMemoryManager(
-                            player_id=player_id,
-                            game_id=game_id,
-                            save_id=new_save_id,
-                            provider=self.memory_manager.narrative.provider,
-                            db=self.memory_manager.db,
-                            short_term_capacity=self.memory_manager.narrative.short_term_capacity,
-                            flush_trigger=self.memory_manager.narrative.flush_trigger,
-                            save_tracker=self.save_tracker,
-                        )
-                        self.registry.__init__(
-                            player_id=player_id,
-                            game_id=game_id,
-                            save_id=new_save_id,
-                            db=self.db,
-                        )
+                    if ended:
+                        with self.state_lock:
+                            if self.memory_manager is not None and self.registry is not None:
+                                log("Run concluded. Starting new run session...")
+                                player_id = self.memory_manager.player_id
+                                game_id = self.memory_manager.game_id
+                                new_save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id=game_id)
+                                self.memory_manager.narrative = NarrativeMemoryManager(
+                                    player_id=player_id,
+                                    game_id=game_id,
+                                    save_id=new_save_id,
+                                    provider=self.memory_manager.narrative.provider,
+                                    db=self.memory_manager.db,
+                                    short_term_capacity=self.memory_manager.narrative.short_term_capacity,
+                                    flush_trigger=self.memory_manager.narrative.flush_trigger,
+                                    save_tracker=self.save_tracker,
+                                )
+                                self.registry.__init__(
+                                    player_id=player_id,
+                                    game_id=game_id,
+                                    save_id=new_save_id,
+                                    db=self.db,
+                                )
                 time.sleep(interval_seconds)
         except KeyboardInterrupt:
             log("\nStopping loop.")
@@ -439,15 +468,20 @@ class AllyCore:
             self.stop()
 
     def stop(self) -> None:
-        self.running = False
-        try:
-            if self.memory_manager is not None:
-                self.memory_manager.close_run()
-        except Exception:
-            pass
+        """Thread-safe stop: sets running flag and closes memory manager."""
+        with self.state_lock:
+            self.running = False
+            try:
+                if self.memory_manager is not None:
+                    self.memory_manager.close_run()
+            except Exception:
+                pass
 
     def send_message(self, text: str, message_type: str = "chat") -> None:
-        """Asynchronously handles chat messages and feedback submissions from the frontend."""
+        """Asynchronously handles chat messages and feedback submissions from the frontend.
+        
+        Thread-safe: all state access is protected by state_lock.
+        """
         def _handle():
             memory_context = ""
             personality_context = ""
@@ -455,6 +489,7 @@ class AllyCore:
             elements_context = ""
             genre_context = ""
             not_started = False
+            sandbox_turn = 0
 
             with self.state_lock:
                 if self.memory_manager is None:
@@ -466,6 +501,7 @@ class AllyCore:
                         genre_context = self.genre_tracker.as_context()
                         memory_context = self.memory_manager.build_context()
                         personality_context = self.memory_manager.get_personality_context()
+                        sandbox_turn = self.sandbox.turn
                     else:
                         self.memory_manager.personality.record_reflection(f"Player feedback: {text}")
 
@@ -502,7 +538,7 @@ class AllyCore:
                 with self.state_lock:
                     if self.memory_manager is not None:
                         self.memory_manager.record_turn(
-                            self.sandbox.turn,
+                            sandbox_turn,
                             f"Player asked: '{text}' -> Ally answered: '{res.response}'",
                             importance=5
                         )
@@ -514,45 +550,57 @@ class AllyCore:
         threading.Thread(target=_handle, daemon=True).start()
 
     def initialize_run(self) -> None:
-        """Initializes memory manager, registry, and collector based on provided args/config."""
-        player_id = "default_player"
-        if self.image_path:
-            save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id="adhoc_image")
-            self.memory_manager = MemoryManager(
-                player_id=player_id,
-                game_id="adhoc_image",
-                save_id=save_id,
-                provider=self.provider,
-                base_personality=self.ally.base_personality,
-                save_tracker=self.save_tracker,
-            )
-            self.registry = EntityRegistry(
-                player_id=player_id,
-                game_id="adhoc_image",
-                save_id=save_id,
-                db=self.db,
-            )
-        else:
-            if not self.config_path:
-                self.config_path = init_config(game_id=self.game_id)
-            self.collector = build_collector(
-                self.config_path,
-                clip_classifier=self.clip_classifier,
-                category_store=self.category_store,
-            )
-            game_id = self.collector.config.game_id
-            save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id=game_id)
-            self.memory_manager = MemoryManager(
-                player_id=player_id,
-                game_id=game_id,
-                save_id=save_id,
-                provider=self.provider,
-                base_personality=self.ally.base_personality,
-                save_tracker=self.save_tracker,
-            )
-            self.registry = EntityRegistry(
-                player_id=player_id,
-                game_id=game_id,
-                save_id=save_id,
-                db=self.db,
-            )
+        """Initializes memory manager, registry, and collector based on provided args/config.
+        
+        Thread-safe: uses initialization lock to prevent race conditions during
+        startup when multiple threads might call this simultaneously.
+        """
+        # Use a separate initialization lock to avoid deadlocks with state_lock
+        # (state_lock might be held by run_loop while initialize_run is called)
+        with self._initialization_lock:
+            if self._initialized:
+                return  # Already initialized
+            
+            player_id = "default_player"
+            if self.image_path:
+                save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id="adhoc_image")
+                self.memory_manager = MemoryManager(
+                    player_id=player_id,
+                    game_id="adhoc_image",
+                    save_id=save_id,
+                    provider=self.provider,
+                    base_personality=self.ally.base_personality,
+                    save_tracker=self.save_tracker,
+                )
+                self.registry = EntityRegistry(
+                    player_id=player_id,
+                    game_id="adhoc_image",
+                    save_id=save_id,
+                    db=self.db,
+                )
+            else:
+                if not self.config_path:
+                    self.config_path = init_config(game_id=self.game_id)
+                self.collector = build_collector(
+                    self.config_path,
+                    clip_classifier=self.clip_classifier,
+                    category_store=self.category_store,
+                )
+                game_id = self.collector.config.game_id
+                save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id=game_id)
+                self.memory_manager = MemoryManager(
+                    player_id=player_id,
+                    game_id=game_id,
+                    save_id=save_id,
+                    provider=self.provider,
+                    base_personality=self.ally.base_personality,
+                    save_tracker=self.save_tracker,
+                )
+                self.registry = EntityRegistry(
+                    player_id=player_id,
+                    game_id=game_id,
+                    save_id=save_id,
+                    db=self.db,
+                )
+            
+            self._initialized = True

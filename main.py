@@ -1,14 +1,16 @@
 """Vertical slice: a continuous turn loop through the pipeline using AllyCore."""
 
 import argparse
-import threading
 from typing import Any
 import time
 import sys
 
 from infrastructure.logger import log
 
-STATE_LOCK = threading.Lock()
+# NOTE: STATE_LOCK has been removed. All thread synchronization should use
+# AllyCore.state_lock or appropriate component-specific locks.
+# This global lock was confusing and not consistently used.
+# See brain/reasoning/core.py for the proper locking discipline.
 
 
 class TerminalStreamPrinter:

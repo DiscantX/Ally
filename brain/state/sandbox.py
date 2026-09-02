@@ -31,6 +31,7 @@ Three kinds of data, three different trust/lifecycle framings:
   any particular game's shape.
 """
 
+import threading
 from typing import Any
 
 from ingestion.collectors.base import ConfirmedFact
@@ -51,6 +52,7 @@ def _summarize_structured_value(value: Any) -> str:
 
 class StateSandbox:
     def __init__(self):
+        self._lock = threading.RLock()
         self.turn: int = 0
         self.current_elements: list[ScreenElement] = []
         self.confirmed_facts: list[ConfirmedFact] = []
@@ -64,55 +66,60 @@ class StateSandbox:
         structured_state: dict[str, Any] | None = None,
         structured_state_source: str | None = None,
     ) -> None:
-        self.turn += 1
-        self.current_elements = elements
-        self.confirmed_facts = confirmed_facts or []
+        with self._lock:
+            self.turn += 1
+            self.current_elements = elements
+            self.confirmed_facts = confirmed_facts or []
 
-        # structured_state is deliberately NOT reset to None here when
-        # omitted -- see module docstring. A turn where the Collector
-        # doesn't pass one (or isn't a structured-state Collector at all,
-        # e.g. the existing screen-capture path) shouldn't wipe out what
-        # a structured Collector already accumulated.
-        if structured_state is not None:
-            self.structured_state = structured_state
-            self.structured_state_source = structured_state_source
+            # structured_state is deliberately NOT reset to None here when
+            # omitted -- see module docstring. A turn where the Collector
+            # doesn't pass one (or isn't a structured-state Collector at all,
+            # e.g. the existing screen-capture path) shouldn't wipe out what
+            # a structured Collector already accumulated.
+            if structured_state is not None:
+                self.structured_state = structured_state
+                self.structured_state_source = structured_state_source
 
     def as_context(self) -> str:
-        """Compact text form for injecting into Ally's prompt."""
-        parts = []
+        """Compact text form for injecting into Ally's prompt.
+        
+        Thread-safe: holds read lock while building context string.
+        """
+        with self._lock:
+            parts = []
 
-        if self.confirmed_facts:
-            parts.append("Confirmed exact readings (not an interpretation, trust these):")
-            parts.extend(f"- {fact.key}: {fact.value}" for fact in self.confirmed_facts)
+            if self.confirmed_facts:
+                parts.append("Confirmed exact readings (not an interpretation, trust these):")
+                parts.extend(f"- {fact.key}: {fact.value}" for fact in self.confirmed_facts)
 
-        if self.structured_state:
-            if parts:
-                parts.append("")
-            source_note = f" (source: {self.structured_state_source})" if self.structured_state_source else ""
-            parts.append(
-                f"Structured game state{source_note} -- read directly from the "
-                "game's own protocol/data, not an interpretation. Trust this at "
-                "least as much as the confirmed readings above:"
-            )
-            parts.extend(
-                f"- {key}: {_summarize_structured_value(value)}"
-                for key, value in self.structured_state.items()
-            )
+            if self.structured_state:
+                if parts:
+                    parts.append("")
+                source_note = f" (source: {self.structured_state_source})" if self.structured_state_source else ""
+                parts.append(
+                    f"Structured game state{source_note} -- read directly from the "
+                    "game's own protocol/data, not an interpretation. Trust this at "
+                    "least as much as the confirmed readings above:"
+                )
+                parts.extend(
+                    f"- {key}: {_summarize_structured_value(value)}"
+                    for key, value in self.structured_state.items()
+                )
 
-        if self.current_elements:
-            if parts:
-                parts.append("")
-            parts.append("Scene elements (Scribe's interpretation):")
-            # Filter out decorative elements, but preserve anything referenced by target_entity_ids
-            # Note: We don't have access to previous turn's AllyOutput here, so we filter based on is_decorative flag
-            # The safety check for target_entity_ids must be done elsewhere (e.g., in main.py or Scribe)
-            filtered_elements = []
-            for el in self.current_elements:
-                if hasattr(el, 'is_decorative') and el.is_decorative:
-                    continue
-                filtered_elements.append(el)
-            parts.extend(
-                f"- [{el.id}] {el.label}: {el.description}" for el in filtered_elements
-            )
+            if self.current_elements:
+                if parts:
+                    parts.append("")
+                parts.append("Scene elements (Scribe's interpretation):")
+                # Filter out decorative elements, but preserve anything referenced by target_entity_ids
+                # Note: We don't have access to previous turn's AllyOutput here, so we filter based on is_decorative flag
+                # The safety check for target_entity_ids must be done elsewhere (e.g., in main.py or Scribe)
+                filtered_elements = []
+                for el in self.current_elements:
+                    if hasattr(el, 'is_decorative') and el.is_decorative:
+                        continue
+                    filtered_elements.append(el)
+                parts.extend(
+                    f"- [{el.id}] {el.label}: {el.description}" for el in filtered_elements
+                )
 
-        return "\n".join(parts) if parts else "(no elements on screen)"
+            return "\n".join(parts) if parts else "(no elements on screen)"

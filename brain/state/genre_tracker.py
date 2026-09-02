@@ -8,6 +8,7 @@ threshold, so Ally gets a stable genre instead of it flickering turn to
 turn.
 """
 
+import threading
 from dataclasses import dataclass
 
 
@@ -20,26 +21,38 @@ class GenreEstimate:
 
 class GenreTracker:
     def __init__(self, lock_threshold: float = 0.75):
+        self._lock = threading.RLock()
         self.lock_threshold = lock_threshold
         self.estimate = GenreEstimate()
 
     def update(self, guess: str, confidence: float) -> GenreEstimate:
         """Called once per turn with the Scribe's fresh guess. No-op once
-        locked -- stop moving the target on Ally mid-run."""
-        if self.estimate.locked:
-            return self.estimate
+        locked -- stop moving the target on Ally mid-run.
+        
+        Thread-safe: holds lock while updating estimate.
+        """
+        with self._lock:
+            if self.estimate.locked:
+                return self.estimate
 
-        if confidence > self.estimate.confidence:
-            self.estimate.guess = guess
-            self.estimate.confidence = confidence
+            if confidence > self.estimate.confidence:
+                self.estimate.guess = guess
+                self.estimate.confidence = confidence
 
-        if self.estimate.confidence >= self.lock_threshold:
-            self.estimate.locked = True
+            if self.estimate.confidence >= self.lock_threshold:
+                self.estimate.locked = True
 
-        return self.estimate
+            # Return a copy to avoid external modification
+            return GenreEstimate(
+                guess=self.estimate.guess,
+                confidence=self.estimate.confidence,
+                locked=self.estimate.locked
+            )
 
     def as_context(self) -> str:
-        if self.estimate.confidence == 0.0:
-            return "unknown (not yet determined)"
-        certainty = "confirmed" if self.estimate.locked else "tentative guess"
-        return f"{self.estimate.guess} ({certainty})"
+        """Thread-safe: holds lock while reading estimate."""
+        with self._lock:
+            if self.estimate.confidence == 0.0:
+                return "unknown (not yet determined)"
+            certainty = "confirmed" if self.estimate.locked else "tentative guess"
+            return f"{self.estimate.guess} ({certainty})"

@@ -184,12 +184,18 @@ class EntityRegistry:
         recorded on creation and can refine an existing entity's type
         from "unknown" to something real on a later sighting.
         """
+        # Phase 1: Read snapshot (under lock, minimal work)
         with self._lock:
             touched: list[Entity] = []
             lookup = self._name_lookup()  # frozen snapshot of pre-call state
             ext_lookup = dict(self._external_id_index)  # frozen snapshot
-            new_this_turn: dict[str, Entity] = {}
-            new_ext_ids: dict[str, str] = {}  # external_id -> entity_id, staged this batch
+            current_entities = dict(self._entities)
+            current_ext_ids = dict(self._external_id_index)
+            next_id = self._next_id
+
+        # Phase 2: Process elements (NO lock - CPU work, difflib matching)
+        new_this_turn: dict[str, Entity] = {}
+        new_ext_ids: dict[str, str] = {}  # external_id -> entity_id, staged this batch
 
         for el in elements:
             name = el.label.strip()
@@ -201,7 +207,7 @@ class EntityRegistry:
             if external_id is not None:
                 entity_id = ext_lookup.get(external_id) or new_ext_ids.get(external_id)
                 if entity_id:
-                    ent = self._entities.get(entity_id) or new_this_turn[entity_id]
+                    ent = current_entities.get(entity_id) or new_this_turn[entity_id]
                     if key != ent.canonical_name.lower() and name not in ent.aliases:
                         ent.aliases.append(name)
                     ent.facts.append(el.description)
@@ -210,7 +216,7 @@ class EntityRegistry:
                         ent.entity_type = entity_type
                 else:
                     ent = Entity(
-                        entity_id=f"ent_{self._next_id:04d}",
+                        entity_id=f"ent_{next_id:04d}",
                         entity_type=entity_type,
                         canonical_name=name,
                         facts=[el.description],
@@ -218,7 +224,7 @@ class EntityRegistry:
                         last_seen_turn=turn,
                         external_id=external_id,
                     )
-                    self._next_id += 1
+                    next_id += 1
                     new_this_turn[ent.entity_id] = ent
                     new_ext_ids[external_id] = ent.entity_id
                 touched.append(ent)
@@ -235,7 +241,7 @@ class EntityRegistry:
 
             if matches:
                 entity_id = lookup[matches[0]]
-                ent = self._entities[entity_id]
+                ent = current_entities[entity_id]
                 if key != ent.canonical_name.lower() and name not in ent.aliases:
                     ent.aliases.append(name)
                 ent.facts.append(el.description)
@@ -244,14 +250,14 @@ class EntityRegistry:
                     ent.entity_type = entity_type
             else:
                 ent = Entity(
-                    entity_id=f"ent_{self._next_id:04d}",
+                    entity_id=f"ent_{next_id:04d}",
                     entity_type=entity_type,
                     canonical_name=name,
                     facts=[el.description],
                     first_seen_turn=turn,
                     last_seen_turn=turn,
                 )
-                self._next_id += 1
+                next_id += 1
                 new_this_turn[ent.entity_id] = ent
                 # Deliberately NOT added to `lookup` here -- later elements in
                 # this same batch must not match against entities created
@@ -259,9 +265,13 @@ class EntityRegistry:
 
             touched.append(ent)
 
-        self._entities.update(new_this_turn)
-        self._external_id_index.update(new_ext_ids)
+        # Phase 3: Write results (under lock, minimal work)
+        with self._lock:
+            self._entities.update(new_this_turn)
+            self._external_id_index.update(new_ext_ids)
+            self._next_id = next_id
 
+        # Phase 4: DB write (outside lock - can be slow, doesn't block other operations)
         if self.db:
             self.db.upsert_entities(
                 self.player_id,

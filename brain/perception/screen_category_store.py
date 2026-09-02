@@ -157,25 +157,27 @@ class ScreenCategoryStore:
         matching -- same style as EntityRegistry's fuzzy resolution --
         before embedding and inserting. Always inserts as kind="normal",
         game_id=None (see module docstring for why normal rows stay
-        global). No-ops if CLIP is unavailable."""
+        global). No-ops if CLIP is unavailable.
+        
+        Thread-safe: uses lock to protect _rows access and coordinate with DB writes.
+        """
         if not self.clip.enabled or not text.strip():
             return
         with self._lock:
             existing_texts = [r["text"] for r in self._rows]
-        matches = difflib.get_close_matches(
-            text.strip().lower(), [t.lower() for t in existing_texts],
-            n=1, cutoff=self.dedup_threshold,
-        )
-        if matches:
-            return  # near-duplicate of something we already have -- skip
-        embedding = self.clip.encode_text(text.strip())
-        if embedding is None:
-            return
-        self.db.insert_screen_category(
-            game_id=None, kind="normal", text=text.strip(),
-            embedding=embedding.astype(np.float32).tobytes(), source="learned",
-        )
-        with self._lock:
+            matches = difflib.get_close_matches(
+                text.strip().lower(), [t.lower() for t in existing_texts],
+                n=1, cutoff=self.dedup_threshold,
+            )
+            if matches:
+                return  # near-duplicate of something we already have -- skip
+            embedding = self.clip.encode_text(text.strip())
+            if embedding is None:
+                return
+            self.db.insert_screen_category(
+                game_id=None, kind="normal", text=text.strip(),
+                embedding=embedding.astype(np.float32).tobytes(), source="learned",
+            )
             self._rows.append({"id": None, "game_id": None, "kind": "normal", "text": text.strip(), "embedding": embedding})
             self._rebuild_matrix()
 
