@@ -130,7 +130,8 @@ class LogReader:
 
                 time.sleep(self.poll_interval)
 
-            except Exception:
+            except Exception as e:
+                log("Error in log reader loop, closing file and re-raising: {error}", error=str(e), level="error")
                 f.close()
                 raise
 

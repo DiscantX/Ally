@@ -144,7 +144,8 @@ class NarrativeMemoryManager:
                 thinking_level=self.thinking_level,
             )
             summary = result.summary
-        except Exception:
+        except Exception as e:
+            log("Failed to generate medium-term summary: {error}", error=str(e), level="warning")
             summary = f"Summary of turns {[e.turn for e in self._short_term]}: gameplay progress recorded."
 
         self._medium_term_summaries.append(summary.strip())
@@ -164,7 +165,8 @@ class NarrativeMemoryManager:
                 thinking_level=self.thinking_level,
             )
             summary = result.summary
-        except Exception:
+        except Exception as e:
+            log("Failed to generate long-term summary: {error}", error=str(e), level="warning")
             summary = "Long-term playthrough progress synthesized."
 
         self._long_term_summary = summary.strip()
@@ -197,7 +199,8 @@ class NarrativeMemoryManager:
                 thinking_level=self.thinking_level,
             )
             new_summary = result.summary
-        except Exception:
+        except Exception as e:
+            log("Failed to generate cross-session summary: {error}", error=str(e), level="warning")
             new_summary = f"Cross-session summary synthesized from run {self.save_id}."
 
         self.db.insert_cross_session(self.player_id, self.game_id, new_summary.strip(), self.save_id)

@@ -64,8 +64,8 @@ class ScreenCollector:
                     new_h = max_size
                     new_w = int(w * (max_size / h))
                 return image.resize((new_w, new_h), Image.Resampling.LANCZOS)
-        except Exception:
-            pass
+        except Exception as e:
+            log("Failed to downscale image: {error}", error=str(e), level="warning")
         return image
 
     @timed

@@ -57,5 +57,6 @@ class SaveTracker:
         except ValueError:
             try:
                 return datetime.fromisoformat(dt_str).astimezone(timezone.utc)
-            except Exception:
+            except Exception as e:
+                log("Failed to parse datetime '{dt_str}': {error}", dt_str=dt_str, error=str(e), level="warning")
                 return None

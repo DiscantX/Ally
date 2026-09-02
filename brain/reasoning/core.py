@@ -474,8 +474,8 @@ class AllyCore:
             try:
                 if self.memory_manager is not None:
                     self.memory_manager.close_run()
-            except Exception:
-                pass
+            except Exception as e:
+                log("Failed to close memory manager during stop: {error}", error=str(e), level="warning")
 
     def send_message(self, text: str, message_type: str = "chat") -> None:
         """Asynchronously handles chat messages and feedback submissions from the frontend.

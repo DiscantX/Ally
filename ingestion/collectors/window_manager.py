@@ -81,7 +81,8 @@ class ClientRect:
         try:
             self._set_rect_properties()
             return True
-        except Exception:
+        except Exception as e:
+            log("Failed to refresh window properties: {error}", error=str(e), level="warning")
             return False
 
     def is_foreground(self) -> bool:

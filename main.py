@@ -36,14 +36,14 @@ def shutdown_application() -> None:
         try:
             _overlay_instance.add_ally_message("System", "Shutdown in progress...")
             _overlay_instance.hide()
-        except Exception:
-            pass
+        except Exception as e:
+            log("Error hiding overlay during shutdown: {error}", error=str(e), level="warning")
 
     try:
         from brain.state.shell_bounds_registry import SHELL_BOUNDS
         SHELL_BOUNDS.unregister("prod_overlay")
-    except Exception:
-        pass
+    except Exception as e:
+        log("Error unregistering shell bounds: {error}", error=str(e), level="warning")
     
     # Quit Qt app immediately on the main thread to unblock event loop and destroy GUI instantly
     if _qt_app_instance is not None:
@@ -74,8 +74,8 @@ def _handle_sigint(signum: int, frame: Any) -> None:
     log("\nReceived Ctrl+C (SIGINT). Shutting down gracefully...", level="info")
     try:
         signal.siginterrupt(signum, True)
-    except Exception:
-        pass
+    except Exception as e:
+        log("Error setting signal interrupt: {error}", error=str(e), level="warning")
     
     # If Qt app is active, schedule shutdown on the main thread safely via QTimer
     if _qt_app_instance is not None:
@@ -83,8 +83,8 @@ def _handle_sigint(signum: int, frame: Any) -> None:
             from PySide6.QtCore import QTimer
             QTimer.singleShot(0, shutdown_application)
             return
-        except Exception:
-            pass
+        except Exception as e:
+            log("Error with QTimer in signal handler: {error}", error=str(e), level="warning")
     
     shutdown_application()
 

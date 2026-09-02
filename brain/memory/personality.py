@@ -79,7 +79,8 @@ class PersonalityMemoryManager:
                 thinking_level=self.thinking_level,
             )
             self._digest = digest_res.summary.strip()
-        except Exception:
+        except Exception as e:
+            log("Failed to generate personality digest: {error}", error=str(e), level="warning")
             self._digest = self.base_personality
 
         micro_prompt = PERSONALITY_MICRO_PROMPT.format(digest=self._digest)
@@ -91,7 +92,8 @@ class PersonalityMemoryManager:
                 thinking_level=self.thinking_level,
             )
             self._micro = micro_res.summary.strip()
-        except Exception:
+        except Exception as e:
+            log("Failed to generate personality micro: {error}", error=str(e), level="warning")
             self._micro = self.base_personality
 
         self.db.save_personality_entry(self.player_id, "digest", self._digest)

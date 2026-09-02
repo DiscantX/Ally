@@ -74,13 +74,15 @@ class Entity:
         if isinstance(aliases, str):
             try:
                 aliases = json.loads(aliases)
-            except Exception:
+            except Exception as e:
+                log("Failed to parse aliases JSON: {error}", error=str(e), level="warning")
                 aliases = []
         facts = row["facts"]
         if isinstance(facts, str):
             try:
                 facts = json.loads(facts)
-            except Exception:
+            except Exception as e:
+                log("Failed to parse facts JSON: {error}", error=str(e), level="warning")
                 facts = []
         return cls(
             entity_id=row["entity_id"],
