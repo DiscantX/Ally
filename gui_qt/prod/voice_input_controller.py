@@ -231,8 +231,9 @@ class VoiceInputController(QObject):
         In ``open_mic`` mode phrases are added to ``_assembler`` and a
         final utterance is emitted once the configured silence window passes.
         """
-        assert self._recognizer is not None
-        assert self._assembler is not None
+        if self._recognizer is None or self._assembler is None:
+            log("VoiceInputController: recognizer or assembler not initialized", level="error", module=MODULE_NAME)
+            return
 
         with self._recognizer:  # context manager starts/stops the stream
             while not self._stop_capture.wait(timeout=0.05):
