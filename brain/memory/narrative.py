@@ -9,6 +9,7 @@ from typing import Any
 import threading
 from pydantic import BaseModel
 
+from brain.constants import MEMORY_TIER_SHORT, MEMORY_TIER_MEDIUM, MEMORY_TIER_LONG
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.memory.db import MemoryDB
 from brain.memory.triggers import Trigger, TurnCountTrigger, CompositeTrigger, SalienceEventTrigger, ExplicitAllyTrigger
@@ -76,15 +77,15 @@ class NarrativeMemoryManager:
 
     def _load_from_db(self) -> None:
         with self._lock:
-            short_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "short")
+            short_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, MEMORY_TIER_SHORT)
             for row in short_rows:
                 self._short_term.append(ShortTermEntry(turn=row["turn"], summary=row["summary"]))
             self._entry_count = len(short_rows)
             
-            med_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "medium")
+            med_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, MEMORY_TIER_MEDIUM)
             self._medium_term_summaries = [row["summary"] for row in med_rows]
 
-            long_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "long")
+            long_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, MEMORY_TIER_LONG)
             if long_rows:
                 self._long_term_summary = long_rows[-1]["summary"]
 
@@ -93,7 +94,7 @@ class NarrativeMemoryManager:
             self._entry_count += 1
             entry = ShortTermEntry(turn=turn, summary=ally_analysis)
             self._short_term.append(entry)
-            self.db.save_narrative_entry(self.player_id, self.game_id, self.save_id, turn, "short", ally_analysis)
+            self.db.save_narrative_entry(self.player_id, self.game_id, self.save_id, turn, MEMORY_TIER_SHORT, ally_analysis)
 
             if self.save_tracker:
                 self.save_tracker.touch(self.player_id, self.game_id, self.save_id)
@@ -161,7 +162,7 @@ class NarrativeMemoryManager:
 
         self._medium_term_summaries.append(summary.strip())
         latest_turn = self._short_term[-1].turn
-        self.db.save_narrative_entry(self.player_id, self.game_id, self.save_id, latest_turn, "medium", summary.strip())
+        self.db.save_narrative_entry(self.player_id, self.game_id, self.save_id, latest_turn, MEMORY_TIER_MEDIUM, summary.strip())
 
     def flush_to_long_term(self) -> None:
         if not self._medium_term_summaries:
@@ -182,7 +183,7 @@ class NarrativeMemoryManager:
 
         self._long_term_summary = summary.strip()
         latest_turn = self._short_term[-1].turn if self._short_term else 0
-        self.db.save_narrative_entry(self.player_id, self.game_id, self.save_id, latest_turn, "long", summary.strip())
+        self.db.save_narrative_entry(self.player_id, self.game_id, self.save_id, latest_turn, MEMORY_TIER_LONG, summary.strip())
 
     def close_run(self) -> None:
         if not self._long_term_summary:

@@ -33,6 +33,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from brain.constants import DEFAULT_DEDUP_THRESHOLD
+
 from cabinet.configs.config_manager import load_user_config
 from brain.memory.db import MemoryDB
 from brain.perception.clip_classifier import ClipClassifier
@@ -63,7 +65,7 @@ class ScreenCategoryStore:
         config = load_user_config()
         self.skip_confidence_threshold = config.get("clip_skip_confidence_threshold", 0.5)
         self.skip_margin_threshold = config.get("clip_skip_margin_threshold", 0.15)
-        self.dedup_threshold = config.get("clip_category_dedup_threshold", 0.75)
+        self.dedup_threshold = config.get("clip_category_dedup_threshold", DEFAULT_DEDUP_THRESHOLD)
 
         self._ensure_seeded()
         # Global pool (game_id IS NULL): off_game + normal rows, shared

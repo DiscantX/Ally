@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
+from brain.constants import ADHOC_IMAGE_GAME_ID, DEFAULT_PLAYER_ID
 from utils.event_hook import EventHook
 from brain.state.turn_trace import TurnTrace
 from brain.reasoning.ally_agent import Ally
@@ -568,12 +569,12 @@ class AllyCore:
             if self._initialized:
                 return  # Already initialized
             
-            player_id = "default_player"
+            player_id = DEFAULT_PLAYER_ID
             if self.image_path:
-                save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id="adhoc_image")
+                save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id=ADHOC_IMAGE_GAME_ID)
                 self.memory_manager = MemoryManager(
                     player_id=player_id,
-                    game_id="adhoc_image",
+                    game_id=ADHOC_IMAGE_GAME_ID,
                     save_id=save_id,
                     provider=self.provider,
                     base_personality=self.ally.base_personality,
@@ -581,7 +582,7 @@ class AllyCore:
                 )
                 self.registry = EntityRegistry(
                     player_id=player_id,
-                    game_id="adhoc_image",
+                    game_id=ADHOC_IMAGE_GAME_ID,
                     save_id=save_id,
                     db=self.db,
                 )

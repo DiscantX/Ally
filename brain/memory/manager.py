@@ -7,6 +7,7 @@ from typing import Any
 import threading
 from infrastructure.logger import log
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
+from brain.constants import DEFAULT_MEDIUM_FLUSH_INTERVAL, DEFAULT_SHORT_TERM_CAPACITY
 from brain.memory.db import MemoryDB
 from brain.memory.narrative import NarrativeMemoryManager
 from brain.memory.personality import PersonalityMemoryManager
@@ -22,8 +23,8 @@ class MemorySystem:
         save_id: str,
         provider: GeminiProvider,
         base_personality: str,
-        short_term_capacity: int = 8,
-        medium_flush_interval: int = 8,
+        short_term_capacity: int = DEFAULT_SHORT_TERM_CAPACITY,
+        medium_flush_interval: int = DEFAULT_MEDIUM_FLUSH_INTERVAL,
         flush_trigger: Trigger | None = None,
         db_path: str | None = None,
         save_tracker: SaveTracker | None = None,

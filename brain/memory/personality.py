@@ -6,6 +6,7 @@ from typing import Any
 import threading
 from pydantic import BaseModel
 
+from brain.constants import PERSONALITY_ENTRY_MASTER, PERSONALITY_ENTRY_DIGEST, PERSONALITY_ENTRY_MICRO
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.memory.db import MemoryDB
 from brain.knowledge.prompts.personality import PERSONALITY_DIGEST_PROMPT, PERSONALITY_MICRO_PROMPT
@@ -42,14 +43,14 @@ class PersonalityMemoryManager:
 
     def _load_from_db(self) -> None:
         with self._lock:
-            master_rows = self.db.get_personality_entries(self.player_id, "master")
+            master_rows = self.db.get_personality_entries(self.player_id, PERSONALITY_ENTRY_MASTER)
             self._master_journal = [row["content"] for row in master_rows]
 
-            digest_rows = self.db.get_personality_entries(self.player_id, "digest")
+            digest_rows = self.db.get_personality_entries(self.player_id, PERSONALITY_ENTRY_DIGEST)
             if digest_rows:
                 self._digest = digest_rows[-1]["content"]
 
-            micro_rows = self.db.get_personality_entries(self.player_id, "micro")
+            micro_rows = self.db.get_personality_entries(self.player_id, PERSONALITY_ENTRY_MICRO)
             if micro_rows:
                 self._micro = micro_rows[-1]["content"]
 
@@ -59,7 +60,7 @@ class PersonalityMemoryManager:
     def add_journal_entry(self, text: str) -> None:
         with self._lock:
             self._master_journal.append(text)
-            self.db.save_personality_entry(self.player_id, "master", text)
+            self.db.save_personality_entry(self.player_id, PERSONALITY_ENTRY_MASTER, text)
 
     def record_reflection(self, reflection_text: str) -> None:
         with self._lock:
@@ -105,8 +106,8 @@ class PersonalityMemoryManager:
             log("Failed to generate personality micro: {error}", error=str(e), level="warning")
             self._micro = self.base_personality
 
-        self.db.save_personality_entry(self.player_id, "digest", self._digest)
-        self.db.save_personality_entry(self.player_id, "micro", self._micro)
+        self.db.save_personality_entry(self.player_id, PERSONALITY_ENTRY_DIGEST, self._digest)
+        self.db.save_personality_entry(self.player_id, PERSONALITY_ENTRY_MICRO, self._micro)
 
     def get_prompt_context(self) -> str:
         """Thread-safe: uses lock to protect access to _micro."""

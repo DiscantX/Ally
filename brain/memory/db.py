@@ -13,11 +13,14 @@ import threading
 from typing import Any
 from infrastructure.logger.logger import log, pretty_format, timed
 
-DB_PATH = os.path.join("data", "profiles", "default_player", "memory.db")
+from brain.constants import DEFAULT_PLAYER_ID
+
+# Default database path for the default player
+DEFAULT_DB_PATH = os.path.join("data", "profiles", DEFAULT_PLAYER_ID, "memory.db")
 
 
 class MemoryDB:
-    def __init__(self, db_path: str | None = None, player_id: str = "default_player") -> None:
+    def __init__(self, db_path: str | None = None, player_id: str = DEFAULT_PLAYER_ID) -> None:
         self.player_id = player_id
         self.db_path = db_path or os.path.join("data", "profiles", player_id, "memory.db")
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)

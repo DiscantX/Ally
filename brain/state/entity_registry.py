@@ -36,6 +36,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any
 
+from brain.constants import DEFAULT_GAME_ID, DEFAULT_PLAYER_ID, DEFAULT_SAVE_ID
 from brain.knowledge.schema.schema import ScreenElement
 from brain.memory.db import MemoryDB
 from infrastructure.logger import log
@@ -120,11 +121,11 @@ class ResolvableElement:
 class EntityRegistry:
     def __init__(
         self,
-        player_id: str = "default_player",
-        game_id: str = "default_game",
-        save_id: str = "default_save",
+        player_id: str = DEFAULT_PLAYER_ID,
+        game_id: str = DEFAULT_GAME_ID,
+        save_id: str = DEFAULT_SAVE_ID,
         db: MemoryDB | None = None,
-        match_threshold: float = 0.75,
+        match_threshold: float = DEFAULT_MATCH_THRESHOLD,
     ) -> None:
         if not isinstance(player_id, str) or not player_id.strip():
             raise ValueError(f"player_id must be a non-empty string, got: {player_id!r}")

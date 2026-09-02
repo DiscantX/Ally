@@ -11,6 +11,8 @@ turn.
 import threading
 from dataclasses import dataclass
 
+from brain.constants import DEFAULT_LOCK_THRESHOLD
+
 
 @dataclass
 class GenreEstimate:
@@ -20,7 +22,7 @@ class GenreEstimate:
 
 
 class GenreTracker:
-    def __init__(self, lock_threshold: float = 0.75) -> None:
+    def __init__(self, lock_threshold: float = DEFAULT_LOCK_THRESHOLD) -> None:
         self._lock = threading.RLock()
         self.lock_threshold = lock_threshold
         self.estimate = GenreEstimate()
