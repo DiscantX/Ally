@@ -28,7 +28,7 @@ from brain.state.genre_tracker import GenreTracker
 from brain.state.sandbox import StateSandbox
 from brain.reasoning.perspective_engine import PerspectiveEngine
 from cabinet.configs.config_manager import load_user_config
-from tooling.tools.init_config import init_config
+from cabinet.configs.init_config import init_config
 from brain.perception.debug_overlay import draw_layout_overlay
 from brain.perception.clip_classifier import ClipClassifier
 from brain.perception.screen_category_store import ScreenCategoryStore

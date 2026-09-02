@@ -84,7 +84,6 @@ REGISTRY = {
     "gemini_provider.py": {"name": "GeminiProvider", "color": "gold"},
     "db.py": {"name": "MemoryDB", "color": "bright_green"},
     "update_docs.py": {"name": "UpdateDocs", "color": "red"},
-    "init_config.py": {"name": "InitConfig", "color": "bright_orange"},
     "core.py": {"name": "AllyCore", "color": "lavender"},
     "screen_classifier.py": {"name": "ScreenClassifier", "color": "mint"},
     "screen_bootstrapper.py": {"name": "ScreenBootstrapper", "color": "salmon"},

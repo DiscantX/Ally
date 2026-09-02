@@ -33,7 +33,7 @@ python main.py --game my_new_game --gui
 ```
 
 The very first run needs the game's window focused and visible, since
-`tools/init_config.py` reads the focused window's title to generate
+`cabinet/configs/init_config.py` reads the focused window's title to generate
 `configs/<game_id>/config.json` (window title, an empty `layouts/`
 directory, a source tag — see `configs/template/config.json` for the
 shape). `game_id` is derived by sanitizing the window title (lowercased,
@@ -168,7 +168,7 @@ integration. A plugin only ever supplies data through the same
   game whose title includes a version number that changes between updates
   will need `configs/<game_id>/config.json`'s `window_title` updated (or
   the whole config regenerated) — this is a known limitation, not
-  currently auto-handled. See `tools/init_config.py`'s module docstring.
+  currently auto-handled. See `cabinet/configs/init_config.py`'s module docstring.
 - **A screen never gets recognized / keeps re-bootstrapping.** Check
   `unknown_streak_threshold` (default 3, in `configs/user_config.json`)
   hasn't been set too high, and that the screen isn't visually similar

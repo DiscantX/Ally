@@ -70,7 +70,7 @@ screen bootstrapper will draft layouts automatically after a few
 unrecognized screens, with no manual step required. See
 [`docs/adding_a_new_game.md`](docs/adding_a_new_game.md:1) for the full
 walkthrough (not yet split out — until then,
-[`tooling/tools/init_config.py`](tooling/tools/init_config.py:1), [`tooling/tools/inspect_coords.py`](tooling/tools/inspect_coords.py:1), and
+[`cabinet/configs/init_config.py`](cabinet/configs/init_config.py:1), [`tooling/tools/inspect_coords.py`](tooling/tools/inspect_coords.py:1), and
 [`ingestion/collectors/configured_collector.py`](ingestion/collectors/configured_collector.py:1)'s module docstrings cover it).
 
 ## Tests

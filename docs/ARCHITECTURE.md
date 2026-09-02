@@ -321,7 +321,7 @@ player-initiated chat/feedback on a background thread, guarded by the same
 
 **`main.py`**
 Entry point. Resolves a config path (explicit `--config`, `--game` lookup
-with auto-create via `tools/init_config.py`, or single-image back-compat
+with auto-create via `cabinet/configs/init_config.py`, or single-image back-compat
 mode), constructs `AllyCore`, and either launches the Tkinter overlay
 (`--gui`) or runs headless with `log()`-based callback wiring.
 
@@ -408,7 +408,7 @@ the data model itself.
 The default and preferred path for any new game that's played by looking at
 a window:
 
-1. **`tools/init_config.py`** — run against the game's focused window (or
+1. **` cabinet/configs/init_config.py`** — run against the game's focused window (or
    invoked automatically by `main.py --game <id>` when no config exists
    yet). Auto-generates `configs/<game_id>/config.json` (window title,
    layout directory, source tag) purely from convention — no manual editing

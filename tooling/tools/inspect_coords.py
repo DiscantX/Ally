@@ -425,7 +425,7 @@ def main():
                     redraw_canvas()
                     try:
                         cv2.destroyWindow("Neow's Eye - OCR Result Preview")
-                    except:
+                    except Exception:
                         pass
                 elif key == 27:  # ESC cancels prompt
                     awaiting_input = False
@@ -434,7 +434,7 @@ def main():
                     redraw_canvas()
                     try:
                         cv2.destroyWindow("Neow's Eye - OCR Result Preview")
-                    except:
+                    except Exception:
                         pass
                 elif key == 8:  # BACKSPACE
                     input_text = input_text[:-1]
