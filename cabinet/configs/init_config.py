@@ -60,14 +60,14 @@ def build_config(game_id: str, window_title: str) -> dict:
     return {
         "game_id": game_id,
         "window_title": window_title,
-        "layout_dir": f"configs/{game_id}/layouts",
+        "layout_dir": f"cabinet/configs/screens/{game_id}/layouts",
         "source_tag": f"ocr:{game_id}",
     }
 
 
 @timed
 def init_config(game_id: str | None = None, window_title: str | None = None) -> str:
-    """Creates configs/<game_id>/config.json. Returns the path (whether
+    """Creates cabinet/configs/screens/<game_id>/config.json. Returns the path (whether
     freshly written, or an already-existing config left untouched).
 
     window_title, if not supplied, is read from the currently focused
@@ -76,7 +76,7 @@ def init_config(game_id: str | None = None, window_title: str | None = None) -> 
     yet for the requested game_id)."""
     config_dir_hint = game_id
     config_path_hint = (
-        os.path.join("configs", config_dir_hint, "config.json") if config_dir_hint else None
+        os.path.join("cabinet", "configs", "screens", config_dir_hint, "config.json") if config_dir_hint else None
     )
 
     # If we already know where we'd look and it exists, skip touching
@@ -98,7 +98,7 @@ def init_config(game_id: str | None = None, window_title: str | None = None) -> 
     if game_id is None:
         game_id = sanitize_game_id(window_title)
 
-    config_dir = os.path.join("configs", game_id)
+    config_dir = os.path.join("cabinet", "configs", "screens", game_id)
     config_path = os.path.join(config_dir, "config.json")
     layout_dir = os.path.join(config_dir, "layouts")
 

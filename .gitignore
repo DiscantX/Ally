@@ -37,3 +37,5 @@ model/
 
 # Qdrant Local Isolated Database
 .qdrant_storage/
+cabinet/configs/screens/
+cabinet/data/profiles/default_player/

@@ -46,7 +46,7 @@ def get_available_models() -> list[str]:
     except Exception as e:
         log("Failed to fetch models dynamically: {e}. Falling back to static config.", e=e)
         try:
-            with open("configs/supported_models.json", "r") as f:
+            with open("cabinet/configs/supported_models.json", "r") as f:
                 return json.load(f)["supported_models"]
         except Exception as e_static:
             log("Failed to load fallback static config: {e_static}", e_static=e_static)

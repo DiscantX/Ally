@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from brain.reasoning.perspectives import PERSPECTIVES
 from infrastructure.logger import log, timed
 
-KEYWORDS_FILE = "configs/template/perspective_keywords.json"
+KEYWORDS_FILE = "cabinet/configs/template/perspective_keywords.json"
 BASELINE_PERSPECTIVE = "Phronesis"
 
 
