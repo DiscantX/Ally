@@ -168,8 +168,8 @@ fence/stray-text parsing failures.
 First working skeleton, built from the original single-script prototype
 (`image_test.py`), implementing: Collector (file-open stub) → Scribe →
 State Sandbox → Entity Registry → Ally. Files: `schemas.py`,
-`llm/gemini_provider.py`, `interpretation/scribe.py`, `state/sandbox.py`,
-`state/entity_registry.py`, `ally/ally_agent.py`, `main.py`.
+`llm/gemini_provider.py`, `brain/perception/scribe.py`, `state/sandbox.py`,
+`state/entity_registry.py`, `brain/reasoning/ally_agent.py`, `main.py`.
 
 **Explicitly deferred in this slice** (not forgotten, just out of scope
 for a first pass):
@@ -323,7 +323,7 @@ don't get coupled.
 Reviewed what `plugins/slay_the_spire/collector.py` actually did and found
 it contributed zero game-specific *logic* — every behavior (window
 capture, change detection, OCR, layout parsing) already lived in
-`collectors/` and `vision/`. The plugin class was three configuration values
+`collectors/` and `brain/perception/`. The plugin class was three configuration values
 (window title, layout path, source tag) wearing a Python-package
 costume. This was caught before any `layout.json` was ever calibrated —
 the OCR path this wrapped had not been exercised at all.
@@ -360,7 +360,7 @@ Decided against having Scribe classify the current screen (rejected
 alongside the earlier `genre_guess`-style approach considered for this):
 would require either an extra API call per turn or a one-turn lag
 reading last turn's classification. Instead: local anchor-based image
-matching (`vision/screen_classifier.py`) — a designated stable box per
+matching (`brain/perception/screen_classifier.py`) — a designated stable box per
 screen, calibrated like any other box (`inspect_coords.py`'s 'A' toggle),
 compared via SSIM against the live frame each turn. No API call, no
 lag, since it runs before Scribe and determines both which layout to

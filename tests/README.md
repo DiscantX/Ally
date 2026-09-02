@@ -19,7 +19,7 @@ python -m unittest discover tests
 ## Test Modules
 
 - [`run_tests.py`](tests/run_tests.py:1): Test runner aggregating and executing core test suites.
-- [`test_ally.py`](tests/test_ally.py:1): Unit tests for [`AllyAgent`](ally/ally_agent.py:1) behavior and decisions.
+- [`test_ally.py`](tests/test_ally.py:1): Unit tests for [`AllyAgent`](brain/reasoning/ally_agent.py:1) behavior and decisions.
 - [`test_ally_core.py`](tests/test_ally_core.py:1): Tests for core system initialization and operational components.
 - [`test_clip_gate_integration.py`](tests/test_clip_gate_integration.py:1): Test module.
 - [`test_concurrent_sandbox_and_registry_access.py`](tests/test_concurrent_sandbox_and_registry_access.py:1): Concurrency tests verifying thread safety across sandbox and entity registry operations.

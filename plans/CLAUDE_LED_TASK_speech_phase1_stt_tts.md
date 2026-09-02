@@ -77,7 +77,7 @@ coexist and be A/B tested. Since `LiveApiBackend` isn't being built this
 pass, that abstraction has no second implementation to abstract over yet
 — building it now would be speculative generality with no current
 caller. Phase 2 will introduce it then, wrapping what this task builds.
-Don't create `ally/chat_backend.py` or similar in this pass.
+Don't create `brain/reasoning/chat_backend.py` or similar in this pass.
 
 ---
 

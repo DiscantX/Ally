@@ -107,7 +107,7 @@ Controls:
 | `q` | Quit — every change is already saved to disk as you go |
 
 A box you draw and name by hand is trusted immediately (no `scribe_auto`
-tag, no self-confirmation needed — see `vision/layout.py`'s `is_trusted`
+tag, no self-confirmation needed — see `brain/perception/layout.py`'s `is_trusted`
 property). Editing an existing `scribe_auto` draft's position/size also
 promotes it to human-confirmed.
 
@@ -173,7 +173,7 @@ integration. A plugin only ever supplies data through the same
   `unknown_streak_threshold` (default 3, in `configs/user_config.json`)
   hasn't been set too high, and that the screen isn't visually similar
   enough to another already-drafted screen to be conflated — see
-  `vision/screen_classifier.py`'s module docstring on `draft_match_threshold`
+  `brain/perception/screen_classifier.py`'s module docstring on `draft_match_threshold`
   for this specific failure mode, and consider adding a calibrated anchor
   (§3) to disambiguate.
 - **Missing/empty `layouts/` directory.** Non-fatal, logged, expected

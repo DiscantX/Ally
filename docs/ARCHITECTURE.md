@@ -187,7 +187,7 @@ big trigger.
 
 ### Vision / Screen Identification
 
-**`ScreenClassifier`** (`vision/screen_classifier.py`)
+**`ScreenClassifier`** (`brain/perception/screen_classifier.py`)
 Identifies which named screen (combat, map, shop...) the current frame
 shows, using local SSIM image comparison — no API call, no per-turn lag.
 Two match tiers: **anchor matching** (a manually calibrated, distinctive
@@ -197,7 +197,7 @@ used before any anchor exists for that screen). Runs before the Scribe
 every turn, since its result determines both which `LayoutOCRReader` to use
 and which Scribe prompt variant (UI vs. NO_UI) to send.
 
-**`ScreenBootstrapper`** (`vision/screen_bootstrapper.py`)
+**`ScreenBootstrapper`** (`brain/perception/screen_bootstrapper.py`)
 Closes the loop on unrecognized screens with no human step. Triggers after
 `unknown_streak_threshold` consecutive "unknown" classifications; drafts a
 new `layouts/<screen>.json` from that turn's already-computed Scribe output
@@ -207,8 +207,8 @@ rather than waiting on manual review. `tools/inspect_coords.py` remains
 available for a human to clean up a draft afterward, but nothing blocks on
 that happening.
 
-**`LayoutManager` / `LayoutOCRReader`** (`vision/layout.py`,
-`vision/layout_reader.py`)
+**`LayoutManager` / `LayoutOCRReader`** (`brain/perception/layout.py`,
+`brain/perception/layout_reader.py`)
 `LayoutManager` loads a screen's calibrated `layout.json` into `UIElement`s
 (pixel box + OCR hints + trust flags). `LayoutOCRReader` reads every
 *trusted* element with Tesseract each turn and returns `ConfirmedFact`s. An
@@ -247,7 +247,7 @@ otherwise-confident genre read.
 
 ### Reasoning
 
-**`Scribe`** (`interpretation/scribe.py`)
+**`Scribe`** (`brain/perception/scribe.py`)
 Pure perception agent (Gemini vision). Given a screenshot, returns a
 `ScribeOutput`: `screen_elements` (id/label/description/box_2d, with a
 verbatim-transcription rule for on-screen text), plus `genre_guess` and
@@ -257,7 +257,7 @@ entities only, used once a screen's layout is calibrated and OCR already
 owns HUD values). Never interprets, never suggests actions, never told what
 game it's looking at.
 
-**`Ally`** (`ally/ally_agent.py`)
+**`Ally`** (`brain/reasoning/ally_agent.py`)
 The reasoning/personality agent (Gemini). Air-gapped from the raw
 screenshot by construction — `decide()` and `chat()` only ever receive text
 context assembled by `StateSandbox`, `EntityRegistry`, `GenreTracker`, and
@@ -266,7 +266,7 @@ list of candidate `ActionItem`s, and a `run_boundary` signal) or, for
 player-initiated chat, an `AllyChatOutput`. This split is the architectural
 core of the project — see the decision log's "Air-gap" section for why.
 
-**Personalities** (`ally/personalities.py`)
+**Personalities** (`brain/reasoning/personalities.py`)
 A dict of named, second-person personality descriptions (`PERSONALITIES`)
 injected into Ally's prompt to shape tone and voice. `"Scout"` is the
 current default. Selected once per run (`personality_name` on `AllyCore`)
@@ -308,7 +308,7 @@ for the priority order between the two signals.
 
 ### Orchestration
 
-**`AllyCore`** (`ally/core.py`)
+**`AllyCore`** (`brain/reasoning/core.py`)
 GUI-agnostic central manager. Owns the Scribe, Ally, `StateSandbox`,
 `GenreTracker`, `MemoryManager`, `EntityRegistry`, and active Collector;
 drives `run_turn()` (one full pipeline pass) and `run_loop()` (continuous
@@ -358,7 +358,7 @@ produced.
 ### Two bounding-box formats, one conversion point
 
 Two incompatible box formats exist in the pipeline, and every call site
-converts explicitly through `vision/geometry.py` rather than assuming one
+converts explicitly through `brain/perception/geometry.py` rather than assuming one
 means the other:
 
 - **Scribe's format** (`ScreenElement.box_2d`): `[y_min, x_min, y_max,
@@ -395,7 +395,7 @@ state every single turn the way Scribe's elements are replayed.
 
 A calibrated `ConfirmedFact` being "trusted" is a statement about
 cost/reliability, not about human verification specifically — see
-`LayoutOCRReader`/`vision/layout.py`'s `is_trusted` property. A
+`LayoutOCRReader`/`brain/perception/layout.py`'s `is_trusted` property. A
 human-calibrated box and a `scribe_auto` draft that self-confirmed via
 `looks_like_real_text()` are both trusted the same way; calibration is
 today's mechanism for establishing that trust, not a requirement baked into

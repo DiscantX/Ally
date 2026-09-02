@@ -93,7 +93,7 @@ Do **not** add `PyQt6` — PySide6 only (LGPL licensing, no GPL obligation).
 
 ### 4.1 Observer pattern for `AllyCore` and `logger`
 
-**Problem:** `AllyCore`'s `on_*` attributes (`ally/core.py`) are currently
+**Problem:** `AllyCore`'s `on_*` attributes (`brain/reasoning/core.py`) are currently
 single-slot `Optional[Callable]`, assigned with `=`. Two independent
 windows subscribing to the same running core (plus keeping the old
 Tkinter overlay alive in parallel per §0) requires multi-subscriber
@@ -147,7 +147,7 @@ class EventHook:
                 log("EventHook '{name}' subscriber raised: {e}", name=self._name, e=e, level="error")
 ```
 
-**In `ally/core.py`:** convert every one of these attributes from
+**In `brain/reasoning/core.py`:** convert every one of these attributes from
 `Optional[Callable[...]] = None` to `EventHook("on_x")`:
 
 `on_pipeline_image`, `on_debug_overlay`, `on_status_update`,
@@ -158,9 +158,9 @@ class EventHook:
 Then convert every internal invocation from direct-call to `.emit(...)`,
 and **remove the now-unnecessary `if self.on_x is not None:` guards** —
 `EventHook.emit()` is always safe to call with zero subscribers. Search
-`ally/core.py` for every occurrence of each hook name above being called
+`brain/reasoning/core.py` for every occurrence of each hook name above being called
 (not assigned) and convert it. Note: `on_connection_status` is currently
-never invoked anywhere inside `ally/core.py` despite being defined —
+never invoked anywhere inside `brain/reasoning/core.py` despite being defined —
 leave it as an `EventHook` for API consistency, but do not invent a new
 invocation site for it in this pass.
 
@@ -836,7 +836,7 @@ Do not build any of the following — they were discussed and deliberately
 deferred:
 
 - Full settings-dialog parity (model overrides, thinking-level sliders,
-  vision/threshold sliders, downscaling controls) — only the theme +
+  brain/perception/threshold sliders, downscaling controls) — only the theme +
   personality pickers from §7.6.
 - A real "Thinking" panel / thought-summary capture from Gemini.
 - A global OS-level hotkey to summon the dev window.
@@ -858,7 +858,7 @@ deferred:
 | Path | Action | Purpose |
 |---|---|---|
 | `utils/event_hook.py` | New | §4.1 |
-| `ally/core.py` | Modify | Convert hooks to `EventHook`, add `on_ocr_result`/`on_scribe_output`/`on_ally_output`, add `turn_traces` |
+| `brain/reasoning/core.py` | Modify | Convert hooks to `EventHook`, add `on_ocr_result`/`on_scribe_output`/`on_ally_output`, add `turn_traces` |
 | `logger/logger.py` | Modify | Pub/sub + `REGISTRY` expansion (§4.1) |
 | `main.py` | Modify | Hook-assignment → `.connect()`; add `--gui-qt` (§4.1, §9) |
 | `gui/tkinter_app.py` | Modify | Hook-assignment → `.connect()` only (§4.1) — no other changes |

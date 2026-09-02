@@ -45,7 +45,7 @@
 - **SSIM threshold tuning**, both anchor-based (`ScreenClassifier`'s
   `match_threshold`) and whole-frame draft matching
   (`draft_match_threshold`) — currently tuned by observation during real
-  playtesting (see `vision/screen_classifier.py`'s module docstring), not
+  playtesting (see `brain/perception/screen_classifier.py`'s module docstring), not
   measured against a systematic capture-session dataset.
 - **Auto-selecting a discriminating anchor region** for bootstrapped
   screens — currently `ScreenBootstrapper` uses whole-frame SSIM as its
