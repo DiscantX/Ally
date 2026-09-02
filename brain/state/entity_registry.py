@@ -36,7 +36,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any
 
-from brain.constants import DEFAULT_GAME_ID, DEFAULT_PLAYER_ID, DEFAULT_SAVE_ID
+from brain.constants import DEFAULT_GAME_ID, DEFAULT_MATCH_THRESHOLD, DEFAULT_PLAYER_ID, DEFAULT_SAVE_ID
 from brain.knowledge.schema.schema import ScreenElement
 from brain.memory.db import MemoryDB
 from infrastructure.logger import log
