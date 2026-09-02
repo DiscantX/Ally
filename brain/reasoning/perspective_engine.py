@@ -39,7 +39,7 @@ class PerspectiveScore:
 
 
 class PerspectiveEngine:
-    def __init__(self, keywords_path: str = KEYWORDS_FILE):
+    def __init__(self, keywords_path: str = KEYWORDS_FILE) -> None:
         self._keywords: dict[str, list[str]] = self._load_keywords(keywords_path)
 
     @timed

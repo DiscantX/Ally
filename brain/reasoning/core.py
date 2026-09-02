@@ -51,7 +51,7 @@ class AllyCore:
         image_path: Optional[str] = None,
         personality_name: Optional[str] = None,
         player_id: str = "default_player",
-    ):
+    ) -> None:
         self.player_id = player_id
         config = load_user_config(player_id=player_id)
         self.config_path = config_path
@@ -139,7 +139,7 @@ class AllyCore:
         with self.state_lock:
             self.registry = value
 
-    def push_memory_states(self):
+    def push_memory_states(self) -> None:
         """Thread-safe: reads memory state and emits via EventHooks."""
         with self.state_lock:
             if self.memory_manager is not None:
@@ -156,7 +156,7 @@ class AllyCore:
                     strat_text.append(f"Strategic Long-Term Overview:\n{long_term}")
                 self.on_strategic_memory.emit("\n\n".join(strat_text) if strat_text else "(no strategic memory recorded yet)")
 
-    def update_pipeline_image(self, key: str, image, title: Optional[str] = None):
+    def update_pipeline_image(self, key: str, image: Any, title: Optional[str] = None) -> None:
         if self.gui_app is not None and hasattr(self.gui_app, "update_pipeline_image"):
             self.gui_app.update_pipeline_image(key, image, title)
         else:
@@ -282,7 +282,7 @@ class AllyCore:
 
             prompt_sent_to_ally = f"Elements: {elements_context}\nEntities: {entities_context}\nGenre: {genre_context}\nMemory: {memory_context}\nPerspectives: {perspective_context}"
             analysis_begun = [False]
-            def ensure_analysis_begun():
+            def ensure_analysis_begun() -> None:
                 if not analysis_begun[0]:
                     analysis_begun[0] = True
                     self.on_analysis_stream_begin.emit()
@@ -488,7 +488,7 @@ class AllyCore:
         
         Thread-safe: all state access is protected by state_lock.
         """
-        def _handle():
+        def _handle() -> None:
             memory_context = ""
             personality_context = ""
             entities_context = "(no known entities yet)"
@@ -521,7 +521,7 @@ class AllyCore:
 
             try:
                 chat_begun = [False]
-                def ensure_chat_begun():
+                def ensure_chat_begun() -> None:
                     if not chat_begun[0]:
                         chat_begun[0] = True
                         self.on_chat_stream_begin.emit()

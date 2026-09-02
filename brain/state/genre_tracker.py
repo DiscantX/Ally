@@ -20,7 +20,7 @@ class GenreEstimate:
 
 
 class GenreTracker:
-    def __init__(self, lock_threshold: float = 0.75):
+    def __init__(self, lock_threshold: float = 0.75) -> None:
         self._lock = threading.RLock()
         self.lock_threshold = lock_threshold
         self.estimate = GenreEstimate()

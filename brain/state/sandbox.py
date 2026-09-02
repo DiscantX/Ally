@@ -51,7 +51,7 @@ def _summarize_structured_value(value: Any) -> str:
 
 
 class StateSandbox:
-    def __init__(self):
+    def __init__(self) -> None:
         self._lock = threading.RLock()
         self.turn: int = 0
         self.current_elements: list[ScreenElement] = []
