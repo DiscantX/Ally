@@ -3,6 +3,7 @@ Manages Master append-only reflection journals, Digest summaries, and Micro prom
 """
 
 from typing import Any
+import threading
 from pydantic import BaseModel
 
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
@@ -24,42 +25,50 @@ class PersonalityMemoryManager:
         self.base_personality = base_personality
         self.model = model or get_model("personality_model", config)
         self.thinking_level = thinking_level or get_thinking_level("personality", config)
+        self._lock = threading.RLock()
         self._master_journal: list[str] = []
         self._digest: str = ""
         self._micro: str = ""
         self._load_from_db()
 
     def _load_from_db(self) -> None:
-        master_rows = self.db.get_personality_entries(self.player_id, "master")
-        self._master_journal = [row["content"] for row in master_rows]
+        with self._lock:
+            master_rows = self.db.get_personality_entries(self.player_id, "master")
+            self._master_journal = [row["content"] for row in master_rows]
 
-        digest_rows = self.db.get_personality_entries(self.player_id, "digest")
-        if digest_rows:
-            self._digest = digest_rows[-1]["content"]
+            digest_rows = self.db.get_personality_entries(self.player_id, "digest")
+            if digest_rows:
+                self._digest = digest_rows[-1]["content"]
 
-        micro_rows = self.db.get_personality_entries(self.player_id, "micro")
-        if micro_rows:
-            self._micro = micro_rows[-1]["content"]
+            micro_rows = self.db.get_personality_entries(self.player_id, "micro")
+            if micro_rows:
+                self._micro = micro_rows[-1]["content"]
 
-        if not self._micro:
-            self._micro = self.base_personality
+            if not self._micro:
+                self._micro = self.base_personality
 
     def add_journal_entry(self, text: str) -> None:
-        self._master_journal.append(text)
-        self.db.save_personality_entry(self.player_id, "master", text)
+        with self._lock:
+            self._master_journal.append(text)
+            self.db.save_personality_entry(self.player_id, "master", text)
 
     def record_reflection(self, reflection_text: str) -> None:
-        self.add_journal_entry(reflection_text)
-        self.redistill()
+        with self._lock:
+            self.add_journal_entry(reflection_text)
+            self.redistill()
 
     def redistill(self) -> None:
-        """Regenerate Digest and Micro personality tiers from the Master journal."""
-        if not self._master_journal:
-            self._digest = self.base_personality
-            self._micro = self.base_personality
-            return
+        """Regenerate Digest and Micro personality tiers from the Master journal.
+        
+        Thread-safe: uses lock to protect access to journal and digest/micro state.
+        """
+        with self._lock:
+            if not self._master_journal:
+                self._digest = self.base_personality
+                self._micro = self.base_personality
+                return
 
-        journal_text = "\n".join(self._master_journal)
+            journal_text = "\n".join(self._master_journal)
         
         digest_prompt = PERSONALITY_DIGEST_PROMPT.format(journal_text=journal_text)
         try:
@@ -89,4 +98,6 @@ class PersonalityMemoryManager:
         self.db.save_personality_entry(self.player_id, "micro", self._micro)
 
     def get_prompt_context(self) -> str:
-        return self._micro if self._micro else self.base_personality
+        """Thread-safe: uses lock to protect access to _micro."""
+        with self._lock:
+            return self._micro if self._micro else self.base_personality

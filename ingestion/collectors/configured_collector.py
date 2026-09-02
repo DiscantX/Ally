@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import cv2
+import threading
 import numpy as np
 from PIL import Image
 from PIL import Image as PILImage
@@ -97,6 +98,7 @@ class GenericHudCollector:
         clip_classifier: "ClipClassifier | None" = None,
         category_store: "ScreenCategoryStore | None" = None,
     ):
+        self._lock = threading.RLock()
         self.config = config
         self.screen = ScreenCollector(config.window_title)
         self.readers, self.classifier = build_screen_layouts(config.layout_dir, config.source_tag)
@@ -105,6 +107,8 @@ class GenericHudCollector:
         self._last_confirmed_facts: list[ConfirmedFact] = []
         self.clip_classifier = clip_classifier
         self.category_store = category_store
+        self._last_frame_bgr = None
+        self._last_confirmed_facts: list = []
 
         # Union of ignore_motion regions across every known screen -- we
         # don't know which screen we're on until *after* the change
@@ -133,7 +137,8 @@ class GenericHudCollector:
         if frame_bgr is None:
             return RawObservation(image=None, changed=False)
 
-        self._last_frame_bgr = frame_bgr
+        with self._lock:
+            self._last_frame_bgr = frame_bgr
         changed = self.screen.change_detector.has_changed(frame_bgr)
 
         screen_category: str | None = None
@@ -171,7 +176,9 @@ class GenericHudCollector:
                 skip_ally = True
 
         # Update last confirmed facts for next comparison
-        self._last_confirmed_facts = confirmed_facts.copy()
+        with self._lock:
+            self._last_frame_bgr = frame_bgr
+            self._last_confirmed_facts = confirmed_facts.copy()
 
         image = Image.fromarray(cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB))
         obs = RawObservation(
@@ -188,15 +195,22 @@ class GenericHudCollector:
     @timed
     def bootstrap_screen(self, screen_elements: list, screen_name_guess: str):
         """Called from main.py right after Scribe runs, only when capture()
-        flagged bootstrap_ready this turn."""
-        if self._last_frame_bgr is None:
-            log("bootstrap_screen called with no cached frame -- skipping.")
-            return None
-        result = self.bootstrapper.bootstrap(self._last_frame_bgr, screen_elements, screen_name_guess)
-        self.readers[result.screen_name] = LayoutOCRReader(
-            result.layout_path, source_tag=f"{self.config.source_tag}:{result.screen_name}"
-        )
-        self.classifier.register_draft_frame(result.screen_name, self._last_frame_bgr)
+        flagged bootstrap_ready this turn.
+        
+        Thread-safe: uses lock to protect access to _last_frame_bgr.
+        """
+        with self._lock:
+            if self._last_frame_bgr is None:
+                log("bootstrap_screen called with no cached frame -- skipping.")
+                return None
+            frame_bgr = self._last_frame_bgr
+        
+        result = self.bootstrapper.bootstrap(frame_bgr, screen_elements, screen_name_guess)
+        with self._lock:
+            self.readers[result.screen_name] = LayoutOCRReader(
+                result.layout_path, source_tag=f"{self.config.source_tag}:{result.screen_name}"
+            )
+            self.classifier.register_draft_frame(result.screen_name, frame_bgr)
         return result
 
 

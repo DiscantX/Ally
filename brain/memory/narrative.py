@@ -6,6 +6,7 @@ and long-term strategic summaries with LLM compression and database persistence.
 from collections import deque
 from dataclasses import dataclass
 from typing import Any
+import threading
 from pydantic import BaseModel
 
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
@@ -50,6 +51,7 @@ class NarrativeMemoryManager:
         self.model = model or get_model("narrative_model", config)
         self.thinking_level = get_thinking_level("narrative", config)
         self.save_tracker = save_tracker
+        self._lock = threading.RLock()
         self._short_term: deque[ShortTermEntry] = deque(maxlen=short_term_capacity)
         self.flush_trigger = flush_trigger or CompositeTrigger([
             TurnCountTrigger(interval=medium_flush_interval),
@@ -62,40 +64,48 @@ class NarrativeMemoryManager:
         self._load_from_db()
 
     def _load_from_db(self) -> None:
-        short_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "short")
-        for row in short_rows:
-            self._short_term.append(ShortTermEntry(turn=row["turn"], summary=row["summary"]))
-        self._entry_count = len(short_rows)
-        
-        med_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "medium")
-        self._medium_term_summaries = [row["summary"] for row in med_rows]
+        with self._lock:
+            short_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "short")
+            for row in short_rows:
+                self._short_term.append(ShortTermEntry(turn=row["turn"], summary=row["summary"]))
+            self._entry_count = len(short_rows)
+            
+            med_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "medium")
+            self._medium_term_summaries = [row["summary"] for row in med_rows]
 
-        long_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "long")
-        if long_rows:
-            self._long_term_summary = long_rows[-1]["summary"]
+            long_rows = self.db.get_narrative_entries(self.player_id, self.game_id, self.save_id, "long")
+            if long_rows:
+                self._long_term_summary = long_rows[-1]["summary"]
 
     def record_turn(self, turn: int, ally_analysis: str, importance: int = 0, explicit_checkpoint: bool = False) -> None:
-        self._entry_count += 1
-        entry = ShortTermEntry(turn=turn, summary=ally_analysis)
-        self._short_term.append(entry)
-        self.db.save_narrative_entry(self.player_id, self.game_id, self.save_id, turn, "short", ally_analysis)
+        with self._lock:
+            self._entry_count += 1
+            entry = ShortTermEntry(turn=turn, summary=ally_analysis)
+            self._short_term.append(entry)
+            self.db.save_narrative_entry(self.player_id, self.game_id, self.save_id, turn, "short", ally_analysis)
 
-        if self.save_tracker:
-            self.save_tracker.touch(self.player_id, self.game_id, self.save_id)
+            if self.save_tracker:
+                self.save_tracker.touch(self.player_id, self.game_id, self.save_id)
 
-        context = {"turn": self._entry_count, "importance": importance, "explicit_checkpoint": explicit_checkpoint}
-        if self.flush_trigger.should_trigger(context):
-            self._flush_to_medium_term()
+            context = {"turn": self._entry_count, "importance": importance, "explicit_checkpoint": explicit_checkpoint}
+            if self.flush_trigger.should_trigger(context):
+                self._flush_to_medium_term()
 
     def get_recent_turn_texts(self, n: int = 5) -> list[str]:
         """Plain summary strings from the short-term buffer, most recent
         last -- for consumers that need raw text rather than the formatted
-        [`build_context()`](brain/memory/narrative.py) blob (e.g. [`PerspectiveEngine`](brain/reasoning/perspective_engine.py))."""
-        return [entry.summary for entry in list(self._short_term)[-n:]]
+        [`build_context()`](brain/memory/narrative.py) blob (e.g. [`PerspectiveEngine`](brain/reasoning/perspective_engine.py)).
+        
+        Thread-safe: uses lock to protect access to _short_term.
+        """
+        with self._lock:
+            return [entry.summary for entry in list(self._short_term)[-n:]]
 
     def build_context(self) -> str:
-        parts = []
-        cross_record = self.db.get_latest_cross_session(self.player_id, self.game_id)
+        """Thread-safe: uses lock to protect access to shared state."""
+        with self._lock:
+            parts = []
+            cross_record = self.db.get_latest_cross_session(self.player_id, self.game_id)
         if cross_record:
             parts.append(f"Cross-Session Game Summary:\n{cross_record['summary']}")
         if self._long_term_summary:
