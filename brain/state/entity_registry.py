@@ -39,6 +39,7 @@ from typing import Any
 from brain.constants import DEFAULT_GAME_ID, DEFAULT_MATCH_THRESHOLD, DEFAULT_PLAYER_ID, DEFAULT_SAVE_ID
 from brain.knowledge.schema.schema import ScreenElement
 from brain.memory.db import MemoryDB
+from brain.validation import validate_scope_ids
 from infrastructure.logger import log
 
 
@@ -127,12 +128,7 @@ class EntityRegistry:
         db: MemoryDB | None = None,
         match_threshold: float = DEFAULT_MATCH_THRESHOLD,
     ) -> None:
-        if not isinstance(player_id, str) or not player_id.strip():
-            raise ValueError(f"player_id must be a non-empty string, got: {player_id!r}")
-        if not isinstance(game_id, str) or not game_id.strip():
-            raise ValueError(f"game_id must be a non-empty string, got: {game_id!r}")
-        if not isinstance(save_id, str) or not save_id.strip():
-            raise ValueError(f"save_id must be a non-empty string, got: {save_id!r}")
+        validate_scope_ids(player_id, game_id, save_id)
         if db is None:
             log("EntityRegistry initialized without a database - entities will not persist", level="warning")
         

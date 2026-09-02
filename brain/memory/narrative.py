@@ -10,6 +10,7 @@ import threading
 from pydantic import BaseModel
 
 from brain.constants import MEMORY_TIER_SHORT, MEMORY_TIER_MEDIUM, MEMORY_TIER_LONG
+from brain.validation import validate_scope_ids, validate_not_none
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.memory.db import MemoryDB
 from brain.memory.triggers import Trigger, TurnCountTrigger, CompositeTrigger, SalienceEventTrigger, ExplicitAllyTrigger
@@ -41,16 +42,9 @@ class NarrativeMemoryManager:
         model: str | None = None,
         save_tracker: Any | None = None,
     ) -> None:
-        if not isinstance(player_id, str) or not player_id.strip():
-            raise ValueError(f"player_id must be a non-empty string, got: {player_id!r}")
-        if not isinstance(game_id, str) or not game_id.strip():
-            raise ValueError(f"game_id must be a non-empty string, got: {game_id!r}")
-        if not isinstance(save_id, str) or not save_id.strip():
-            raise ValueError(f"save_id must be a non-empty string, got: {save_id!r}")
-        if provider is None:
-            raise ValueError("provider must not be None")
-        if db is None:
-            raise ValueError("db must not be None")
+        validate_scope_ids(player_id, game_id, save_id)
+        validate_not_none(provider, "provider")
+        validate_not_none(db, "db")
         
         config = load_user_config()
         self.player_id = player_id

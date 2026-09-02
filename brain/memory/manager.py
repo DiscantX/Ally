@@ -13,6 +13,7 @@ from brain.memory.narrative import NarrativeMemoryManager
 from brain.memory.personality import PersonalityMemoryManager
 from brain.memory.triggers import Trigger, TurnCountTrigger
 from brain.memory.save_tracker import SaveTracker
+from brain.validation import validate_scope_ids, validate_non_empty_string, validate_not_none
 
 
 class MemorySystem:
@@ -29,16 +30,9 @@ class MemorySystem:
         db_path: str | None = None,
         save_tracker: SaveTracker | None = None,
     ) -> None:
-        if not isinstance(player_id, str) or not player_id.strip():
-            raise ValueError(f"player_id must be a non-empty string, got: {player_id!r}")
-        if not isinstance(game_id, str) or not game_id.strip():
-            raise ValueError(f"game_id must be a non-empty string, got: {game_id!r}")
-        if not isinstance(save_id, str) or not save_id.strip():
-            raise ValueError(f"save_id must be a non-empty string, got: {save_id!r}")
-        if provider is None:
-            raise ValueError("provider must not be None")
-        if not isinstance(base_personality, str) or not base_personality.strip():
-            raise ValueError(f"base_personality must be a non-empty string, got: {base_personality!r}")
+        validate_scope_ids(player_id, game_id, save_id)
+        validate_not_none(provider, "provider")
+        validate_non_empty_string(base_personality, "base_personality")
         
         log("Initializing MemorySystem (MemoryManager)...")
         self.lock = threading.Lock()
