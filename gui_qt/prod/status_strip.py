@@ -18,6 +18,7 @@ class StatusStrip(QWidget):
     """
     settings_requested = Signal()
     dev_window_requested = Signal()
+    exit_requested = Signal()
 
     def __init__(self, theme: Theme, personality_name: str = "Ally", parent: Optional[QWidget] = None):
         super().__init__(parent)
@@ -85,6 +86,14 @@ class StatusStrip(QWidget):
         self._dev_btn.setToolTip("Open Dev Inspector")
         self._dev_btn.clicked.connect(self.dev_window_requested.emit)
         layout.addWidget(self._dev_btn)
+
+        # Exit / Close button
+        self._exit_btn = QToolButton(self)
+        self._exit_btn.setObjectName("statusStrip__exitButton")
+        self._exit_btn.setText("✕")
+        self._exit_btn.setToolTip("Close Ally")
+        self._exit_btn.clicked.connect(self.exit_requested.emit)
+        layout.addWidget(self._exit_btn)
 
     def set_personality(self, name: str) -> None:
         """Updates the personality badge name and swatch color.

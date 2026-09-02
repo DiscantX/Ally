@@ -34,3 +34,6 @@ state/memory.db-shm
 .roo/
 .roomodes
 model/
+
+# Qdrant Local Isolated Database
+.qdrant_storage/

@@ -5,6 +5,7 @@ drop-in compatible with the existing MemoryManager class.
 
 from typing import Any
 import threading
+from infrastructure.logger import log
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
 from brain.memory.db import MemoryDB
 from brain.memory.narrative import NarrativeMemoryManager
@@ -27,6 +28,7 @@ class MemorySystem:
         db_path: str | None = None,
         save_tracker: SaveTracker | None = None,
     ):
+        log("Initializing MemorySystem (MemoryManager)...")
         self.lock = threading.Lock()
         self.player_id = player_id
         self.game_id = game_id

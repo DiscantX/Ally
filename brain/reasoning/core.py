@@ -558,6 +558,7 @@ class AllyCore:
         # Use a separate initialization lock to avoid deadlocks with state_lock
         # (state_lock might be held by run_loop while initialize_run is called)
         with self._initialization_lock:
+            log("Initializing run in AllyCore...")
             if self._initialized:
                 return  # Already initialized
             

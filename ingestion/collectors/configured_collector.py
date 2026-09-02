@@ -205,6 +205,7 @@ def build_collector(
     clip_classifier: "ClipClassifier | None" = None,
     category_store: "ScreenCategoryStore | None" = None,
 ) -> GenericHudCollector:
+    log("Building collector from config_path={path}...", path=config_path)
     config = load_collector_config(config_path)
     if config.collector_type != "screen_ocr":
         raise NotImplementedError(

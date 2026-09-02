@@ -1,11 +1,94 @@
 """Vertical slice: a continuous turn loop through the pipeline using AllyCore."""
 
 import argparse
-from typing import Any
+import threading
+from typing import Any, Optional, TYPE_CHECKING
 import time
 import sys
+import signal
 
 from infrastructure.logger import log
+
+# Global references for shutdown coordination
+_shutdown_in_progress = threading.Event()
+_core_instance: Optional[Any] = None
+_qt_app_instance: Optional[Any] = None
+_overlay_instance: Optional[Any] = None
+
+
+def shutdown_application() -> None:
+    """Performs a clean, coordinated shutdown of the application.
+    
+    This is the single shared exit path for all termination triggers:
+    - Qt GUI close button / window close
+    - StatusStrip exit button
+    - Terminal Ctrl+C (SIGINT)
+    - Headless mode end of loop
+    """
+    if _shutdown_in_progress.is_set():
+        return  # Prevent double-invocation
+    
+    _shutdown_in_progress.set()
+    log("Initiating clean shutdown...", level="info")
+    
+    # Instant GUI teardown: hide window immediately and unregister shell bounds
+    if _overlay_instance is not None:
+        try:
+            _overlay_instance.add_ally_message("System", "Shutdown in progress...")
+            _overlay_instance.hide()
+        except Exception:
+            pass
+
+    try:
+        from brain.state.shell_bounds_registry import SHELL_BOUNDS
+        SHELL_BOUNDS.unregister("prod_overlay")
+    except Exception:
+        pass
+    
+    # Quit Qt app immediately on the main thread to unblock event loop and destroy GUI instantly
+    if _qt_app_instance is not None:
+        try:
+            _qt_app_instance.quit()
+        except Exception as e:
+            log("Error quitting Qt app: {e}", e=e, level="error")
+
+    # Run heavy cleanup in background thread so UI disappears instantly,
+    # then force-exit process when complete.
+    def _background_cleanup() -> None:
+        if _core_instance is not None:
+            try:
+                _core_instance.stop()
+                log("Core shutdown complete.", level="info")
+            except Exception as e:
+                log("Error stopping core: {e}", e=e, level="error")
+        
+        log("Shutdown complete.", level="info")
+        import os
+        os._exit(0)
+
+    threading.Thread(target=_background_cleanup, name="ShutdownCleanup", daemon=True).start()
+
+
+def _handle_sigint(signum: int, frame: Any) -> None:
+    """Signal handler for SIGINT (Ctrl+C)."""
+    log("\nReceived Ctrl+C (SIGINT). Shutting down gracefully...", level="info")
+    try:
+        signal.siginterrupt(signum, True)
+    except Exception:
+        pass
+    
+    # If Qt app is active, schedule shutdown on the main thread safely via QTimer
+    if _qt_app_instance is not None:
+        try:
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(0, shutdown_application)
+            return
+        except Exception:
+            pass
+    
+    shutdown_application()
+
+
 
 # NOTE: STATE_LOCK has been removed. All thread synchronization should use
 # AllyCore.state_lock or appropriate component-specific locks.
@@ -103,6 +186,8 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
         log("Core initialization completed, setting up Qt bridge and signals...", level="info")
         try:
             core_holder["core"] = loaded_core
+            global _core_instance
+            _core_instance = loaded_core
             overlay.set_registry(loaded_core.entity_registry)
 
             bridge = CoreBridge(loaded_core)
@@ -113,6 +198,7 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
             overlay._status_strip.dev_window_requested.connect(
                 lambda: DevInspectorWindow.get_instance(loaded_core, overlay._theme)
             )
+            overlay._status_strip.exit_requested.connect(shutdown_application)
             overlay._input_bar.message_sent.connect(
                 lambda text, mode: loaded_core.send_message(text, mode)
             )
@@ -179,11 +265,14 @@ def initialize_application() -> None:
     """Application entry point invoked cleanly after splash screen processes terminate or in headless/tkinter modes."""
     args = parse_args()
 
+    global _core_instance, _qt_app_instance, _overlay_instance
     if getattr(args, "gui_qt", False) or (not getattr(args, "headless", False) and not getattr(args, "gui", False)):
         from PySide6.QtWidgets import QApplication
         from gui_qt.prod.overlay_window import ProdOverlayWindow
         app = QApplication(sys.argv)
+        _qt_app_instance = app  # Set global reference for shutdown
         overlay = ProdOverlayWindow(registry=None)
+        _overlay_instance = overlay  # Set global reference for instant GUI hiding
         overlay.show()
         overlay.add_ally_message("System", "Initializing Ally & Perception pipeline...")
         run_qt_app_with_overlay(app, overlay)
@@ -197,6 +286,7 @@ def initialize_application() -> None:
             game_id=args.game,
             image_path=args.image,
         )
+        _core_instance = core  # Set global reference for shutdown
         core.initialize_run()
 
         if args.gui:
@@ -245,6 +335,9 @@ def initialize_application() -> None:
                 core.stop()
             else:
                 core.run_loop()
+
+# Register SIGINT handler at module import time so it catches Ctrl+C in all entry points (run.py, main.py, etc.)
+signal.signal(signal.SIGINT, _handle_sigint)
 
 # Allows main.py to still be run directly if needed during rapid headless testing
 if __name__ == "__main__":

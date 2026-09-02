@@ -38,6 +38,7 @@ from typing import Any
 
 from brain.knowledge.schema.schema import ScreenElement
 from brain.memory.db import MemoryDB
+from infrastructure.logger import log
 
 
 @dataclass

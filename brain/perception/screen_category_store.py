@@ -38,7 +38,7 @@ from brain.memory.db import MemoryDB
 from brain.perception.clip_classifier import ClipClassifier
 from infrastructure.logger import log, timed
 
-SEED_FILE = "storage/configs/template/clip_seed_categories.json"
+SEED_FILE = "cabinet/configs/clip_seed_categories.json"
 
 
 @dataclass
@@ -52,6 +52,7 @@ class CategoryMatch:
 
 class ScreenCategoryStore:
     def __init__(self, db: MemoryDB, clip: ClipClassifier):
+        log("Initializing ScreenCategoryStore...")
         self.db = db
         self.clip = clip
         self._lock = threading.Lock()  # same coarse-lock convention as EntityRegistry
@@ -73,6 +74,7 @@ class ScreenCategoryStore:
     def _ensure_seeded(self) -> None:
         import time
         if self.db.count_screen_categories(source="seed") > 0:
+            log("Screen categories already seeded.")
             return
         if not os.path.exists(SEED_FILE):
             log("No seed file at {path} -- starting with zero off_game categories.", path=SEED_FILE)
@@ -80,8 +82,11 @@ class ScreenCategoryStore:
         if not self.clip.enabled:
             log("CLIP unavailable -- cannot embed seed categories, skipping seed load.")
             return
+        
+        log("Starting background seeding of off_game categories from {path}...", path=SEED_FILE)
         with open(SEED_FILE, "r") as f:
             seeds = json.load(f)
+        
         for entry in seeds:
             embedding = self.clip.encode_text(entry["text"])
             if embedding is None:

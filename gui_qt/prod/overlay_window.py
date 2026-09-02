@@ -53,6 +53,7 @@ class ProdOverlayWindow(QWidget):
         self._status_strip = StatusStrip(self._theme, personality_name="Ally", parent=self._container)
         self._status_strip.settings_requested.connect(self._open_settings)
         self._status_strip.dev_window_requested.connect(self._on_dev_requested)
+        self._status_strip.exit_requested.connect(self.close)
         container_layout.addWidget(self._status_strip)
 
         self._feed_panel = FeedPanel(self._theme, self._registry, parent=self._container)
@@ -120,7 +121,20 @@ class ProdOverlayWindow(QWidget):
 
     def closeEvent(self, event) -> None:
         SHELL_BOUNDS.unregister("prod_overlay")
-        super().closeEvent(event)
+        # Do NOT call super().closeEvent(event) here to avoid Qt's default close behavior
+        # which would hide the window before our shutdown logic runs.
+        # Instead, trigger shutdown first, which will hide the window instantly.
+        try:
+            from main import _shutdown_in_progress, shutdown_application
+            if not _shutdown_in_progress.is_set():
+                shutdown_application()
+        except (ImportError, SystemExit):
+            # main module not importable in some contexts, or shutdown already in progress
+            pass
+        except Exception:
+            pass
+        # Accept the event but do not call super().closeEvent(event) to avoid double-hide
+        event.accept()
 
     def _update_shell_bounds(self) -> None:
         """Updates absolute screen bounds in SHELL_BOUNDS registry for self-capture exclusion.
