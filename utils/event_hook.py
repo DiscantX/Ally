@@ -40,4 +40,4 @@ class EventHook:
             try:
                 callback(*args, **kwargs)
             except Exception as e:
-                log(f"Error in subscriber callback for hook '{self.name}': {e}", level="error", name="EventHook")
+                log("Error in subscriber callback for hook '{name}': {error}", name=self.name, error=str(e), level="error")

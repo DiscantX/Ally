@@ -68,7 +68,7 @@ class QtSafeCallbackWrapper:
             callback, args, kwargs = data
             callback(*args, **kwargs)
         except Exception as e:
-            log(f"Error in Qt-safe callback '{self.name}': {e}", level="error", name=MODULE_NAME)
+            log("Error in Qt-safe callback '{name}': {error}", name=self.name, error=str(e), level="error")
     
     def emit(self, *args: Any, **kwargs: Any) -> None:
         """Emit the callback to be invoked on Qt main thread."""

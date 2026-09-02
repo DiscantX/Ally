@@ -105,7 +105,7 @@ class VoiceOutputController:
             try:
                 self._audio_player.clear_pending()
             except Exception as exc:
-                log("{}: Error clearing audio on disable: {}", MODULE_NAME, exc, level="warning")
+                log("{}: Error clearing audio on disable: {error}", MODULE_NAME, error=str(exc), level="warning")
 
     def is_enabled(self) -> bool:
         """Return whether voice output is currently enabled."""
@@ -131,7 +131,7 @@ class VoiceOutputController:
                     return
                 self._handle_chunk(text)
             except Exception as exc:
-                log("{}: Error in on_chat_stream_chunk handler: {}", MODULE_NAME, exc, level="error")
+                log("{}: Error in on_chat_stream_chunk handler: {error}", MODULE_NAME, error=str(exc), level="error")
 
         def on_finalize(text: str) -> None:
             """Handle finalized chat-stream text."""
@@ -140,14 +140,14 @@ class VoiceOutputController:
                     return
                 self._handle_finalize(text)
             except Exception as exc:
-                log("{}: Error in on_chat_stream_finalize handler: {}", MODULE_NAME, exc, level="error")
+                log("{}: Error in on_chat_stream_finalize handler: {error}", MODULE_NAME, error=str(exc), level="error")
 
         def on_reset() -> None:
             """Handle mid-stream retry (reset)."""
             try:
                 self._handle_reset()
             except Exception as exc:
-                log("{}: Error in on_chat_stream_reset handler: {}", MODULE_NAME, exc, level="error")
+                log("{}: Error in on_chat_stream_reset handler: {error}", MODULE_NAME, error=str(exc), level="error")
 
         self._on_chunk_handler = on_chunk
         self._on_finalize_handler = on_finalize
@@ -250,7 +250,7 @@ class VoiceOutputController:
         try:
             self._audio_player.clear_pending()
         except Exception as exc:
-            log("{}: Error clearing audio on reset: {}", MODULE_NAME, exc, level="warning")
+            log("{}: Error clearing audio on reset: {error}", MODULE_NAME, error=str(exc), level="warning")
 
         # Reset the cancel flag for next synthesis
         self._cancel_synthesis.clear()
@@ -280,7 +280,7 @@ class VoiceOutputController:
                     break
                 self._enqueue_audio(audio_chunk)
         except Exception as exc:
-            log("{}: Error in stream synthesis: {}", MODULE_NAME, exc, level="error")
+            log("{}: Error in stream synthesis: {error}", MODULE_NAME, error=str(exc), level="error")
 
     def _synthesize_single(self, text: str) -> None:
         """Synthesize text using single-shot TTS and enqueue audio.
@@ -302,7 +302,7 @@ class VoiceOutputController:
             if not self._cancel_synthesis.is_set():
                 self._enqueue_audio(audio)
         except Exception as exc:
-            log("{}: Error in single synthesis: {}", MODULE_NAME, exc, level="error")
+            log("{}: Error in single synthesis: {error}", MODULE_NAME, error=str(exc), level="error")
 
     def _enqueue_audio(self, audio: SynthesizedAudio) -> None:
         """Convert SynthesizedAudio to numpy array and enqueue for playback.
@@ -324,4 +324,4 @@ class VoiceOutputController:
                 audio.duration_seconds,
             )
         except Exception as exc:
-            log("{}: Error enqueueing audio: {}", MODULE_NAME, exc, level="error")
+            log("{}: Error enqueueing audio: {error}", MODULE_NAME, error=str(exc), level="error")

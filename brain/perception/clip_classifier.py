@@ -60,7 +60,7 @@ class ClipClassifier:
                 self._loaded_event.set()
                 log("CLIP models loaded successfully in background.")
             except Exception as e:
-                log("Failed to load CLIP models ({e}) -- disabling CLIP gating.", e=e)
+                log("Failed to load CLIP models: {error} -- disabling CLIP gating.", error=str(e), level="error")
                 self.enabled = False
                 self._loaded_event.set()
 
@@ -89,7 +89,7 @@ class ClipClassifier:
             embedding = next(self._image_model.embed([pil_image]))
             return self._normalize(np.asarray(embedding))
         except Exception as e:
-            log("Image encode failed: {e}", e=e)
+            log("Image encode failed: {error}", error=str(e), level="warning")
             return None
 
     @timed
@@ -102,7 +102,7 @@ class ClipClassifier:
             embedding = next(self._text_model.embed([text]))
             return self._normalize(np.asarray(embedding))
         except Exception as e:
-            log("Text encode failed: {e}", e=e)
+            log("Text encode failed: {error}", error=str(e), level="warning")
             return None
 
     @staticmethod
