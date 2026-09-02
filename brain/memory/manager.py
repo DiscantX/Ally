@@ -27,7 +27,7 @@ class MemorySystem:
         flush_trigger: Trigger | None = None,
         db_path: str | None = None,
         save_tracker: SaveTracker | None = None,
-    ):
+    ) -> None:
         if not isinstance(player_id, str) or not player_id.strip():
             raise ValueError(f"player_id must be a non-empty string, got: {player_id!r}")
         if not isinstance(game_id, str) or not game_id.strip():

@@ -125,7 +125,7 @@ class EntityRegistry:
         save_id: str = "default_save",
         db: MemoryDB | None = None,
         match_threshold: float = 0.75,
-    ):
+    ) -> None:
         if not isinstance(player_id, str) or not player_id.strip():
             raise ValueError(f"player_id must be a non-empty string, got: {player_id!r}")
         if not isinstance(game_id, str) or not game_id.strip():

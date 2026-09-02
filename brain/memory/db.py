@@ -17,7 +17,7 @@ DB_PATH = os.path.join("data", "profiles", "default_player", "memory.db")
 
 
 class MemoryDB:
-    def __init__(self, db_path: str | None = None, player_id: str = "default_player"):
+    def __init__(self, db_path: str | None = None, player_id: str = "default_player") -> None:
         self.player_id = player_id
         self.db_path = db_path or os.path.join("data", "profiles", player_id, "memory.db")
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)

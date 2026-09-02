@@ -17,7 +17,7 @@ class TextSummary(BaseModel):
 
 
 class PersonalityMemoryManager:
-    def __init__(self, player_id: str, provider: GeminiProvider, db: MemoryDB, base_personality: str, model: str | None = None, thinking_level: str | None = None):
+    def __init__(self, player_id: str, provider: GeminiProvider, db: MemoryDB, base_personality: str, model: str | None = None, thinking_level: str | None = None) -> None:
         if not isinstance(player_id, str) or not player_id.strip():
             raise ValueError(f"player_id must be a non-empty string, got: {player_id!r}")
         if provider is None:

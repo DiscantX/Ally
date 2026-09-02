@@ -10,7 +10,7 @@ from brain.memory.db import MemoryDB
 from infrastructure.logger import log, timed
 
 class SaveTracker:
-    def __init__(self, db: MemoryDB):
+    def __init__(self, db: MemoryDB) -> None:
         if db is None:
             raise ValueError("SaveTracker requires a non-None MemoryDB instance")
         log("Initializing SaveTracker...")

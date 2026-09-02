@@ -9,11 +9,11 @@ class Trigger(ABC):
     @abstractmethod
     def should_trigger(self, context: dict[str, Any]) -> bool:
         """Evaluate whether the trigger condition is met."""
-        pass
+        ...
 
 
 class TurnCountTrigger(Trigger):
-    def __init__(self, interval: int = 8):
+    def __init__(self, interval: int = 8) -> None:
         self.interval = interval
         self._turns_since_flush = 0
 
@@ -26,7 +26,7 @@ class TurnCountTrigger(Trigger):
 
 
 class SalienceEventTrigger(Trigger):
-    def __init__(self, importance_threshold: int = 8):
+    def __init__(self, importance_threshold: int = 8) -> None:
         self.importance_threshold = importance_threshold
 
     def should_trigger(self, context: dict[str, Any]) -> bool:
@@ -45,7 +45,7 @@ class SignificantMomentTrigger(Trigger):
 
 
 class PerspectiveConflictTrigger(Trigger):
-    def __init__(self, margin_threshold: float = 2.0):
+    def __init__(self, margin_threshold: float = 2.0) -> None:
         self.margin_threshold = margin_threshold
 
     def should_trigger(self, context: dict[str, Any]) -> bool:
@@ -56,7 +56,7 @@ class PerspectiveConflictTrigger(Trigger):
 
 
 class CompositeTrigger(Trigger):
-    def __init__(self, triggers: list[Trigger]):
+    def __init__(self, triggers: list[Trigger]) -> None:
         self.triggers = triggers
 
     def should_trigger(self, context: dict[str, Any]) -> bool:
