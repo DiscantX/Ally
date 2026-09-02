@@ -181,6 +181,31 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
     from PIL import Image
 
     core_holder: dict[str, Any] = {"core": None}
+    message_queue: list[tuple[str, str]] = []
+
+    # Early UI event bindings executed immediately after overlay is shown
+    overlay._status_strip.exit_requested.connect(shutdown_application)
+
+    def handle_message_sent(text: str, mode: str) -> None:
+        core = core_holder["core"] or _core_instance
+        if core is not None:
+            core.send_message(text, mode)
+        else:
+            log("Core not ready yet, queuing message...", level="info")
+            message_queue.append((text, mode))
+            overlay.add_ally_message("System", f"Message queued (core initializing): {text}")
+
+    overlay._input_bar.message_sent.connect(handle_message_sent)
+
+    def handle_dev_requested() -> None:
+        core = core_holder["core"] or _core_instance
+        if core is not None:
+            DevInspectorWindow.get_instance(core, overlay._theme)
+        else:
+            overlay.add_ally_message("System", "Dev Inspector is waiting for AllyCore to finish initializing...")
+            log("Dev window requested before core initialization completed.", level="warning")
+
+    overlay._status_strip.dev_window_requested.connect(handle_dev_requested)
 
     def _on_core_initialized(loaded_core: AllyCore) -> None:
         log("Core initialization completed, setting up Qt bridge and signals...", level="info")
@@ -195,13 +220,10 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
             bridge.analysis_stream_finalize.connect(lambda analysis: overlay.add_ally_message("Ally", analysis))
             bridge.connection_status_ready.connect(lambda stat: overlay._status_strip.update_connection(stat))
 
-            overlay._status_strip.dev_window_requested.connect(
-                lambda: DevInspectorWindow.get_instance(loaded_core, overlay._theme)
-            )
-            overlay._status_strip.exit_requested.connect(shutdown_application)
-            overlay._input_bar.message_sent.connect(
-                lambda text, mode: loaded_core.send_message(text, mode)
-            )
+            # Forward any queued messages now that core is ready
+            while message_queue:
+                q_text, q_mode = message_queue.pop(0)
+                loaded_core.send_message(q_text, q_mode)
 
             # Voice output: construct VoiceOutputController if enabled in config.
             # VoiceInputController is already owned by ProdOverlayWindow (wired in overlay_window.py).

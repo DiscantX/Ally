@@ -35,14 +35,15 @@ class TestAllyCore(unittest.TestCase):
 
     def test_ally_core_chat_message_unstarted(self):
         core = AllyCore(personality_name="Scout")
-        messages = []
-        core.on_chat_message.connect(lambda sender, msg: messages.append((sender, msg)))
-
+        
         core.send_message("Hello Ally", message_type="chat")
-        # Wait briefly for background thread
-        import time
-        time.sleep(0.1)
-        self.assertTrue(any("Game loop hasn't started yet" in m[1] for m in messages))
+        with core.state_lock:
+            self.assertEqual(len(core._pending_messages), 1)
+            self.assertEqual(core._pending_messages[0], ("Hello Ally", "chat"))
+
+        core.initialize_run()
+        with core.state_lock:
+            self.assertEqual(len(core._pending_messages), 0)
 
     def test_gameplay_driven_significant_moment_trigger(self):
         core = AllyCore(image_path=None, personality_name="Scout")

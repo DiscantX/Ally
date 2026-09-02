@@ -84,8 +84,9 @@ class AllyCore:
         self.gui_app: Optional[Any] = None
 
         self.state_lock = threading.RLock()
-        self._initialization_lock = threading.Lock()
+        self._initialization_lock = threading.RLock()
         self._initialized = False
+        self._pending_messages: deque[tuple[str, str]] = deque()
         self.running = False
         self._loop_thread: Optional[threading.Thread] = None
 
@@ -499,7 +500,8 @@ class AllyCore:
             sandbox_turn = 0
 
             with self.state_lock:
-                if self.memory_manager is None:
+                if self.memory_manager is None or not self._initialized:
+                    self._pending_messages.append((text, message_type))
                     not_started = True
                 else:
                     if message_type != "feedback":
@@ -513,7 +515,6 @@ class AllyCore:
                         self.memory_manager.personality.record_reflection(f"Player feedback: {text}")
 
             if not_started:
-                self.on_chat_message.emit("coach", "Game loop hasn't started yet. Hang tight!")
                 return
 
             if message_type == "feedback":
@@ -542,6 +543,7 @@ class AllyCore:
                     on_thought_finalize=lambda: (self.on_thinking_stream_finalize.emit(), ensure_chat_begun()),
                 )
                 ensure_chat_begun()
+                self.on_chat_stream_finalize.emit(res.response)
                 with self.state_lock:
                     if self.memory_manager is not None:
                         self.memory_manager.record_turn(
@@ -549,7 +551,6 @@ class AllyCore:
                             f"Player asked: '{text}' -> Ally answered: '{res.response}'",
                             importance=5
                         )
-                self.on_chat_stream_finalize.emit(res.response)
             except Exception as e:
                 self.on_chat_stream_reset.emit()
                 self.on_chat_stream_finalize.emit(f"(Error: {e})")
@@ -614,3 +615,10 @@ class AllyCore:
                 )
             
             self._initialized = True
+
+            with self.state_lock:
+                pending = list(self._pending_messages)
+                self._pending_messages.clear()
+
+            for text, message_type in pending:
+                self.send_message(text, message_type)
