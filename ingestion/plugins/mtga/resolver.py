@@ -9,12 +9,13 @@ import glob
 import os
 import sqlite3
 from typing import Any, Dict, List, Optional
+import os
 
 
 class BaseLookupResolver:
     """Base class for MTGA local SQLite database file lookups and caching."""
 
-    def __init__(self, data_dir: Optional[str] = None):
+    def __init__(self, data_dir: Optional[str] = None) -> None:
         self.data_dir = data_dir or self._find_default_data_dir()
         self._cache: Dict[str, Any] = {}
 
@@ -121,7 +122,7 @@ class EnumResolver:
 class EntityResolver(BaseLookupResolver):
     """Resolves card entity grpIds against local MTGA SQLite card database files."""
 
-    def __init__(self, data_dir: Optional[str] = None):
+    def __init__(self, data_dir: Optional[str] = None) -> None:
         super().__init__(data_dir)
         self.cards_db: Dict[int, Dict[str, Any]] = {}
         self.loc_db: Dict[int, str] = {}

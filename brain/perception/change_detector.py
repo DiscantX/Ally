@@ -49,8 +49,8 @@ class ChangeDetector:
         stability_threshold_percent: float | None = None,
         use_ssim: bool | None = None,
         ignore_regions: list[tuple[int, int, int, int]] | None = None,
-        gui_app = None,
-    ):
+        gui_app: Any = None,
+    ) -> None:
         config = load_user_config()
         self.threshold_percent = threshold_percent if threshold_percent is not None else config.get("threshold_percent", 15)
         self.pixel_diff_threshold = pixel_diff_threshold if pixel_diff_threshold is not None else config.get("pixel_diff_threshold", 25)

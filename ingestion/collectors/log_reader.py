@@ -55,7 +55,7 @@ class LogReader:
         follow: bool = False,
         poll_interval: float = 0.1,
         start_at_end: bool = False,
-    ):
+    ) -> None:
         self.file_path = file_path
         self.follow = follow
         self.poll_interval = poll_interval

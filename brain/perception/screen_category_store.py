@@ -51,7 +51,11 @@ class CategoryMatch:
 
 
 class ScreenCategoryStore:
-    def __init__(self, db: MemoryDB, clip: ClipClassifier):
+    def __init__(self, db: MemoryDB, clip: ClipClassifier) -> None:
+        if db is None:
+            raise ValueError("db must not be None")
+        if clip is None:
+            raise ValueError("clip must not be None")
         log("Initializing ScreenCategoryStore...")
         self.db = db
         self.clip = clip

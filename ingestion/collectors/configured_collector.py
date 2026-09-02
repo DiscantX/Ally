@@ -97,7 +97,7 @@ class GenericHudCollector:
         config: CollectorConfig,
         clip_classifier: "ClipClassifier | None" = None,
         category_store: "ScreenCategoryStore | None" = None,
-    ):
+    ) -> None:
         self._lock = threading.RLock()
         self.config = config
         self.screen = ScreenCollector(config.window_title)
@@ -193,7 +193,7 @@ class GenericHudCollector:
         return obs
 
     @timed
-    def bootstrap_screen(self, screen_elements: list, screen_name_guess: str):
+    def bootstrap_screen(self, screen_elements: list[Any], screen_name_guess: str) -> RawObservation | None:
         """Called from main.py right after Scribe runs, only when capture()
         flagged bootstrap_ready this turn.
         

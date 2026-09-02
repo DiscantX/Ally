@@ -18,7 +18,9 @@ from infrastructure.logger import log, timed
 class Scribe:
     _first_extract_done = False
 
-    def __init__(self, provider: GeminiProvider, model: str | None = None, thinking_level: str | None = None):
+    def __init__(self, provider: GeminiProvider, model: str | None = None, thinking_level: str | None = None) -> None:
+        if provider is None:
+            raise ValueError("provider must not be None")
         config = load_user_config()
         self.provider = provider
         self.model = model or get_model("scribe_model", config)

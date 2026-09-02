@@ -28,7 +28,7 @@ from infrastructure.logger import log, timed
 class ScreenCollector:
     _first_capture_done = False
 
-    def __init__(self, window_title: str, always_on_top: bool = True):
+    def __init__(self, window_title: str, always_on_top: bool = True) -> None:
         self.window_title = window_title
         self.rect = ClientRect(window_title)
         self._always_on_top = always_on_top

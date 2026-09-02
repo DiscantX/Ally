@@ -30,7 +30,7 @@ class ClipClassifier:
     Construct once (model loading has real cost) and share the instance
     -- see ally/core.py for where this gets constructed and injected."""
 
-    def __init__(self, image_model: str | None = None, text_model: str | None = None):
+    def __init__(self, image_model: str | None = None, text_model: str | None = None) -> None:
         import threading
         log("Initializing ClipClassifier...")
         config = load_user_config()
@@ -52,7 +52,7 @@ class ClipClassifier:
         self._text_model = None
         self._loaded_event = threading.Event()
 
-        def _load_models():
+        def _load_models() -> None:
             try:
                 log("Loading CLIP models in background (image: {img}, text: {txt})...", img=image_model_name, txt=text_model_name)
                 self._image_model = ImageEmbedding(image_model_name)

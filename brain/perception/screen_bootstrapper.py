@@ -42,7 +42,7 @@ class ScreenBootstrapper:
     _first_setup_done = False
 
     @timed
-    def __init__(self, layout_dir: str, unknown_streak_threshold: int | None = None):
+    def __init__(self, layout_dir: str, unknown_streak_threshold: int | None = None) -> None:
         start_t = time.perf_counter()
         config = load_user_config()
         self.layout_dir = layout_dir

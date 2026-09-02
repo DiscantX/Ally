@@ -51,7 +51,7 @@ class ScreenMatch:
 
 
 class ScreenClassifier:
-    def __init__(self, match_threshold: float | None = None, draft_match_threshold: float | None = None, draft_frame_size: tuple[int, int] = (160, 90), gui_app = None):
+    def __init__(self, match_threshold: float | None = None, draft_match_threshold: float | None = None, draft_frame_size: tuple[int, int] = (160, 90), gui_app: Any = None) -> None:
         config = load_user_config()
         self.match_threshold = match_threshold if match_threshold is not None else config["match_threshold"]
         self.draft_match_threshold = draft_match_threshold if draft_match_threshold is not None else config["draft_match_threshold"]

@@ -31,7 +31,7 @@ class MTGALogParser:
         
     CARD_OBJECT_TYPE = "GameObjectType_Card"
 
-    def __init__(self, log_path: str):
+    def __init__(self, log_path: str) -> None:
         self.log_path = log_path
         self.reader = LogReader(log_path, follow=False)
         self.entity_resolver: Any = EntityResolver()

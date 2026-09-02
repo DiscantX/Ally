@@ -11,7 +11,7 @@ from brain.perception.ocr import extract_text, preprocess_for_ocr
 
 
 class LayoutOCRReader:
-    def __init__(self, layout_path: str, source_tag: str):
+    def __init__(self, layout_path: str, source_tag: str) -> None:
         self.layout = LayoutManager(layout_path)
         self.source_tag = source_tag
 
@@ -23,7 +23,7 @@ class LayoutOCRReader:
         so they don't count toward "this screen's OCR is ready."""
         return any(el.is_trusted for el in self.layout.elements.values())
 
-    def read(self, frame_bgr) -> list[ConfirmedFact]:
+    def read(self, frame_bgr: Any) -> list[ConfirmedFact]:
         facts = []
         for name, element in self.layout.elements.items():
             if not element.is_trusted:
