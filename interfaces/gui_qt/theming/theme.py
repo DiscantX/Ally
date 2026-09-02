@@ -111,3 +111,6 @@ def build_stylesheet(theme: Theme, template_path: str) -> str:
     except Exception as e:
         log("Failed to build stylesheet from template {path}: {e}", path=template_path, e=e, level="error")
         return ""
+
+
+TEMPLATE_PATH: str = os.path.join(os.path.dirname(__file__), "base.qss.tmpl")

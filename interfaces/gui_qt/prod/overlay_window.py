@@ -4,17 +4,17 @@ from typing import Optional, Literal
 from PySide6.QtCore import Qt, QPoint, QRect
 from PySide6.QtGui import QScreen, QGuiApplication
 from PySide6.QtWidgets import QWidget, QVBoxLayout
-from gui_qt.prod.feed_panel import FeedPanel
-from gui_qt.prod.input_bar import InputBar
-from gui_qt.prod.status_strip import StatusStrip
-from gui_qt.prod.settings_dialog import SettingsDialog
-from gui_qt.prod.voice_input_controller import VoiceInputController
+from interfaces.gui_qt.prod.feed_panel import FeedPanel
+from interfaces.gui_qt.prod.input_bar import InputBar
+from interfaces.gui_qt.prod.status_strip import StatusStrip
+from interfaces.gui_qt.prod.settings_dialog import SettingsDialog
+from interfaces.gui_qt.prod.voice_input_controller import VoiceInputController
 from interfaces.gui_qt.shell.capture_exclusion import exclude_hwnd_from_capture
 from brain.state.shell_bounds_registry import SHELL_BOUNDS
-from gui_qt.theming.theme import Theme, SIGNAL, SYNTHWAVE, build_stylesheet
+from interfaces.gui_qt.theming.theme import Theme, SIGNAL, SYNTHWAVE, build_stylesheet
 from brain.state.entity_registry import EntityRegistry
 
-TEMPLATE_PATH = "gui_qt/theming/base.qss.tmpl"
+TEMPLATE_PATH = "interfaces/gui_qt/theming/base.qss.tmpl"
 
 
 class ProdOverlayWindow(QWidget):

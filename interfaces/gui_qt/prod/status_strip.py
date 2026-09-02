@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (
     QToolButton,
     QFrame,
 )
-from gui_qt.theming.palette_hash import color_for_key
-from gui_qt.theming.theme import Theme
+from interfaces.gui_qt.theming.palette_hash import color_for_key
+from interfaces.gui_qt.theming.theme import Theme
 
 
 class StatusStrip(QWidget):

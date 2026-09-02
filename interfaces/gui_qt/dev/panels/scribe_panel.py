@@ -3,7 +3,7 @@
 from typing import Optional, Any
 import json
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTextEdit
-from gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
+from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
 
 
 class ScribePanel(QWidget):

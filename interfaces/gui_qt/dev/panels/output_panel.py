@@ -3,7 +3,7 @@
 from typing import Optional, Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLabel
-from gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
+from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
 from infrastructure.logger.logger import subscribe, unsubscribe, LogEntry, REGISTRY
 
 

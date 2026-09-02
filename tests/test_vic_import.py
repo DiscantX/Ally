@@ -15,7 +15,7 @@ except Exception as e:
     print(f"FAIL: infrastructure.stt.recognizer: {e}")
 
 try:
-    from gui_qt.prod.voice_input_controller import VoiceInputController
+    from interfaces.gui_qt.prod.voice_input_controller import VoiceInputController
     print("OK: gui_qt.prod.voice_input_controller")
 except Exception as e:
     print(f"FAIL: gui_qt.prod.voice_input_controller: {e}")

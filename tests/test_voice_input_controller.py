@@ -23,8 +23,8 @@ from PySide6.QtTest import QTest
 # ---------------------------------------------------------------------------
 
 # Import VoiceInputController so that unittest.mock.patch can resolve the
-# target "gui_qt.prod.voice_input_controller.SpeechRecognizer" at patch time.
-from gui_qt.prod.voice_input_controller import VoiceInputController
+# target "interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer" at patch time.
+from interfaces.gui_qt.prod.voice_input_controller import VoiceInputController
 
 
 class SignalSink:
@@ -79,7 +79,7 @@ class TestGracefulDegrade(unittest.TestCase):
         mock_rec = _mock_recognizer()
         factory = _make_recognizer_factory(mock_rec, raises=exc)
 
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", factory):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", factory):
             controller = VoiceInputController()
             sink = SignalSink(controller)
 
@@ -101,7 +101,7 @@ class TestGracefulDegrade(unittest.TestCase):
         mock_rec = _mock_recognizer()
         factory = _make_recognizer_factory(mock_rec, raises=RuntimeError("boom"))
 
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", factory):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", factory):
             with self.assertRaises(RuntimeError) as ctx:
                 VoiceInputController()
             self.assertIn("boom", str(ctx.exception))
@@ -116,23 +116,23 @@ class TestModeSwitching(unittest.TestCase):
 
     def test_stt_mode_defaults_to_push_to_talk(self) -> None:
         """Default STT mode is 'push_to_talk'."""
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(_mock_recognizer())):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(_mock_recognizer())):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
                 controller = VoiceInputController()
         self.assertEqual(controller.stt_mode(), "push_to_talk")
 
     def test_stt_mode_can_be_open_mic(self) -> None:
         """STT mode can be set to 'open_mic'."""
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(_mock_recognizer())):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="open_mic"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(_mock_recognizer())):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="open_mic"):
                 controller = VoiceInputController()
         self.assertEqual(controller.stt_mode(), "open_mic")
 
     def test_set_open_mic_enabled_noop_in_push_to_talk(self) -> None:
         """set_open_mic_enabled is a no-op when mode is push_to_talk."""
         mock_rec = _mock_recognizer()
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
                 controller = VoiceInputController()
 
         # Must not crash
@@ -154,8 +154,8 @@ class TestPushToTalk(unittest.TestCase):
         # Simulate poll returning None (no speech yet)
         mock_rec.poll.return_value = None
 
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
                 controller = VoiceInputController()
 
         sink = SignalSink(controller)
@@ -176,8 +176,8 @@ class TestPushToTalk(unittest.TestCase):
         # Simulate two fragments recognised during capture
         mock_rec.poll.side_effect = ["hello", "world", None]  # None = queue empty
 
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
                 controller = VoiceInputController()
 
         sink = SignalSink(controller)
@@ -196,8 +196,8 @@ class TestPushToTalk(unittest.TestCase):
         mock_rec = _mock_recognizer()
         mock_rec.poll.return_value = None
 
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
                 controller = VoiceInputController()
 
         sink = SignalSink(controller)
@@ -212,8 +212,8 @@ class TestPushToTalk(unittest.TestCase):
         """Calling stop_listening() without a prior start_listening() must
         not crash or emit any signals."""
         mock_rec = _mock_recognizer()
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="push_to_talk"):
                 controller = VoiceInputController()
         sink = SignalSink(controller)
         controller.stop_listening()  # no prior start
@@ -233,8 +233,8 @@ class TestOpenMic(unittest.TestCase):
         mock_rec = _mock_recognizer()
         mock_rec.poll.return_value = None
 
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="open_mic"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="open_mic"):
                 controller = VoiceInputController()
 
         sink = SignalSink(controller)
@@ -250,8 +250,8 @@ class TestOpenMic(unittest.TestCase):
         mock_rec = _mock_recognizer()
         mock_rec.poll.return_value = None
 
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="open_mic"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="open_mic"):
                 controller = VoiceInputController()
 
         sink = SignalSink(controller)
@@ -271,10 +271,10 @@ class TestOpenMic(unittest.TestCase):
         # Return one phrase, then empty queues forever
         mock_rec.poll.side_effect = ["continuous speech fragment", None, None]
 
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="open_mic"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="open_mic"):
                 # Use a very short pause window so we don't wait seconds in tests
-                with patch("gui_qt.prod.voice_input_controller.UtteranceAssembler") as MockAssembler:
+                with patch("interfaces.gui_qt.prod.voice_input_controller.UtteranceAssembler") as MockAssembler:
                     instance = MagicMock()
                     instance.has_pending.return_value = False
                     instance.ready.return_value = True
@@ -299,8 +299,8 @@ class TestOpenMic(unittest.TestCase):
         mock_rec = _mock_recognizer()
         mock_rec.poll.return_value = None
 
-        with patch("gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
-            with patch("gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="open_mic"):
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", _make_recognizer_factory(mock_rec)):
+            with patch("interfaces.gui_qt.prod.voice_input_controller._resolve_stt_mode", return_value="open_mic"):
                 controller = VoiceInputController()
 
         sink = SignalSink(controller)

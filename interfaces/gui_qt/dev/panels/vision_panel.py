@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QTextEdit,
 )
-from gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
+from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
 from infrastructure.logger.logger import subscribe, unsubscribe, LogEntry
 
 

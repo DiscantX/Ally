@@ -3,7 +3,7 @@
 from typing import Optional, Any
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
-from gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
+from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
 
 
 class EntityPanel(QWidget):

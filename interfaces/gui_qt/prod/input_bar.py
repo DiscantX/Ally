@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QToolButton,
 )
-from gui_qt.theming.theme import Theme
+from interfaces.gui_qt.theming.theme import Theme
 
 
 class EnterKeyTextEdit(QTextEdit):

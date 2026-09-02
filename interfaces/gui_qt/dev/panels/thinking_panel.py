@@ -2,7 +2,7 @@
 """
 from typing import Optional
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
-from gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
+from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
 
 
 class ThinkingPanel(QWidget):

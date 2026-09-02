@@ -27,7 +27,7 @@ def initialize_and_run(main_module):
         # Instantiate and show QApplication and ProdOverlayWindow at absolute earliest point,
         # before importing heavy perception/core modules or loading configurations/models.
         from PySide6.QtWidgets import QApplication
-        from gui_qt.prod.overlay_window import ProdOverlayWindow
+        from interfaces.gui_qt.prod.overlay_window import ProdOverlayWindow
 
         app = QApplication(sys.argv)
         overlay = ProdOverlayWindow(registry=None)

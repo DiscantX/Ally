@@ -4,18 +4,18 @@ from typing import Optional, Any
 from PySide6.QtCore import Qt, QSettings
 from PySide6.QtWidgets import QMainWindow, QDockWidget, QWidget, QMessageBox
 from brain.reasoning.core import AllyCore
-from gui_qt.dev.bridge import CoreBridge
-from gui_qt.dev.panels.vision_panel import VisionPanel
-from gui_qt.dev.panels.debug_panel import DebugPanel
-from gui_qt.dev.panels.ocr_panel import OcrPanel
-from gui_qt.dev.panels.scribe_panel import ScribePanel
-from gui_qt.dev.panels.ally_panel import AllyPanel
-from gui_qt.dev.panels.entity_panel import EntityPanel
-from gui_qt.dev.panels.memory_panel import MemoryPanel
-from gui_qt.dev.panels.timing_panel import TimingPanel
-from gui_qt.dev.panels.output_panel import OutputPanel
-from gui_qt.dev.panels.thinking_panel import ThinkingPanel
-from gui_qt.theming.theme import Theme, build_stylesheet, TEMPLATE_PATH
+from interfaces.gui_qt.dev.bridge import CoreBridge
+from interfaces.gui_qt.dev.panels.vision_panel import VisionPanel
+from interfaces.gui_qt.dev.panels.debug_panel import DebugPanel
+from interfaces.gui_qt.dev.panels.ocr_panel import OcrPanel
+from interfaces.gui_qt.dev.panels.scribe_panel import ScribePanel
+from interfaces.gui_qt.dev.panels.ally_panel import AllyPanel
+from interfaces.gui_qt.dev.panels.entity_panel import EntityPanel
+from interfaces.gui_qt.dev.panels.memory_panel import MemoryPanel
+from interfaces.gui_qt.dev.panels.timing_panel import TimingPanel
+from interfaces.gui_qt.dev.panels.output_panel import OutputPanel
+from interfaces.gui_qt.dev.panels.thinking_panel import ThinkingPanel
+from interfaces.gui_qt.theming.theme import Theme, build_stylesheet, TEMPLATE_PATH
 from interfaces.gui_qt.shell.capture_exclusion import exclude_hwnd_from_capture
 from brain.state.shell_bounds_registry import SHELL_BOUNDS
 

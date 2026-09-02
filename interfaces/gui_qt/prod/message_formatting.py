@@ -3,8 +3,8 @@
 import markdown
 from brain.state.entity_highlighter import find_entity_mentions
 from brain.state.entity_registry import EntityRegistry
-from gui_qt.theming.palette_hash import color_for_key
-from gui_qt.theming.theme import Theme
+from interfaces.gui_qt.theming.palette_hash import color_for_key
+from interfaces.gui_qt.theming.theme import Theme
 
 
 def format_message_html(text: str, registry: EntityRegistry | None, theme: Theme) -> str:

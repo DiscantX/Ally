@@ -71,7 +71,7 @@ def shutdown_application() -> None:
 
 def _handle_sigint(signum: int, frame: Any) -> None:
     """Signal handler for SIGINT (Ctrl+C)."""
-    log("\nReceived Ctrl+C (SIGINT). Shutting down gracefully...", level="info")
+    log("Received Ctrl+C (SIGINT). Shutting down gracefully...", level="info")
     try:
         if hasattr(signal, "siginterrupt"):
             signal.siginterrupt(signum, True)
@@ -175,8 +175,8 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
     """Runs the Qt application with an already-instantiated and shown ProdOverlayWindow."""
     args = parse_args()
     from PySide6.QtCore import QTimer
-    from gui_qt.dev.dev_window import DevInspectorWindow
-    from gui_qt.dev.bridge import CoreBridge
+    from interfaces.gui_qt.dev.dev_window import DevInspectorWindow
+    from interfaces.gui_qt.dev.bridge import CoreBridge
     from brain.reasoning.core import AllyCore
     from ingestion.collectors.base import RawObservation
     from PIL import Image
@@ -291,7 +291,7 @@ def initialize_application() -> None:
     global _core_instance, _qt_app_instance, _overlay_instance
     if getattr(args, "gui_qt", False) or (not getattr(args, "headless", False) and not getattr(args, "gui", False)):
         from PySide6.QtWidgets import QApplication
-        from gui_qt.prod.overlay_window import ProdOverlayWindow
+        from interfaces.gui_qt.prod.overlay_window import ProdOverlayWindow
         app = QApplication(sys.argv)
         _qt_app_instance = app  # Set global reference for shutdown
         overlay = ProdOverlayWindow(registry=None)

@@ -10,9 +10,9 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 from brain.state.entity_registry import EntityRegistry
-from gui_qt.prod.message_formatting import format_message_html
-from gui_qt.theming.palette_hash import color_for_key
-from gui_qt.theming.theme import Theme
+from interfaces.gui_qt.prod.message_formatting import format_message_html
+from interfaces.gui_qt.theming.palette_hash import color_for_key
+from interfaces.gui_qt.theming.theme import Theme
 
 
 class FeedPanel(QWidget):
