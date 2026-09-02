@@ -7,19 +7,20 @@ import os
 # Add the project root to sys.path to allow importing from main and other modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from main import STATE_LOCK
+import threading
 from brain.state.entity_registry import EntityRegistry, ResolvableElement
 
 class TestRaceConditions(unittest.TestCase):
     def test_shared_state_locking(self):
-        """Verify that STATE_LOCK prevents race conditions on shared data."""
+        """Verify that threading.Lock prevents race conditions on shared data."""
         shared_data = {"count": 0}
+        shared_lock = threading.Lock()
         num_threads = 10
         increments_per_thread = 1000
         
         def worker():
             for _ in range(increments_per_thread):
-                with STATE_LOCK:
+                with shared_lock:
                     current = shared_data["count"]
                     # No sleep, just count
                     shared_data["count"] = current + 1

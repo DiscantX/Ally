@@ -7,8 +7,11 @@ import uuid
 from typing import Any
 from brain.memory.db import MemoryDB
 
+from infrastructure.logger import log, timed
+
 class SaveTracker:
     def __init__(self, db: MemoryDB):
+        log("Initializing SaveTracker...")
         self.db = db
 
     def resolve_save_id(
@@ -19,6 +22,7 @@ class SaveTracker:
         Returns:
             Tuple of (save_id, is_new_session).
         """
+        log("Resolving save_id for player={player_id}, game={game_id}...", player_id=player_id, game_id=game_id)
         latest = self.db.get_latest_open_session(player_id, game_id)
         if latest:
             last_active = latest["last_active_at"]

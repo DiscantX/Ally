@@ -7,6 +7,70 @@ here turns out to carry real architectural rationale in hindsight, move it
 to the decision log instead of leaving it here.
 
 ---
+## 2026-09-XX — Concurrency & Thread Safety Implementation + Async Loading Merge
+
+Implemented comprehensive thread safety across the codebase and merged with ZooCode's async model loading improvements.
+
+### Thread Safety Implementation
+
+- **StateSandbox**: Added `RLock` protection for `update()` and `as_context()` methods, ensuring thread-safe access to turn-scoped state (elements, facts, structured_state).
+- **AllyCore**: Changed `state_lock` to `RLock`, added `_initialization_lock` and `_initialized` flag to prevent race conditions during startup. All shared state access in `send_message()`, `stop()`, `push_memory_states()`, `initialize_run()`, and `run_loop()` is now properly synchronized.
+- **EventHook**: Added global `_subscriber_lock = RLock()` to make `connect()`, `disconnect()`, and `emit()` thread-safe. `emit()` now makes a snapshot of subscribers before iterating to avoid race conditions.
+- **MemoryDB**: Complete thread-safety rewrite - added `_db_lock = RLock()` and `check_same_thread=False` for SQLite connections. All 15+ database methods (save/load narrative entries, upsert entities, etc.) are now wrapped with `with self._db_lock:`.
+- **EntityRegistry**: Added `_lock = RLock()` and implemented 4-phase locking strategy for `resolve_or_create()`: read snapshot under lock, process elements without lock (CPU work), write results under lock, DB write outside lock (MemoryDB has its own lock).
+- **GenreTracker**: Added `_lock = RLock()` and wrapped `update()` and `as_context()` methods.
+- **ScreenCategoryStore**: Added `_lock = threading.Lock()` (already existed) and moved entire `maybe_learn()` method under lock to prevent race conditions between difflib check and DB insert.
+- **Removed global STATE_LOCK**: Deleted from `main.py` as it was confusing and inconsistently used. All synchronization now uses component-specific locks.
+- **QtSafeEventHook**: Created new utility (`utils/qt_safe_event_hook.py`) for thread-safe Qt GUI updates from background threads.
+
+### ZooCode's Async Loading Improvements (Merged)
+
+- **ClipClassifier**: Refactored to load ONNX models asynchronously in background thread (`ClipModelLoader`) with thread event synchronization.
+- **ScreenCategoryStore**: Refactored `_ensure_seeded()` to run in background daemon thread (`CategoryStoreSeeding`) with thread-safe global matrix reloading.
+- **Shutdown coordination**: Added `_shutdown_in_progress` event and clean shutdown path in `main.py` for coordinated teardown.
+- **Logging**: Added structured `log()` statements across initialization sequence (SaveTracker, ClipClassifier, ScreenCategoryStore, AllyCore, MemorySystem, EntityRegistry, Collector).
+- **Path refactoring**: Moved `storage/` to `cabinet/` to avoid conflicts with 3rd party directory.
+
+### New Test Files
+
+- `tests/test_sandbox_concurrency.py` - Tests concurrent update/read, turn counter consistency, structured state persistence
+- `tests/test_genre_tracker_concurrency.py` - Tests concurrent updates, locking behavior, as_context thread safety
+- `tests/test_memory_db_concurrency.py` - Tests concurrent writes, concurrent reads/writes, concurrent entity operations
+- `tests/test_ally_core_concurrency.py` - Tests initialization thread safety, state_lock protection
+
+### Files Modified
+
+- `brain/state/sandbox.py` - Added thread locking
+- `brain/state/genre_tracker.py` - Added thread locking
+- `brain/state/entity_registry.py` - Added thread locking + optimization
+- `brain/memory/db.py` - Complete thread-safety rewrite
+- `brain/reasoning/core.py` - Added locking discipline + initialization lock
+- `brain/perception/screen_category_store.py` - Added locking + async seeding
+- `main.py` - Added shutdown coordination, removed STATE_LOCK
+- `utils/event_hook.py` - Added thread safety
+- `utils/qt_safe_event_hook.py` - New file for Qt-safe event dispatching
+- `brain/perception/clip_classifier.py` - Async model loading (ZooCode)
+- `brain/memory/manager.py` - ZooCode's changes
+- `brain/memory/save_tracker.py` - ZooCode's changes
+- `ingestion/collectors/configured_collector.py` - ZooCode's changes
+- `gui_qt/prod/overlay_window.py` - ZooCode's changes
+- `gui_qt/prod/status_strip.py` - ZooCode's changes
+- `.gitignore` - Updates
+- `cabinet/configs/clip_seed_categories.json` - Moved from storage/
+
+### Testing
+
+- All 11 new concurrency tests pass
+- Existing tests in `test_race_conditions.py` and `test_concurrent_sandbox_and_registry_access.py` updated and passing
+- Thread safety verified across all major components
+
+### Notes
+
+ZooCode's original changes had removed thread safety from several files (`genre_tracker.py`, `db.py`, `event_hook.py`, `sandbox.py`). This merge preserves the thread safety implementation while incorporating ZooCode's other improvements (async loading, shutdown coordination, logging).
+
+---
+
+
 
 
 ## 2026-08-30 — Provider-Agnostic LLM Base Interface + Thinking-Stream Parsing Fix
