@@ -57,8 +57,8 @@ class NarrativeMemoryManager:
         self.save_id = save_id
         self.provider = provider
         self.db = db
-        self.short_term_capacity = short_term_capacity or config["short_term_capacity"]
-        self.medium_flush_interval = medium_flush_interval
+        self.short_term_capacity = short_term_capacity or config.get("short_term_capacity", 8)
+        self.medium_flush_interval = medium_flush_interval or config.get("medium_flush_interval", 8)
         self.model = model or get_model("narrative_model", config)
         self.thinking_level = get_thinking_level("narrative", config)
         self.save_tracker = save_tracker
