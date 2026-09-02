@@ -29,6 +29,7 @@ class MemorySystem:
         flush_trigger: Trigger | None = None,
         db_path: str | None = None,
         save_tracker: SaveTracker | None = None,
+        db: MemoryDB | None = None,
     ) -> None:
         validate_scope_ids(player_id, game_id, save_id)
         validate_not_none(provider, "provider")
@@ -39,7 +40,7 @@ class MemorySystem:
         self.player_id = player_id
         self.game_id = game_id
         self.save_id = save_id
-        self.db = MemoryDB(db_path=db_path, player_id=player_id)
+        self.db = db if db is not None else MemoryDB(db_path=db_path, player_id=player_id)
         self.save_tracker = save_tracker or SaveTracker(self.db)
         
         self.narrative = NarrativeMemoryManager(

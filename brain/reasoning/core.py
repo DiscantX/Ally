@@ -579,6 +579,7 @@ class AllyCore:
                     provider=self.provider,
                     base_personality=self.ally.base_personality,
                     save_tracker=self.save_tracker,
+                    db=self.db,
                 )
                 self.registry = EntityRegistry(
                     player_id=player_id,
@@ -603,6 +604,7 @@ class AllyCore:
                     provider=self.provider,
                     base_personality=self.ally.base_personality,
                     save_tracker=self.save_tracker,
+                    db=self.db,
                 )
                 self.registry = EntityRegistry(
                     player_id=player_id,
