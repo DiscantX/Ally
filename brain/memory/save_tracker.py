@@ -11,6 +11,8 @@ from infrastructure.logger import log, timed
 
 class SaveTracker:
     def __init__(self, db: MemoryDB):
+        if db is None:
+            raise ValueError("SaveTracker requires a non-None MemoryDB instance")
         log("Initializing SaveTracker...")
         self.db = db
 

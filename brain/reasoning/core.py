@@ -70,6 +70,12 @@ class AllyCore:
         self.save_tracker = SaveTracker(self.db)
         self.clip_classifier = ClipClassifier()
         self.category_store = ScreenCategoryStore(db=self.db, clip=self.clip_classifier)
+        
+        # Validate critical dependencies
+        if self.db is None:
+            raise RuntimeError("Failed to initialize MemoryDB")
+        if self.save_tracker is None:
+            raise RuntimeError("Failed to initialize SaveTracker")
         self.memory_manager: Optional[MemoryManager] = None
         self.registry: Optional[EntityRegistry] = None
 

@@ -126,6 +126,15 @@ class EntityRegistry:
         db: MemoryDB | None = None,
         match_threshold: float = 0.75,
     ):
+        if not isinstance(player_id, str) or not player_id.strip():
+            raise ValueError(f"player_id must be a non-empty string, got: {player_id!r}")
+        if not isinstance(game_id, str) or not game_id.strip():
+            raise ValueError(f"game_id must be a non-empty string, got: {game_id!r}")
+        if not isinstance(save_id, str) or not save_id.strip():
+            raise ValueError(f"save_id must be a non-empty string, got: {save_id!r}")
+        if db is None:
+            log("EntityRegistry initialized without a database - entities will not persist", level="warning")
+        
         self.player_id = player_id
         self.game_id = game_id
         self.save_id = save_id

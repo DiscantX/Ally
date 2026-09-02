@@ -28,6 +28,17 @@ class MemorySystem:
         db_path: str | None = None,
         save_tracker: SaveTracker | None = None,
     ):
+        if not isinstance(player_id, str) or not player_id.strip():
+            raise ValueError(f"player_id must be a non-empty string, got: {player_id!r}")
+        if not isinstance(game_id, str) or not game_id.strip():
+            raise ValueError(f"game_id must be a non-empty string, got: {game_id!r}")
+        if not isinstance(save_id, str) or not save_id.strip():
+            raise ValueError(f"save_id must be a non-empty string, got: {save_id!r}")
+        if provider is None:
+            raise ValueError("provider must not be None")
+        if not isinstance(base_personality, str) or not base_personality.strip():
+            raise ValueError(f"base_personality must be a non-empty string, got: {base_personality!r}")
+        
         log("Initializing MemorySystem (MemoryManager)...")
         self.lock = threading.Lock()
         self.player_id = player_id
