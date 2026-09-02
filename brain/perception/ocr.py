@@ -5,10 +5,11 @@ vision/layout_reader.py and by tools/inspect_coords.py's live preview.
 """
 
 import cv2
+import numpy as np
 import pytesseract
 
 
-def crop_region(frame, box):
+def crop_region(frame: np.ndarray, box: tuple[int, int, int, int]) -> np.ndarray:
     """Crops a specific sub-rectangle from a frame.
 
     box format: (x, y, width, height)
@@ -17,7 +18,7 @@ def crop_region(frame, box):
     return frame[y : y + h, x : x + w]
 
 
-def preprocess_for_ocr(crop):
+def preprocess_for_ocr(crop: np.ndarray | None) -> np.ndarray | None:
     """Converts a cropped image to high-contrast black-and-white,
     optimized for Tesseract OCR."""
     if crop is None or crop.size == 0:
@@ -29,7 +30,7 @@ def preprocess_for_ocr(crop):
     return thresh
 
 
-def extract_text(processed_image, config="--psm 7"):
+def extract_text(processed_image: np.ndarray | None, config: str = "--psm 7") -> str:
     """Runs Tesseract OCR on a preprocessed image patch."""
     if processed_image is None:
         return ""

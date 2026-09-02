@@ -15,7 +15,7 @@ class ClientRect:
     _first_setup_done = False
 
     @timed
-    def __init__(self, window_title="Slay the Spire"):
+    def __init__(self, window_title: str = "Slay the Spire") -> None:
         start_t = time.perf_counter()
         self.window_title = window_title
         self.handle = self._get_window_handle(window_title)
@@ -28,14 +28,14 @@ class ClientRect:
             log("Initialized window manager for '{title}' in {duration:.4f}s (handle={handle})", title=window_title, duration=duration, handle=self.handle)
 
     @timed
-    def _get_window_handle(self, window_title):
+    def _get_window_handle(self, window_title: str) -> int | None:
         handle = win32gui.FindWindow(None, window_title)
         if not handle:
             log("Window not found: {window_title}", window_title=window_title)
             return None
         return handle
 
-    def _set_rect_properties(self):
+    def _set_rect_properties(self) -> None:
         client_rect = win32gui.GetClientRect(self.handle)
         client_left, client_top = win32gui.ClientToScreen(self.handle, (client_rect[0], client_rect[1]))
         client_right, client_bottom = win32gui.ClientToScreen(self.handle, (client_rect[2], client_rect[3]))
@@ -45,7 +45,7 @@ class ClientRect:
         self.width = client_right - client_left
         self.height = client_bottom - client_top
 
-    def move_to_top_left(self):
+    def move_to_top_left(self) -> None:
         if self.handle:
             window_rect = win32gui.GetWindowRect(self.handle)
             win_left, win_top, win_right, win_bottom = window_rect
@@ -59,7 +59,7 @@ class ClientRect:
             win32gui.MoveWindow(self.handle, 0, 0, width, height, win32con.SWP_NOZORDER | win32con.SWP_NOSIZE)
             self._set_rect_properties()
 
-    def bring_to_foreground(self):
+    def bring_to_foreground(self) -> None:
         if self.handle:
             if win32gui.IsIconic(self.handle):
                 win32gui.ShowWindow(self.handle, win32con.SW_RESTORE)
@@ -94,7 +94,7 @@ class ClientRect:
             return False
         return win32gui.GetForegroundWindow() == self.handle
 
-    def set_always_on_top(self, enable=True):
+    def set_always_on_top(self, enable: bool = True) -> None:
         if self.handle:
             insert_after = win32con.HWND_TOPMOST if enable else win32con.HWND_NOTOPMOST
             win32gui.SetWindowPos(self.handle, insert_after, 0, 0, 0, 0, win32con.SWP_NOMOVE | win32con.SWP_NOSIZE)

@@ -32,7 +32,7 @@ class QtSignalBridge(QObject):
     # Generic signal that can handle any callback
     callback_signal = Signal(object)  # Will pass a tuple of (callback, args, kwargs)
     
-    def __init__(self, parent: Optional[QObject] = None):
+    def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
 
 
@@ -54,7 +54,7 @@ def _get_bridge() -> QtSignalBridge:
 class QtSafeCallbackWrapper:
     """Wraps a callback to be invoked on the Qt main thread."""
     
-    def __init__(self, callback: Callable[..., Any], name: str = ""):
+    def __init__(self, callback: Callable[..., Any], name: str = "") -> None:
         self.callback = callback
         self.name = name
         self._bridge = _get_bridge()
@@ -89,7 +89,7 @@ class QtSafeEventHook:
     from background threads.
     """
     
-    def __init__(self, event_hook: "EventHook", name: str = ""):  # type: ignore[name-defined]
+    def __init__(self, event_hook: "EventHook", name: str = "") -> None:  # type: ignore[name-defined]
         self._event_hook = event_hook
         self._name = name
         self._wrappers: list[QtSafeCallbackWrapper] = []
@@ -98,6 +98,7 @@ class QtSafeEventHook:
         """Connect a callback to be invoked on Qt main thread."""
         wrapper = QtSafeCallbackWrapper(callback, self._name)
         self._wrappers.append(wrapper)
+        self._event_hook.connect(wrapper.emit)
         self._event_hook.connect(wrapper.emit)
     
     def disconnect(self, callback: Callable[..., Any]) -> None:

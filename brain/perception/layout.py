@@ -10,7 +10,7 @@ from infrastructure.logger import log, timed
 
 
 class UIElement:
-    def __init__(self, name, data):
+    def __init__(self, name: str, data: dict) -> None:
         self.name = name
         self.x = data.get("x", 0)
         self.y = data.get("y", 0)
@@ -36,18 +36,18 @@ class UIElement:
         return self.validated
 
     @property
-    def box(self):
+    def box(self) -> tuple[int, int, int, int]:
         return (self.x, self.y, self.w, self.h)
 
 
 class LayoutManager:
-    def __init__(self, filepath="layout.json"):
+    def __init__(self, filepath: str = "layout.json") -> None:
         self.filepath = filepath
         self.elements = {}
         self.load_layouts()
 
     @timed
-    def load_layouts(self):
+    def load_layouts(self) -> None:
         if not os.path.exists(self.filepath):
             log("Warning: {filepath} not found.", filepath=self.filepath)
             return
@@ -60,5 +60,5 @@ class LayoutManager:
             except json.JSONDecodeError:
                 log("Error parsing {filepath}.", filepath=self.filepath)
 
-    def get(self, name):
+    def get(self, name: str) -> UIElement | None:
         return self.elements.get(name)
