@@ -457,3 +457,135 @@ Decided on the design for competing internal psychological framings (Perspective
 - **`send_message()`'s chat path**: deferred decision on whether to adopt `previous_interaction_id` stateful mode for Ally's chat — ties reasoning to Gemini-specific threading, and Ally's context is synthesized fresh from StateSandbox/EntityRegistry/MemoryManager each turn.
 - **`infrastructure/llm/model_lister.py`**: folded directly into [`infrastructure/llm/providers/gemini_provider.py`](infrastructure/llm/providers/gemini_provider.py:1) and eliminated as a separate root-level module, since model listing is 100% Gemini-specific.
 - **OpenRouter provider**: designed for, not built.
+---
+
+## Thread Safety and Concurrency
+
+### Coarse-grained synchronization strategy
+
+**Decision**: Use coarse-grained locking (one lock per component) rather than fine-grained locking (separate locks for each data structure).
+
+**Rationale**: 
+- Simpler to reason about and less prone to deadlocks
+- Performance impact is acceptable given the current scale (single-player, turn-based)
+- Most operations are fast (dict lookups, list appends) - the lock contention is minimal
+- Reduces cognitive overhead for future maintainers
+- Matches the existing pattern already used in EntityRegistry
+
+**Implementation**: Each major state-holding component gets its own `threading.RLock()`:
+- `StateSandbox._lock` - protects turn-scoped state
+- `EntityRegistry._lock` - protects entity resolution
+- `MemoryDB._db_lock` - protects SQLite access
+- `GenreTracker._lock` - protects genre estimation
+- `ScreenCategoryStore._lock` - protects category matrix
+- `AllyCore.state_lock` - protects core state
+- `AllyCore._initialization_lock` - prevents race during startup
+- `EventHook._subscriber_lock` (global) - protects subscriber list
+
+### RLock over Lock
+
+**Decision**: Use `threading.RLock` (reentrant lock) instead of `threading.Lock`.
+
+**Rationale**: 
+- RLock allows the same thread to acquire the lock multiple times without deadlocking
+- This is essential when a method calls another method that also needs the lock
+- Example: `AllyCore.send_message()` might call internal methods that also access `state_lock`
+- Prevents subtle bugs where refactoring could introduce nested lock acquisition
+- Minimal performance overhead for our use case
+
+### Removing global STATE_LOCK
+
+**Decision**: Remove the global `STATE_LOCK` from `main.py`. All thread synchronization now uses component-specific locks.
+
+**Rationale**:
+- Global lock was confusing - not clear what it was protecting
+- Was inconsistently used (some code used it, some didn't)
+- Created false sense of security - code that didn't use it had no thread safety
+- Component-specific locks are more explicit about what they protect
+- Easier to reason about lock ordering and deadlock prevention
+- Each component manages its own synchronization boundaries
+
+**Supersedes**: Earlier implicit assumption that a single global lock was sufficient for all thread safety needs.
+
+### Thread-safe SQLite access
+
+**Decision**: Use `check_same_thread=False` + application-level `RLock` for SQLite thread safety.
+
+**Rationale**:
+- SQLite connections are NOT thread-safe by default
+- `check_same_thread=False` allows connections to be used from multiple threads
+- Application-level lock (`MemoryDB._db_lock`) serializes all database access
+- This is safer than connection pooling for our use case (single-player, moderate load)
+- All 15+ database methods are wrapped with `with self._db_lock:`
+
+**Alternatives considered**:
+- Connection pooling: More complex, unnecessary for our scale
+- One connection per thread: Wasteful, hard to manage
+- SQLite WAL mode: Doesn't solve the fundamental thread-safety issue
+
+### EventHook thread safety
+
+**Decision**: Add global `_subscriber_lock` to make `EventHook.connect()`, `disconnect()`, and `emit()` thread-safe.
+
+**Rationale**:
+- EventHook is used across thread boundaries (background threads emit, main thread listens)
+- Subscriber list modifications (connect/disconnect) must be atomic
+- `emit()` makes a snapshot of subscribers list before iterating to avoid race conditions
+- Global lock is appropriate here since EventHook is a singleton-style pattern
+
+**Implementation**:
+- `connect()`: acquires lock, appends to `_subscribers`
+- `disconnect()`: acquires lock, removes from `_subscribers`
+- `emit()`: acquires lock, makes copy of `_subscribers`, releases lock, iterates copy
+
+### Qt-safe event dispatching
+
+**Decision**: Create `QtSafeEventHook` wrapper for dispatching callbacks to Qt main thread.
+
+**Rationale**:
+- Qt GUI updates must happen on the main thread
+- Background threads (LLM calls, screen capture) emit events that update the GUI
+- Without this, GUI updates from background threads cause crashes or undefined behavior
+- Uses `QMetaObject.invokeMethod()` with `Qt.QueuedConnection` for thread-safe dispatch
+
+**Implementation**: 
+- `QtSignalBridge` QObject with generic signal
+- `QtSafeCallbackWrapper` wraps callbacks for Qt-thread invocation
+- `QtSafeEventHook` wraps EventHook with Qt-safe dispatching
+- Convenience function `connect_qt_safe()` for easy integration
+
+### Initialization race condition fix
+
+**Decision**: Add `_initialization_lock` and `_initialized` flag to `AllyCore` to prevent race conditions during startup.
+
+**Rationale**:
+- Multiple threads might call `initialize_run()` simultaneously
+- Initialization involves creating MemoryManager, EntityRegistry, Collector
+- These should only happen once
+- Separate lock from `state_lock` to avoid deadlocks (run_loop might hold state_lock while initialize_run is called)
+
+**Implementation**:
+```python
+with self._initialization_lock:
+    if self._initialized:
+        return
+    # ... do initialization ...
+    self._initialized = True
+```
+
+### EntityRegistry locking optimization
+
+**Decision**: Use 4-phase locking strategy for `resolve_or_create()` to minimize lock hold time.
+
+**Rationale**:
+- Phase 1 (Read): Take snapshot of entities under lock
+- Phase 2 (Process): Do CPU-intensive difflib matching WITHOUT lock
+- Phase 3 (Write): Write results back under lock
+- Phase 4 (DB): Write to database WITHOUT lock (MemoryDB has its own lock)
+
+This reduces lock contention during expensive string matching operations while maintaining thread safety.
+
+**Performance impact**: Significant for large entity sets, as difflib matching is CPU-bound and doesn't need the lock.
+
+---
+
