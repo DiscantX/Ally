@@ -33,6 +33,7 @@ ClientRect) if this becomes a real annoyance -- not built yet since no
 game has hit it in practice.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -53,7 +54,11 @@ def get_focused_window_title() -> str | None:
 
 
 def sanitize_game_id(raw: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "_", raw.strip().lower()).strip("_") or "unknown_game"
+    cleaned = re.sub(r"[^a-z0-9]+", "_", raw.strip().lower()).strip("_") or "unknown_game"
+    if len(cleaned) > 64:
+        h = hashlib.md5(raw.encode("utf-8")).hexdigest()[:8]
+        cleaned = cleaned[:50].rstrip("_") + "_" + h
+    return cleaned
 
 
 def build_config(game_id: str, window_title: str) -> dict:
