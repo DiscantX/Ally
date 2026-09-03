@@ -57,6 +57,9 @@ class DevInspectorWindow(QMainWindow):
         # Setup Docks
         self._setup_docks()
 
+        # Setup Menus
+        self._setup_menus()
+
         if core is not None:
             self.set_core(core)
 
@@ -172,6 +175,31 @@ class DevInspectorWindow(QMainWindow):
         vision_dock.raise_()
         scribe_dock.raise_()
         timing_dock.raise_()
+
+        # Save default layout state for reset
+        self._default_ads_state = self._dock_manager.saveState()
+
+    def _setup_menus(self) -> None:
+        """Sets up the menu bar with View menu toggle actions for all dock widgets and layout reset.
+        """
+        menu_bar = self.menuBar()
+        view_menu = menu_bar.addMenu("&View")
+
+        for dock in self.findChildren(QtAds.CDockWidget):
+            action = dock.toggleViewAction()
+            view_menu.addAction(action)
+
+        view_menu.addSeparator()
+        reset_action = view_menu.addAction("Reset Layout")
+        reset_action.triggered.connect(self._reset_layout)
+
+    def _reset_layout(self) -> None:
+        """Resets the dock layout to the default state and clears persisted state.
+        """
+        if hasattr(self, "_default_ads_state") and self._default_ads_state:
+            self._dock_manager.restoreState(self._default_ads_state)
+        self._settings = QSettings("Ally", "DevInspectorWindow")
+        self._settings.remove("adsState")
 
     def showEvent(self, event: Any) -> None:
         """Handles show event: registers display affinity and shell bounds.
