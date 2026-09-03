@@ -2,7 +2,7 @@
 """
 from typing import Optional, Any
 from PySide6.QtCore import Qt, QSettings
-from PySide6.QtWidgets import QMainWindow, QDockWidget, QWidget, QMessageBox
+from PySide6.QtWidgets import QMainWindow, QDockWidget, QWidget, QMessageBox, QTabWidget
 from brain.reasoning.core import AllyCore
 from interfaces.gui_qt.dev.bridge import CoreBridge
 from interfaces.gui_qt.dev.panels.vision_panel import VisionPanel
@@ -42,14 +42,19 @@ class DevInspectorWindow(QMainWindow):
         self.setWindowTitle("Ally Dev Inspector")
         self.resize(1400, 900)
 
-        self._core = core
+        self._core: Optional[AllyCore] = None
         self._theme = theme
-        self._bridge = CoreBridge(core, self)
+        self._bridge = CoreBridge(parent=self)
+        self._signals_connected = False
 
         self.setStyleSheet(build_stylesheet(theme, TEMPLATE_PATH))
 
         # Setup Docks
         self._setup_docks()
+        self.setTabPosition(Qt.DockWidgetArea.AllDockWidgetAreas, QTabWidget.TabPosition.North)
+
+        if core is not None:
+            self.set_core(core)
 
     def set_core(self, core: AllyCore) -> None:
         self._core = core
@@ -58,12 +63,19 @@ class DevInspectorWindow(QMainWindow):
         self._entity_panel._core = core
         self._memory_panel._core = core
 
-        # Connect CoreBridge signals
-        self._bridge.pipeline_image_ready.connect(self._vision_panel.handle_pipeline_image)
-        self._bridge.debug_overlay_ready.connect(self._debug_panel.handle_debug_overlay)
-        self._bridge.ocr_result_ready.connect(self._ocr_panel.handle_ocr_result)
-        self._bridge.scribe_output_ready.connect(self._scribe_panel.handle_scribe_output)
-        self._bridge.ally_output_ready.connect(self._ally_panel.handle_ally_output)
+        if not self._signals_connected:
+            self._signals_connected = True
+            # Connect CoreBridge signals
+            self._bridge.pipeline_image_ready.connect(self._vision_panel.handle_pipeline_image)
+            self._bridge.debug_overlay_ready.connect(self._debug_panel.handle_debug_overlay)
+            self._bridge.ocr_result_ready.connect(self._ocr_panel.handle_ocr_result)
+            self._bridge.scribe_output_ready.connect(self._scribe_panel.handle_scribe_output)
+            self._bridge.ally_output_ready.connect(self._ally_panel.handle_ally_output)
+            # Thinking panel signal connections
+            self._bridge.thinking_stream_begin.connect(self._thinking_panel.handle_thinking_begin)
+            self._bridge.thinking_stream_chunk.connect(self._thinking_panel.handle_thinking_chunk)
+            self._bridge.thinking_stream_reset.connect(self._thinking_panel.handle_thinking_reset)
+            self._bridge.thinking_stream_finalize.connect(self._thinking_panel.handle_thinking_finalize)
 
         # Restore dock layout state from QSettings
         self._settings = QSettings("Ally", "DevInspectorWindow")
@@ -73,6 +85,11 @@ class DevInspectorWindow(QMainWindow):
         state = self._settings.value("windowState")
         if state:
             self.restoreState(state)
+
+        # Ensure all dock widgets are visible
+        for dock in self.findChildren(QDockWidget):
+            dock.setVisible(True)
+            dock.show()
 
     def _setup_docks(self) -> None:
         """Creates and adds all dock panels to the QMainWindow.
@@ -148,9 +165,9 @@ class DevInspectorWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, output_dock)
         self.tabifyDockWidget(timing_dock, output_dock)
 
-        # 10. Thinking (Stub)
+        # 10. Thinking
         self._thinking_panel = ThinkingPanel(self)
-        thinking_dock = QDockWidget("Thinking (Stub)", self)
+        thinking_dock = QDockWidget("Thinking", self)
         thinking_dock.setObjectName("devDock__thinking")
         thinking_dock.setWidget(self._thinking_panel)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, thinking_dock)
