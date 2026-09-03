@@ -202,12 +202,8 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
 
     def handle_dev_requested() -> None:
         core = core_holder["core"] or _core_instance
-        if core is not None:
-            from interfaces.gui_qt.dev.dev_window import DevInspectorWindow
-            DevInspectorWindow.get_instance(core, overlay._theme)
-        else:
-            overlay.add_ally_message("System", "Dev Inspector is waiting for AllyCore to finish initializing...")
-            log("Dev window requested before core initialization completed.", level="warning")
+        from interfaces.gui_qt.dev.dev_window import DevInspectorWindow
+        DevInspectorWindow.get_instance(core, overlay._theme)
 
     overlay._status_strip.dev_window_requested.connect(handle_dev_requested)
 
@@ -219,6 +215,10 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
             global _core_instance
             _core_instance = loaded_core
             overlay.set_registry(loaded_core.entity_registry)
+
+            from interfaces.gui_qt.dev.dev_window import DevInspectorWindow
+            if DevInspectorWindow._instance is not None:
+                DevInspectorWindow._instance.set_core(loaded_core)
 
             bridge = CoreBridge(loaded_core)
             bridge.chat_message_ready.connect(lambda sender, msg: overlay.add_ally_message(sender, msg))

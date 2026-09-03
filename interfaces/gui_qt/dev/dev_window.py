@@ -26,18 +26,17 @@ class DevInspectorWindow(QMainWindow):
     _instance: Optional["DevInspectorWindow"] = None
 
     @classmethod
-    def get_instance(cls, core: AllyCore, theme: Theme, parent: Optional[QWidget] = None) -> "DevInspectorWindow":
+    def get_instance(cls, core: Optional[AllyCore], theme: Theme, parent: Optional[QWidget] = None) -> "DevInspectorWindow":
         """Singleton manager: returns existing instance or creates a new one, raising and focusing it.
         """
         if cls._instance is None:
             cls._instance = DevInspectorWindow(core, theme, parent)
-        else:
-            cls._instance.show()
-            cls._instance.raise_()
-            cls._instance.activateWindow()
+        cls._instance.show()
+        cls._instance.raise_()
+        cls._instance.activateWindow()
         return cls._instance
 
-    def __init__(self, core: AllyCore, theme: Theme, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, core: Optional[AllyCore], theme: Theme, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("devInspectorWindow")
         self.setWindowTitle("Ally Dev Inspector")
@@ -51,6 +50,13 @@ class DevInspectorWindow(QMainWindow):
 
         # Setup Docks
         self._setup_docks()
+
+    def set_core(self, core: AllyCore) -> None:
+        self._core = core
+        self._bridge.set_core(core)
+        self._timing_panel._core = core
+        self._entity_panel._core = core
+        self._memory_panel._core = core
 
         # Connect CoreBridge signals
         self._bridge.pipeline_image_ready.connect(self._vision_panel.handle_pipeline_image)

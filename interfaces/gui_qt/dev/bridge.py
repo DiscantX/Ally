@@ -35,8 +35,12 @@ class CoreBridge(QObject):
     thinking_stream_reset = Signal()
     thinking_stream_finalize = Signal()
 
-    def __init__(self, core: AllyCore, parent: Optional[QObject] = None) -> None:
+    def __init__(self, core: Optional[AllyCore] = None, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
+        if core is not None:
+            self.set_core(core)
+
+    def set_core(self, core: AllyCore) -> None:
         core.on_pipeline_image.connect(lambda k, img, t: self.pipeline_image_ready.emit(k, img, t or ""))
         core.on_debug_overlay.connect(lambda img: self.debug_overlay_ready.emit(img))
         core.on_ocr_result.connect(lambda payload: self.ocr_result_ready.emit(payload))
