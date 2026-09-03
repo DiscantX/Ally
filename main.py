@@ -222,8 +222,12 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
 
             bridge = CoreBridge(loaded_core)
             bridge.chat_message_ready.connect(lambda sender, msg: overlay.add_ally_message(sender, msg))
-            bridge.analysis_stream_finalize.connect(lambda analysis: overlay.add_ally_message("Ally", analysis))
-            bridge.chat_stream_finalize.connect(lambda resp: overlay.add_ally_message(loaded_core.personality_name, resp))
+            bridge.analysis_stream_begin.connect(lambda: overlay.begin_streaming_message("Ally", "ally"))
+            bridge.analysis_stream_chunk.connect(overlay.append_streaming_chunk)
+            bridge.analysis_stream_finalize.connect(overlay.finalize_streaming_message)
+            bridge.chat_stream_begin.connect(lambda: overlay.begin_streaming_message(loaded_core.personality_name, "ally"))
+            bridge.chat_stream_chunk.connect(overlay.append_streaming_chunk)
+            bridge.chat_stream_finalize.connect(overlay.finalize_streaming_message)
             bridge.connection_status_ready.connect(lambda stat: overlay._status_strip.update_connection(stat))
 
             # Forward any queued messages now that core is ready

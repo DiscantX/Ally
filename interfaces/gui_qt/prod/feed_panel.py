@@ -24,6 +24,9 @@ class FeedPanel(QWidget):
         super().__init__(parent)
         self._theme = theme
         self._registry = registry
+        self._active_streaming_row: Optional[QWidget] = None
+        self._active_streaming_body_label: Optional[QLabel] = None
+        self._active_streaming_text: str = ""
 
         self.setObjectName("feedPanel")
         layout = QVBoxLayout(self)
@@ -51,8 +54,6 @@ class FeedPanel(QWidget):
     def add_message(self, speaker_id: str, speaker_display_name: str, text: str, speaker_type: str = "ally") -> None:
         """Adds a message row to the feed. speaker_type can be 'ally', 'player', or 'system'.
         """
-        is_at_bottom = self._is_scrolled_to_bottom()
-
         row_widget = QWidget()
         row_widget.setObjectName("messageRow")
         row_widget.setProperty("speaker", speaker_type)
@@ -89,8 +90,67 @@ class FeedPanel(QWidget):
         count = self._container_layout.count()
         self._container_layout.insertWidget(count - 1, row_widget)
 
-        if is_at_bottom:
-            self._scroll_to_bottom()
+        self._scroll_to_bottom()
+
+    def begin_streaming_message(self, speaker_id: str, speaker_display_name: str, speaker_type: str = "ally") -> None:
+        """Begins a new streaming message row.
+        """
+        self._active_streaming_row = QWidget()
+        self._active_streaming_row.setObjectName("messageRow")
+        self._active_streaming_row.setProperty("speaker", speaker_type)
+        self._active_streaming_row.style().unpolish(self._active_streaming_row)
+        self._active_streaming_row.style().polish(self._active_streaming_row)
+
+        row_layout = QVBoxLayout(self._active_streaming_row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(2)
+
+        name_label = QLabel(speaker_display_name, self._active_streaming_row)
+        name_label.setObjectName("messageRow__nameLabel")
+        if speaker_type == "player":
+            name_color = self._theme.fg_primary
+        elif speaker_type == "system":
+            name_color = self._theme.fg_muted
+        else:
+            name_color = color_for_key(speaker_id, self._theme.companion_palette)
+        name_label.setStyleSheet(f"color: {name_color}; font-weight: bold; font-size: 12px;")
+        row_layout.addWidget(name_label)
+
+        self._active_streaming_body_label = QLabel(self._active_streaming_row)
+        self._active_streaming_body_label.setObjectName("messageRow__bodyLabel")
+        self._active_streaming_body_label.setTextFormat(Qt.TextFormat.RichText)
+        self._active_streaming_body_label.setWordWrap(True)
+        self._active_streaming_body_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        self._active_streaming_body_label.setStyleSheet(f"color: {self._theme.fg_primary}; font-size: 13px;")
+        row_layout.addWidget(self._active_streaming_body_label)
+
+        self._active_streaming_text = ""
+        count = self._container_layout.count()
+        self._container_layout.insertWidget(count - 1, self._active_streaming_row)
+        self._scroll_to_bottom()
+
+    def append_streaming_chunk(self, chunk: str) -> None:
+        """Appends a chunk to the active streaming message and scrolls down.
+        """
+        if not self._active_streaming_body_label:
+            self.begin_streaming_message("Ally", "Ally", "ally")
+
+        self._active_streaming_text += chunk
+        formatted_html = format_message_html(self._active_streaming_text, self._registry, self._theme)
+        self._active_streaming_body_label.setText(formatted_html)
+        self._scroll_to_bottom()
+
+    def finalize_streaming_message(self, final_text: Optional[str] = None) -> None:
+        """Finalizes the streaming message.
+        """
+        if final_text is not None and self._active_streaming_body_label:
+            self._active_streaming_text = final_text
+            formatted_html = format_message_html(self._active_streaming_text, self._registry, self._theme)
+            self._active_streaming_body_label.setText(formatted_html)
+        self._active_streaming_row = None
+        self._active_streaming_body_label = None
+        self._active_streaming_text = ""
+        self._scroll_to_bottom()
 
     def set_registry(self, registry: EntityRegistry) -> None:
         """Sets or updates the entity registry for rich text formatting.
@@ -115,4 +175,5 @@ class FeedPanel(QWidget):
     def _scroll_to_bottom(self) -> None:
         """Scrolls the scroll area to the maximum bottom position.
         """
-        self._scroll_bar.setValue(self._scroll_bar.maximum())
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, lambda: self._scroll_bar.setValue(self._scroll_bar.maximum()))

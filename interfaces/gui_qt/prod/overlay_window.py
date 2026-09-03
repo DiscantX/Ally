@@ -272,3 +272,18 @@ class ProdOverlayWindow(QWidget):
         """Public method to add an incoming Ally message to the feed.
         """
         self._feed_panel.add_message(personality_name, personality_name, text, speaker_type="ally")
+
+    def begin_streaming_message(self, personality_name: str, speaker_type: str = "ally") -> None:
+        """Begins streaming an Ally message.
+        """
+        self._feed_panel.begin_streaming_message(personality_name, personality_name, speaker_type)
+
+    def append_streaming_chunk(self, chunk: str) -> None:
+        """Appends a streaming chunk to the active feed message.
+        """
+        self._feed_panel.append_streaming_chunk(chunk)
+
+    def finalize_streaming_message(self, final_text: Optional[str] = None) -> None:
+        """Finalizes the streaming feed message.
+        """
+        self._feed_panel.finalize_streaming_message(final_text)
