@@ -94,7 +94,11 @@ class DevInspectorWindow(QMainWindow):
     def _setup_docks(self) -> None:
         """Creates and adds all dock panels to the QMainWindow.
         """
-        self.setDockOptions(QMainWindow.DockOption.AnimatedDocks | QMainWindow.DockOption.AllowNestedDocks)
+        self.setDockOptions(
+            QMainWindow.DockOption.AnimatedDocks
+            | QMainWindow.DockOption.AllowNestedDocks
+            | QMainWindow.DockOption.AllowTabbedDocks
+        )
 
         # 1. Vision Pipeline
         self._vision_panel = VisionPanel(self)
