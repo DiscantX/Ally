@@ -15,7 +15,8 @@ from PySide6.QtWidgets import (
     QTextEdit,
 )
 from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
-from infrastructure.logger.logger import subscribe, unsubscribe, LogEntry
+from infrastructure.logger.logger import LogEntry
+from interfaces.gui_qt.dev.qt_safe_logger import QtSafeLogSubscriber
 
 
 class VisionPanel(QWidget):
@@ -61,8 +62,8 @@ class VisionPanel(QWidget):
         self._log_text.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; font-family: monospace; font-size: 10px;")
         layout.addWidget(self._log_text, stretch=1)
 
-        # Subscribe to logger for vision log tail
-        subscribe(self._on_log_entry)
+        # Subscribe to logger for vision log tail (Qt-safe)
+        self._qt_log_subscriber = QtSafeLogSubscriber(self._on_log_entry, self)
 
     def handle_pipeline_image(self, key: str, image: Any, title: str) -> None:
         """Stores and displays pipeline image for given stage key.
@@ -127,5 +128,5 @@ class VisionPanel(QWidget):
     def closeEvent(self, event: Any) -> None:
         """Unsubscribes logger on close.
         """
-        unsubscribe(self._on_log_entry)
+        self._qt_log_subscriber.unsubscribe()
         super().closeEvent(event)

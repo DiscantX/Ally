@@ -4,7 +4,8 @@ from typing import Optional, Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLabel
 from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
-from infrastructure.logger.logger import subscribe, unsubscribe, LogEntry, REGISTRY
+from infrastructure.logger.logger import LogEntry, REGISTRY
+from interfaces.gui_qt.dev.qt_safe_logger import QtSafeLogSubscriber
 
 
 class OutputPanel(QWidget):
@@ -37,7 +38,7 @@ class OutputPanel(QWidget):
         self._text.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; font-family: monospace; font-size: 11px;")
         layout.addWidget(self._text)
 
-        subscribe(self._on_log_entry)
+        self._qt_log_subscriber = QtSafeLogSubscriber(self._on_log_entry, self)
 
     def _on_log_entry(self, entry: LogEntry) -> None:
         """Receives log entry and appends if matches current channel filter.
@@ -68,5 +69,5 @@ class OutputPanel(QWidget):
     def closeEvent(self, event: Any) -> None:
         """Unsubscribes logger on close.
         """
-        unsubscribe(self._on_log_entry)
+        self._qt_log_subscriber.unsubscribe()
         super().closeEvent(event)

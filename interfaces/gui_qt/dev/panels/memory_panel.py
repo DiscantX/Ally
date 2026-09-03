@@ -4,7 +4,8 @@ from typing import Optional, Any
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTextEdit
 from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
-from infrastructure.logger.logger import subscribe, unsubscribe, LogEntry
+from infrastructure.logger.logger import LogEntry
+from interfaces.gui_qt.dev.qt_safe_logger import QtSafeLogSubscriber
 
 
 class MemoryPanel(QWidget):
@@ -39,7 +40,7 @@ class MemoryPanel(QWidget):
         self._timer.timeout.connect(self._poll_memory)
         self._timer.start()
 
-        subscribe(self._on_log_entry)
+        self._qt_log_subscriber = QtSafeLogSubscriber(self._on_log_entry, self)
 
     def _poll_memory(self) -> None:
         """Polls memory manager summaries.
@@ -77,5 +78,5 @@ class MemoryPanel(QWidget):
         """Stops timer and unsubscribes logger on close.
         """
         self._timer.stop()
-        unsubscribe(self._on_log_entry)
+        self._qt_log_subscriber.unsubscribe()
         super().closeEvent(event)
