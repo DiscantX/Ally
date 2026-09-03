@@ -57,24 +57,30 @@ QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
     border: 1px solid {focus_ring};
 }}
 
-QPushButton {{
+QPushButton, QToolButton {{
     background-color: {bg_elevated};
     color: {fg_primary};
     border: 1px solid {border};
     border-radius: 3px;
-    padding: 5px 12px;
+    padding: 1px 1px;
     font-weight: bold;
 }}
 
-QPushButton:hover {{
+QPushButton:hover, QToolButton:hover {{
     background-color: {accent_primary};
     color: {bg_base};
     border-color: {accent_primary};
 }}
 
-QPushButton:pressed {{
+QPushButton:pressed, QToolButton:pressed {{
     background-color: {accent_secondary};
     color: {bg_base};
+}}
+
+QToolButton#statusStrip__exitButton:hover {{
+    background-color: {error};
+    color: {bg_base};
+    border-color: {error};
 }}
 
 QComboBox {{

@@ -62,7 +62,7 @@ class SettingsDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(cancel_btn)
 
-        save_btn = QPushButton("Save & Apply", self)
+        save_btn = QPushButton("Save", self)
         save_btn.setDefault(True)
         save_btn.clicked.connect(self._on_save)
         btn_layout.addWidget(save_btn)
