@@ -1,8 +1,10 @@
-"""Dev Inspector Window (QMainWindow) with dockable panels, CoreBridge integration, and QSettings layout persistence.
+# Verified PySide6QtAds API: CDockManager, CDockWidget, DockWidgetArea, saveState, restoreState (v5.0.0.2)
+"""Dev Inspector Window (QMainWindow) with Qt Advanced Docking System (ADS) dockable panels, CoreBridge integration, and QSettings layout persistence.
 """
 from typing import Optional, Any
 from PySide6.QtCore import Qt, QSettings
-from PySide6.QtWidgets import QMainWindow, QDockWidget, QWidget, QMessageBox, QTabWidget
+from PySide6.QtWidgets import QMainWindow, QWidget, QMessageBox
+import PySide6QtAds as QtAds
 from brain.reasoning.core import AllyCore
 from interfaces.gui_qt.dev.bridge import CoreBridge
 from interfaces.gui_qt.dev.panels.vision_panel import VisionPanel
@@ -21,7 +23,7 @@ from brain.state.shell_bounds_registry import SHELL_BOUNDS
 
 
 class DevInspectorWindow(QMainWindow):
-    """Dev inspector QMainWindow exposing all pipeline stages, memory, registry, and logs in dock panels.
+    """Dev inspector QMainWindow exposing all pipeline stages, memory, registry, and logs in ADS dock panels.
     """
     _instance: Optional["DevInspectorWindow"] = None
 
@@ -49,9 +51,11 @@ class DevInspectorWindow(QMainWindow):
 
         self.setStyleSheet(build_stylesheet(theme, TEMPLATE_PATH))
 
+        # Setup ADS Dock Manager
+        self._dock_manager = QtAds.CDockManager(self)
+
         # Setup Docks
         self._setup_docks()
-        self.setTabPosition(Qt.DockWidgetArea.AllDockWidgetAreas, QTabWidget.TabPosition.North)
 
         if core is not None:
             self.set_core(core)
@@ -77,110 +81,97 @@ class DevInspectorWindow(QMainWindow):
             self._bridge.thinking_stream_reset.connect(self._thinking_panel.handle_thinking_reset)
             self._bridge.thinking_stream_finalize.connect(self._thinking_panel.handle_thinking_finalize)
 
-        # Restore dock layout state from QSettings
+        # Restore dock layout state from QSettings via CDockManager
         self._settings = QSettings("Ally", "DevInspectorWindow")
         geometry = self._settings.value("geometry")
         if geometry:
             self.restoreGeometry(geometry)
-        state = self._settings.value("windowState")
-        if state:
-            self.restoreState(state)
+        ads_state = self._settings.value("adsState")
+        if ads_state:
+            self._dock_manager.restoreState(ads_state)
 
         # Ensure all dock widgets are visible
-        for dock in self.findChildren(QDockWidget):
+        for dock in self.findChildren(QtAds.CDockWidget):
             dock.setVisible(True)
             dock.show()
 
     def _setup_docks(self) -> None:
-        """Creates and adds all dock panels to the QMainWindow.
+        """Creates and adds all dock panels to the CDockManager.
         """
-        self.setDockOptions(
-            QMainWindow.DockOption.AnimatedDocks
-            | QMainWindow.DockOption.AllowNestedDocks
-            | QMainWindow.DockOption.AllowTabbedDocks
-        )
-
         # 1. Vision Pipeline
         self._vision_panel = VisionPanel(self)
-        vision_dock = QDockWidget("Vision Pipeline", self)
+        vision_dock = QtAds.CDockWidget("Vision Pipeline")
         vision_dock.setObjectName("devDock__vision")
         vision_dock.setWidget(self._vision_panel)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, vision_dock)
+        self._dock_manager.addDockWidget(QtAds.DockWidgetArea.LeftDockWidgetArea, vision_dock)
 
         # 2. Debug Overlay
         self._debug_panel = DebugPanel(self)
-        debug_dock = QDockWidget("Debug Overlay", self)
+        debug_dock = QtAds.CDockWidget("Debug Overlay")
         debug_dock.setObjectName("devDock__debug")
         debug_dock.setWidget(self._debug_panel)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, debug_dock)
-        self.tabifyDockWidget(vision_dock, debug_dock)
+        self._dock_manager.addDockWidgetTab(QtAds.DockWidgetArea.LeftDockWidgetArea, debug_dock)
 
         # 3. OCR / Screen Classification
         self._ocr_panel = OcrPanel(self)
-        ocr_dock = QDockWidget("OCR / Classification", self)
+        ocr_dock = QtAds.CDockWidget("OCR / Classification")
         ocr_dock.setObjectName("devDock__ocr")
         ocr_dock.setWidget(self._ocr_panel)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, ocr_dock)
-        self.tabifyDockWidget(vision_dock, ocr_dock)
+        self._dock_manager.addDockWidgetTab(QtAds.DockWidgetArea.LeftDockWidgetArea, ocr_dock)
 
         # 4. Scribe Output
         self._scribe_panel = ScribePanel(self)
-        scribe_dock = QDockWidget("Scribe (JSON)", self)
+        scribe_dock = QtAds.CDockWidget("Scribe (JSON)")
         scribe_dock.setObjectName("devDock__scribe")
         scribe_dock.setWidget(self._scribe_panel)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, scribe_dock)
+        self._dock_manager.addDockWidget(QtAds.DockWidgetArea.RightDockWidgetArea, scribe_dock)
 
         # 5. Ally Output
         self._ally_panel = AllyPanel(self)
-        ally_dock = QDockWidget("Ally (JSON)", self)
+        ally_dock = QtAds.CDockWidget("Ally (JSON)")
         ally_dock.setObjectName("devDock__ally")
         ally_dock.setWidget(self._ally_panel)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, ally_dock)
-        self.tabifyDockWidget(scribe_dock, ally_dock)
+        self._dock_manager.addDockWidgetTab(QtAds.DockWidgetArea.RightDockWidgetArea, ally_dock)
 
         # 6. Entity Registry
         self._entity_panel = EntityPanel(self._core, self)
-        entity_dock = QDockWidget("Entity Registry", self)
+        entity_dock = QtAds.CDockWidget("Entity Registry")
         entity_dock.setObjectName("devDock__entity")
         entity_dock.setWidget(self._entity_panel)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, entity_dock)
-        self.tabifyDockWidget(scribe_dock, entity_dock)
+        self._dock_manager.addDockWidgetTab(QtAds.DockWidgetArea.RightDockWidgetArea, entity_dock)
 
         # 7. Memory
         self._memory_panel = MemoryPanel(self._core, self)
-        memory_dock = QDockWidget("Memory", self)
+        memory_dock = QtAds.CDockWidget("Memory")
         memory_dock.setObjectName("devDock__memory")
         memory_dock.setWidget(self._memory_panel)
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, memory_dock)
-        self.tabifyDockWidget(scribe_dock, memory_dock)
+        self._dock_manager.addDockWidgetTab(QtAds.DockWidgetArea.RightDockWidgetArea, memory_dock)
 
         # 8. Timing Waterfall
         self._timing_panel = TimingPanel(self._core, self)
-        timing_dock = QDockWidget("Timing Waterfall", self)
+        timing_dock = QtAds.CDockWidget("Timing Waterfall")
         timing_dock.setObjectName("devDock__timing")
         timing_dock.setWidget(self._timing_panel)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, timing_dock)
+        self._dock_manager.addDockWidget(QtAds.DockWidgetArea.BottomDockWidgetArea, timing_dock)
 
         # 9. Output / Logs
         self._output_panel = OutputPanel(self)
-        output_dock = QDockWidget("Output / Logs", self)
+        output_dock = QtAds.CDockWidget("Output / Logs")
         output_dock.setObjectName("devDock__output")
         output_dock.setWidget(self._output_panel)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, output_dock)
-        self.tabifyDockWidget(timing_dock, output_dock)
+        self._dock_manager.addDockWidgetTab(QtAds.DockWidgetArea.BottomDockWidgetArea, output_dock)
 
         # 10. Thinking
         self._thinking_panel = ThinkingPanel(self)
-        thinking_dock = QDockWidget("Thinking", self)
+        thinking_dock = QtAds.CDockWidget("Thinking")
         thinking_dock.setObjectName("devDock__thinking")
         thinking_dock.setWidget(self._thinking_panel)
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, thinking_dock)
-        self.tabifyDockWidget(timing_dock, thinking_dock)
+        self._dock_manager.addDockWidgetTab(QtAds.DockWidgetArea.BottomDockWidgetArea, thinking_dock)
 
         # Set default active tabs
         vision_dock.raise_()
         scribe_dock.raise_()
-        output_dock.raise_()
+        timing_dock.raise_()
 
     def showEvent(self, event: Any) -> None:
         """Handles show event: registers display affinity and shell bounds.
@@ -204,8 +195,9 @@ class DevInspectorWindow(QMainWindow):
     def closeEvent(self, event: Any) -> None:
         """Handles close event: saves state and unregisters shell bounds, resetting singleton.
         """
-        self._settings.setValue("geometry", self.saveGeometry())
-        self._settings.setValue("windowState", self.saveState())
+        if hasattr(self, "_settings"):
+            self._settings.setValue("geometry", self.saveGeometry())
+            self._settings.setValue("adsState", self._dock_manager.saveState())
         SHELL_BOUNDS.unregister("dev_inspector")
         DevInspectorWindow._instance = None
         super().closeEvent(event)

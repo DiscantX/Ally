@@ -20,3 +20,5 @@ pyaec>=0.1.5
 scipy>=1.10.0
 sounddevice==0.5.0
 vosk==0.3.45
+PySide6-QtAds==5.0.0.2
+

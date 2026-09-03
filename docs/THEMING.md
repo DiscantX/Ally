@@ -129,3 +129,7 @@ Advanced users and third-party theme authors can override generated stylesheets 
 ```
 
 When `custom_qss_path` is present and readable, `build_stylesheet()` loads its raw content as the active stylesheet instead of rendering [`base.qss.tmpl`](interfaces/gui_qt/theming/base.qss.tmpl).
+
+## Qt Advanced Docking System (ADS) Chrome Styling
+
+The dev inspector window's dock chrome (title bars, tab widgets, splitters) is rendered by the Qt Advanced Docking System (`PySide6QtAds`) and styled via dedicated QSS selectors (`ads--CDockManager`, `ads--CDockAreaWidget`, `ads--CDockWidget`, `ads--CDockWidgetTab`, `ads--CTitleBar`, `ads--CDockSplitter`). These selectors reuse the same theme tokens (`{bg_base}`, `{bg_surface}`, `{bg_elevated}`, `{fg_primary}`, `{fg_secondary}`, `{border}`, `{accent_primary}`) to ensure that dev window container chrome seamlessly follows the active theme (`Signal` vs `Synthwave`).

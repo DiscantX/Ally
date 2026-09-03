@@ -114,3 +114,47 @@ QScrollBar::handle:vertical:hover {{
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     height: 0px;
 }}
+
+/* Qt Advanced Docking System (ADS) Chrome Styling */
+ads--CDockManager {{
+    background-color: {bg_base};
+}}
+
+ads--CDockAreaWidget {{
+    background-color: {bg_surface};
+    border: 1px solid {border};
+}}
+
+ads--CDockWidget {{
+    background-color: {bg_surface};
+    color: {fg_primary};
+}}
+
+ads--CDockWidgetTab {{
+    background-color: {bg_elevated};
+    color: {fg_secondary};
+    border: 1px solid {border};
+    padding: 4px 8px;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+}}
+
+ads--CDockWidgetTab:hover {{
+    background-color: {accent_primary};
+    color: {bg_base};
+}}
+
+ads--CDockWidgetTab:selected {{
+    background-color: {bg_surface};
+    color: {accent_primary};
+    border-bottom: 2px solid {accent_primary};
+}}
+
+ads--CTitleBar {{
+    background-color: {bg_elevated};
+    border-bottom: 1px solid {border};
+}}
+
+ads--CDockSplitter {{
+    background-color: {border};
+}}
