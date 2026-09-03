@@ -1,5 +1,7 @@
 """Prod Overlay Window shell assembling feed panel, input bar, and status strip with edge snapping and capture exclusion.
 """
+from __future__ import annotations
+
 from typing import Optional, Literal
 from PySide6.QtCore import Qt, QPoint, QRect
 from PySide6.QtGui import QScreen, QGuiApplication
@@ -12,7 +14,8 @@ from interfaces.gui_qt.prod.voice_input_controller import VoiceInputController
 from interfaces.gui_qt.shell.capture_exclusion import exclude_hwnd_from_capture
 from brain.state.shell_bounds_registry import SHELL_BOUNDS
 from interfaces.gui_qt.theming.theme import Theme, SIGNAL, SYNTHWAVE, build_stylesheet
-from brain.state.entity_registry import EntityRegistry
+from infrastructure.logger import log, timed
+import time
 
 TEMPLATE_PATH = "interfaces/gui_qt/theming/base.qss.tmpl"
 
@@ -21,7 +24,10 @@ class ProdOverlayWindow(QWidget):
     """Frameless translucent top-level window for player-facing prod overlay companion shell.
     """
 
+    @timed
     def __init__(self, theme: Theme = SIGNAL, registry: Optional[EntityRegistry] = None, parent: Optional[QWidget] = None):
+        from brain.state.entity_registry import EntityRegistry
+        t0 = time.perf_counter()
         super().__init__(parent)
         self._theme = theme
         self._registry = registry
@@ -41,7 +47,9 @@ class ProdOverlayWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setObjectName("prodOverlayWindow")
         self.resize(380, 520)
+        log(f"ProdOverlayWindow base setup took {time.perf_counter() - t0:.5f}s", level="debug")
 
+        t_comp = time.perf_counter()
         # Main layout container with styling applied via QSS
         self._container = QWidget(self)
         self._container.setObjectName("prodOverlayContainer")
@@ -86,8 +94,11 @@ class ProdOverlayWindow(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self._container)
+        log(f"ProdOverlayWindow components construction took {time.perf_counter() - t_comp:.5f}s", level="debug")
 
+        t_theme = time.perf_counter()
         self._apply_theme()
+        log(f"ProdOverlayWindow theme application took {time.perf_counter() - t_theme:.5f}s", level="debug")
 
     def _wire_voice_input_signals(self) -> None:
         """Wire voice input controller signals to/from the input bar."""
@@ -253,6 +264,7 @@ class ProdOverlayWindow(QWidget):
     def set_registry(self, registry: EntityRegistry) -> None:
         """Sets or updates entity registry on feed panel.
         """
+        from brain.state.entity_registry import EntityRegistry
         self._registry = registry
         self._feed_panel.set_registry(registry)
 

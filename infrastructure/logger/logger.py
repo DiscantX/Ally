@@ -96,6 +96,7 @@ REGISTRY = {
     "personality.py": {"name": "PersonalityMemory", "color": "purple"},
     "save_tracker.py": {"name": "SaveTracker", "color": "dark_grey"},
     "run.py": {"name": "Run", "color": "bright_cyan"},
+    "header.py": {"name": "HeaderSplash", "color": "orange"},
     "overlay_window.py": {"name": "ProdOverlay", "color": "cyan"},
     "recognizer.py": {"name": "SpeechRecognizer", "color": "cyan_1"},
     "assembler.py": {"name": "UtteranceAssembler", "color": "magenta_1"},

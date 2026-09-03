@@ -45,6 +45,7 @@ class AllyCore:
     with observer hooks for frontends (GUI, CLI, tests).
     """
 
+    @timed
     def __init__(
         self,
         config_path: Optional[str] = None,
@@ -573,6 +574,7 @@ class AllyCore:
             player_id = DEFAULT_PLAYER_ID
             if self.image_path:
                 save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id=ADHOC_IMAGE_GAME_ID)
+                t_mm = time.perf_counter()
                 self.memory_manager = MemoryManager(
                     player_id=player_id,
                     game_id=ADHOC_IMAGE_GAME_ID,
@@ -582,22 +584,32 @@ class AllyCore:
                     save_tracker=self.save_tracker,
                     db=self.db,
                 )
+                log(f"MemoryManager construction took {time.perf_counter() - t_mm:.5f}s", level="debug")
+
+                t_reg = time.perf_counter()
                 self.registry = EntityRegistry(
                     player_id=player_id,
                     game_id=ADHOC_IMAGE_GAME_ID,
                     save_id=save_id,
                     db=self.db,
                 )
+                log(f"EntityRegistry construction took {time.perf_counter() - t_reg:.5f}s", level="debug")
             else:
                 if not self.config_path:
                     self.config_path = init_config(game_id=self.game_id)
+                
+                t_col = time.perf_counter()
                 self.collector = build_collector(
                     self.config_path,
                     clip_classifier=self.clip_classifier,
                     category_store=self.category_store,
                 )
+                log(f"build_collector took {time.perf_counter() - t_col:.5f}s", level="info")
+
                 game_id = self.collector.config.game_id
                 save_id, _ = self.save_tracker.resolve_save_id(player_id=player_id, game_id=game_id)
+
+                t_mm = time.perf_counter()
                 self.memory_manager = MemoryManager(
                     player_id=player_id,
                     game_id=game_id,
@@ -607,12 +619,16 @@ class AllyCore:
                     save_tracker=self.save_tracker,
                     db=self.db,
                 )
+                log(f"MemoryManager construction took {time.perf_counter() - t_mm:.5f}s", level="debug")
+
+                t_reg = time.perf_counter()
                 self.registry = EntityRegistry(
                     player_id=player_id,
                     game_id=game_id,
                     save_id=save_id,
                     db=self.db,
                 )
+                log(f"EntityRegistry construction took {time.perf_counter() - t_reg:.5f}s", level="debug")
             
             self._initialized = True
 

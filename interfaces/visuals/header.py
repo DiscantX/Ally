@@ -6,6 +6,9 @@ import os
 import sys
 import time
 import threading
+from infrastructure.logger import log, timed
+
+MODULE_NAME = "HeaderSplash"
 
 # Reconfigure stdout/stderr to UTF-8 on Windows to avoid UnicodeEncodeError with box-drawing characters
 try:
@@ -43,7 +46,7 @@ ALLY_ASCII_TEMPLATE = (
 # ==========================================
 # Minimum time (in seconds) to display the animated splash loop.
 # Set to 0.0 to boot instantly as soon as main.py finishes loading.
-MIN_SPLASH_DURATION = 1.0
+MIN_SPLASH_DURATION = 0.0
 
 # Target frame rate for the animated gradient cycle.
 # 10 = relaxed retro shift, 24 = cinematic pacing, 60 = high-fluidity glow.
@@ -106,13 +109,18 @@ def _animate_loop():
     sys.stdout.write("\033[?25h") # Restore text cursor
     sys.stdout.flush()
 
+@timed
 def run_header_splash():
     """Runs the banner splash animation while loading main, or prints static frame."""
     # Clear terminal immediately for a perfectly clean canvas
+    t_clear = time.perf_counter()
     os.system('cls' if os.name == 'nt' else 'clear')
+    log(f"Terminal cleared in {time.perf_counter() - t_clear:.5f}s", level="debug")
     
+    t_anim = time.perf_counter()
     anim_thread = threading.Thread(target=_animate_loop, daemon=True)
     anim_thread.start()
+    log(f"Animation thread started in {time.perf_counter() - t_anim:.5f}s", level="debug")
     
     start_time = time.time()
     
@@ -128,7 +136,9 @@ def run_header_splash():
     except Exception:
         pass
     
+    t_import = time.perf_counter()
     import main
+    log(f"import main took {time.perf_counter() - t_import:.5f}s", level="info")
     
     gui_ready_event.wait(timeout=3.0)
     try:

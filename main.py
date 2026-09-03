@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Vertical slice: a continuous turn loop through the pipeline using AllyCore."""
 
 import argparse
@@ -6,6 +8,9 @@ from typing import Any, Optional, TYPE_CHECKING
 import time
 import sys
 import signal
+
+if TYPE_CHECKING:
+    from brain.reasoning.core import AllyCore
 
 from infrastructure.logger import log
 
@@ -174,12 +179,9 @@ def parse_args() -> argparse.Namespace:
 def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
     """Runs the Qt application with an already-instantiated and shown ProdOverlayWindow."""
     args = parse_args()
+    t_imports = time.perf_counter()
     from PySide6.QtCore import QTimer
-    from interfaces.gui_qt.dev.dev_window import DevInspectorWindow
-    from interfaces.gui_qt.dev.bridge import CoreBridge
-    from brain.reasoning.core import AllyCore
-    from ingestion.collectors.base import RawObservation
-    from PIL import Image
+    log(f"run_qt_app_with_overlay heavy imports took {time.perf_counter() - t_imports:.5f}s", level="info")
 
     core_holder: dict[str, Any] = {"core": None}
     message_queue: list[tuple[str, str]] = []
@@ -201,6 +203,7 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
     def handle_dev_requested() -> None:
         core = core_holder["core"] or _core_instance
         if core is not None:
+            from interfaces.gui_qt.dev.dev_window import DevInspectorWindow
             DevInspectorWindow.get_instance(core, overlay._theme)
         else:
             overlay.add_ally_message("System", "Dev Inspector is waiting for AllyCore to finish initializing...")
@@ -211,6 +214,7 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
     def _on_core_initialized(loaded_core: AllyCore) -> None:
         log("Core initialization completed, setting up Qt bridge and signals...", level="info")
         try:
+            from interfaces.gui_qt.dev.bridge import CoreBridge
             core_holder["core"] = loaded_core
             global _core_instance
             _core_instance = loaded_core
@@ -250,6 +254,8 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
             if args.image:
                 def _run_single() -> None:
                     log("Executing single-shot image observation turn...")
+                    from ingestion.collectors.base import RawObservation
+                    from PIL import Image
                     observation = RawObservation(image=Image.open(str(args.image)))
                     loaded_core.run_turn(observation)
                     loaded_core.stop()
@@ -263,6 +269,9 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
     def _async_init() -> None:
         log("Starting asynchronous AllyCore instantiation...", level="info")
         try:
+            from brain.reasoning.core import AllyCore
+            from ingestion.collectors.base import RawObservation
+            from PIL import Image
             loaded_core = AllyCore(
                 config_path=args.config,
                 game_id=args.game,
