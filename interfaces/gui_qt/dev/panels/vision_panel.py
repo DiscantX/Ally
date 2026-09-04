@@ -3,16 +3,17 @@
 from typing import Optional, Any
 import numpy as np
 from PIL import Image
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
-    QComboBox,
     QLabel,
     QScrollArea,
     QTextEdit,
+    QFrame,
+    QSizePolicy,
 )
 from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
 from infrastructure.logger.logger import LogEntry
@@ -20,38 +21,34 @@ from interfaces.gui_qt.dev.qt_safe_logger import QtSafeLogSubscriber
 
 
 class VisionPanel(QWidget):
-    """Dock panel displaying pipeline images across stages with embedded log tail.
+    """Dock panel displaying pipeline images across all stages simultaneously with embedded log tail.
     """
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("devDock__visionPanel")
-        self._images: dict[str, Any] = {}
-        self._titles: dict[str, str] = {}
+        self._pipeline_slots: dict[str, dict[str, Any]] = {}
         self._log_tail: list[str] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
 
-        # Stage selector
-        top_bar = QHBoxLayout()
-        top_bar.addWidget(QLabel("Stage:", self))
-        self._combo = QComboBox(self)
-        self._combo.setObjectName("devDock__visionCombo")
-        self._combo.currentTextChanged.connect(self._on_stage_changed)
-        top_bar.addWidget(self._combo)
-        top_bar.addStretch(1)
-        layout.addLayout(top_bar)
-
-        # Image view area
+        # Scrollable container for multi-stage pipeline images
         self._scroll = QScrollArea(self)
         self._scroll.setObjectName("devDock__visionScroll")
         self._scroll.setWidgetResizable(True)
-        self._image_label = QLabel("Awaiting pipeline images...", self)
-        self._image_label.setObjectName("devDock__visionImageLabel")
-        self._image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._image_label.setStyleSheet(f"color: {NEUTRAL_CONTENT_THEME.fg_secondary}; background-color: {NEUTRAL_CONTENT_THEME.bg_base};")
-        self._scroll.setWidget(self._image_label)
+
+        self._content_widget = QWidget(self)
+        self._content_widget.setObjectName("devDock__visionContent")
+        self._content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        
+        # Initial layout orientation based on dimensions
+        initial_vertical = self.height() > self.width()
+        self._pipeline_layout = QVBoxLayout() if initial_vertical else QHBoxLayout()
+        self._pipeline_layout.setContentsMargins(4, 4, 4, 4)
+        self._pipeline_layout.setSpacing(6)
+        self._content_widget.setLayout(self._pipeline_layout)
+        self._scroll.setWidget(self._content_widget)
         layout.addWidget(self._scroll, stretch=3)
 
         # Embedded log tail (~5 lines, filtered to Vision/OCR/Classifier channels)
@@ -62,57 +59,155 @@ class VisionPanel(QWidget):
         self._log_text.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; font-family: monospace; font-size: 10px;")
         layout.addWidget(self._log_text, stretch=1)
 
+        # Pre-initialize standard pipeline stage slots (matching Tkinter reference)
+        pipeline_defs = [
+            ("observation", "RGB PIL Image Observation"),
+            ("grayscale", "Grayscale Frame"),
+            ("masked_grayscale", "ROI-Masked Grayscale Frame"),
+            ("normalized_grayscale", "Luminance-Normalized Grayscale"),
+            ("diff", "Absolute Difference Image"),
+            ("thresh", "Thresholded Binary Change Map"),
+            ("classifier_gray", "Classifier Grayscale Frame"),
+            ("classifier_crop", "Anchor Crop / Draft Frame"),
+            ("debug_overlay", "Annotated Debug Overlay Frame"),
+        ]
+        for key, title in pipeline_defs:
+            self._create_pipeline_slot(key, title)
+
         # Subscribe to logger for vision log tail (Qt-safe)
         self._qt_log_subscriber = QtSafeLogSubscriber(self._on_log_entry, self)
+
+    def _create_pipeline_slot(self, key: str, title: str) -> None:
+        """Creates a UI card for a pipeline stage."""
+        if key in self._pipeline_slots:
+            return
+        card = QFrame(self._content_widget)
+        card.setObjectName(f"devDock__visionCard_{key}")
+        card.setFrameShape(QFrame.Shape.StyledPanel)
+        card.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; border: 1px solid {NEUTRAL_CONTENT_THEME.border}; border-radius: 4px;")
+        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(4, 4, 4, 4)
+        card_layout.setSpacing(2)
+
+        title_lbl = QLabel(title, card)
+        title_lbl.setObjectName(f"devDock__visionTitle_{key}")
+        title_lbl.setStyleSheet(f"color: {NEUTRAL_CONTENT_THEME.accent_primary}; font-weight: bold; font-size: 10px;")
+        card_layout.addWidget(title_lbl)
+
+        img_lbl = QLabel("Awaiting...", card)
+        img_lbl.setObjectName(f"devDock__visionImage_{key}")
+        img_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        img_lbl.setStyleSheet(f"color: {NEUTRAL_CONTENT_THEME.fg_secondary}; background-color: {NEUTRAL_CONTENT_THEME.bg_base};")
+        img_lbl.setMinimumSize(160, 120)
+        img_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        card_layout.addWidget(img_lbl)
+
+        self._pipeline_layout.addWidget(card)
+        self._pipeline_slots[key] = {
+            "card": card,
+            "title_label": title_lbl,
+            "image_label": img_lbl,
+            "raw_image": None,
+            "title": title,
+        }
 
     def handle_pipeline_image(self, key: str, image: Any, title: str) -> None:
         """Stores and displays pipeline image for given stage key.
         """
-        self._images[key] = image
-        self._titles[key] = title or key
-        if key not in [self._combo.itemText(i) for i in range(self._combo.count())]:
-            self._combo.addItem(key)
-        if self._combo.currentText() == key or self._combo.count() == 1:
-            self._display_image(key)
-
-    def _on_stage_changed(self, key: str) -> None:
-        """Handles dropdown stage selection change.
-        """
-        if key in self._images:
-            self._display_image(key)
-
-    def _display_image(self, key: str) -> None:
-        """Converts PIL/ndarray image to QPixmap and displays it.
-        """
-        img = self._images.get(key)
-        if img is None:
+        if image is None:
             return
+        t = title or key
+        if key not in self._pipeline_slots:
+            self._create_pipeline_slot(key, t)
+        
+        slot = self._pipeline_slots[key]
+        if title:
+            slot["title"] = title
+            slot["title_label"].setText(title)
+        slot["raw_image"] = image
+        self._refresh_pipeline_slot(key)
+
+    def _refresh_pipeline_slot(self, key: str) -> None:
+        """Converts PIL/ndarray image to QPixmap and displays with proportional scaling.
+        """
+        slot = self._pipeline_slots.get(key)
+        if not slot or slot["raw_image"] is None:
+            return
+        img = slot["raw_image"]
         try:
             q_img: Optional[QImage] = None
             if isinstance(img, Image.Image):
                 rgb_img = img.convert("RGBA")
                 data = rgb_img.tobytes("raw", "RGBA")
-                q_img = QImage(data, rgb_img.width, rgb_img.height, QImage.Format.Format_RGBA8888)
+                q_img = QImage(data, rgb_img.width, rgb_img.height, QImage.Format.Format_RGBA8888).copy()
             elif isinstance(img, np.ndarray):
                 arr = img
                 if arr.ndim == 2:
                     h, w = arr.shape
-                    q_img = QImage(arr.data, w, h, w, QImage.Format.Format_Grayscale8)
-                elif arr.shape[2] == 3:
-                    h, w, _ = arr.shape
-                    rgb = arr[..., ::-1].copy() # BGR to RGB
-                    q_img = QImage(rgb.data, w, h, w * 3, QImage.Format.Format_RGB888)
-                elif arr.shape[2] == 4:
-                    h, w, _ = arr.shape
-                    q_img = QImage(arr.data, w, h, w * 4, QImage.Format.Format_RGBA8888)
+                    q_img = QImage(arr.tobytes(), w, h, w, QImage.Format.Format_Grayscale8).copy()
+                elif arr.ndim == 3:
+                    h, w, c = arr.shape
+                    if c == 3:
+                        rgb = arr[..., ::-1].copy()  # BGR to RGB
+                        q_img = QImage(rgb.tobytes(), w, h, w * 3, QImage.Format.Format_RGB888).copy()
+                    elif c == 4:
+                        rgba = arr.copy()
+                        q_img = QImage(rgba.tobytes(), w, h, w * 4, QImage.Format.Format_RGBA8888).copy()
 
             if q_img is not None:
                 pix = QPixmap.fromImage(q_img)
-                self._image_label.setPixmap(pix)
-                title = self._titles.get(key, key)
-                self._image_label.setToolTip(f"Stage: {title}")
+                img_lbl = slot["image_label"]
+                
+                # Proportional scaling based on layout orientation
+                is_vertical = self.height() > self.width()
+                if is_vertical:
+                    max_w = max(160, self.width() - 40)
+                    max_h = 240
+                else:
+                    max_h = max(140, self.height() - 100)
+                    max_w = 320
+
+                scaled_pix = pix.scaled(max_w, max_h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+                img_lbl.setPixmap(scaled_pix)
+                img_lbl.setToolTip(f"Stage: {slot['title']} ({q_img.width()}x{q_img.height()})")
         except Exception as e:
-            self._image_label.setText(f"Error rendering image: {e}")
+            slot["image_label"].setText(f"Error: {e}")
+
+    def resizeEvent(self, event: Any) -> None:
+        """Monitors dimension changes for responsive layout stacking and image scaling.
+        """
+        super().resizeEvent(event)
+        self._update_layout_orientation()
+        for key in self._pipeline_slots:
+            self._refresh_pipeline_slot(key)
+
+    def _update_layout_orientation(self) -> None:
+        """Switches between vertical and horizontal layout stacking based on panel dimensions.
+        """
+        w = self.width()
+        h = self.height()
+        should_be_vertical = h > w
+
+        current_is_vertical = isinstance(self._content_widget.layout(), QVBoxLayout)
+        if current_is_vertical != should_be_vertical:
+            old_layout = self._content_widget.layout()
+            cards = []
+            if old_layout:
+                while old_layout.count() > 0:
+                    item = old_layout.takeAt(0)
+                    if item.widget():
+                        cards.append(item.widget())
+                old_layout.deleteLater()
+
+            new_layout = QVBoxLayout() if should_be_vertical else QHBoxLayout()
+            new_layout.setContentsMargins(4, 4, 4, 4)
+            new_layout.setSpacing(6)
+            for card in cards:
+                new_layout.addWidget(card)
+            self._content_widget.setLayout(new_layout)
+            self._pipeline_layout = new_layout
 
     def _on_log_entry(self, entry: LogEntry) -> None:
         """Receives log entries and filters for vision/OCR channels.
