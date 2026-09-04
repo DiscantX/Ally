@@ -19,6 +19,7 @@ _shutdown_in_progress = threading.Event()
 _core_instance: Optional[Any] = None
 _qt_app_instance: Optional[Any] = None
 _overlay_instance: Optional[Any] = None
+_tray_manager_instance: Optional[Any] = None
 
 
 def shutdown_application() -> None:
@@ -182,7 +183,7 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
     message_queue: list[tuple[str, str]] = []
 
     # Early UI event bindings executed immediately after overlay is shown
-    overlay._status_strip.exit_requested.connect(shutdown_application)
+    overlay._status_strip.exit_requested.connect(overlay.close)
 
     def handle_message_sent(text: str, mode: str) -> None:
         core = core_holder["core"] or _core_instance
@@ -297,14 +298,44 @@ def initialize_application() -> None:
     """Application entry point invoked cleanly after splash screen processes terminate or in headless mode."""
     args = parse_args()
 
-    global _core_instance, _qt_app_instance, _overlay_instance
+    global _core_instance, _qt_app_instance, _overlay_instance, _tray_manager_instance
     if getattr(args, "gui_qt", False) or not getattr(args, "headless", False):
         from PySide6.QtWidgets import QApplication
+        from PySide6.QtGui import QIcon
         from interfaces.gui_qt.prod.overlay_window import ProdOverlayWindow
+        from interfaces.gui_qt.system_tray import SystemTrayManager
+        from pathlib import Path
+        import ctypes
+
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ally.gaming.companion.v1")
+        except Exception:
+            pass
+
         app = QApplication(sys.argv)
+        app.setQuitOnLastWindowClosed(False)
         _qt_app_instance = app  # Set global reference for shutdown
+
+        current_dir = Path(__file__).resolve().parent
+        png_path = current_dir / "assets" / "ally_icon_32x32.png"
+        ico_path = current_dir / "assets" / "ally_icon.ico"
+
+        if not ico_path.exists() and png_path.exists():
+            try:
+                from PIL import Image
+                img = Image.open(png_path)
+                img.save(str(ico_path), format="ICO", sizes=[(32, 32), (16, 16), (48, 48), (64, 64)])
+            except Exception:
+                pass
+
+        icon_file = ico_path if ico_path.exists() else png_path
+        app.setWindowIcon(QIcon(str(icon_file)))
+
         overlay = ProdOverlayWindow(registry=None)
         _overlay_instance = overlay  # Set global reference for instant GUI hiding
+        
+        _tray_manager_instance = SystemTrayManager(overlay, shutdown_application)
+
         overlay.show()
         overlay.add_ally_message("System", "Initializing Ally & Perception pipeline...")
         run_qt_app_with_overlay(app, overlay)

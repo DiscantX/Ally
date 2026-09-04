@@ -31,10 +31,33 @@ def initialize_and_run(main_module):
         # before importing heavy perception/core modules or loading configurations/models.
         from PySide6.QtCore import QTimer
         from PySide6.QtWidgets import QApplication
+        from PySide6.QtGui import QIcon
         from interfaces.gui_qt.prod.overlay_window import ProdOverlayWindow
+        from interfaces.gui_qt.system_tray import SystemTrayManager
+        from pathlib import Path
+        import ctypes
+
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ally.gaming.companion.v1")
+        except Exception:
+            pass
 
         app = QApplication(sys.argv)
+        app.setQuitOnLastWindowClosed(False)
+
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        icon_path = os.path.join(current_dir, "assets", "ally_icon_32x32.png")
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
+        else:
+            log("CRITICAL ERROR: run.py could not find icon at: {path}", path=icon_path, level="error")
+
         overlay = ProdOverlayWindow(registry=None)
+        
+        global _tray_manager_instance
+        _tray_manager_instance = SystemTrayManager(overlay, main_module.shutdown_application)
+
         overlay.show()
         overlay.add_ally_message("System", "Initializing Ally & Perception pipeline...")
 

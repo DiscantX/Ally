@@ -5,7 +5,9 @@ from typing import Optional, Any
 import os
 import json
 import base64
+from pathlib import Path
 from PySide6.QtCore import Qt, QSettings
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QMainWindow, QWidget, QMessageBox, QFileDialog
 import PySide6QtAds as QtAds
 from brain.reasoning.core import AllyCore
@@ -46,6 +48,14 @@ class DevInspectorWindow(QMainWindow):
         self.setObjectName("devInspectorWindow")
         self.setWindowTitle("Ally Dev Inspector")
         self.resize(1400, 900)
+        
+        # 1. Resolve icon path reliably using absolute path
+        import os
+        current_dir = os.path.dirname(os.path.abspath(__file__))  # interfaces/gui_qt/dev
+        project_root = os.path.abspath(os.path.join(current_dir, "..", "..", ".."))
+        icon_path = os.path.join(project_root, "assets", "ally_icon_32x32.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
 
         self._core: Optional[AllyCore] = None
         self._theme = theme

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from typing import Optional, Literal
+from pathlib import Path
 from PySide6.QtCore import Qt, QPoint, QRect
-from PySide6.QtGui import QScreen, QGuiApplication
+from PySide6.QtGui import QScreen, QGuiApplication, QIcon
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from interfaces.gui_qt.prod.feed_panel import FeedPanel
 from interfaces.gui_qt.prod.input_bar import InputBar
@@ -12,6 +13,7 @@ from interfaces.gui_qt.prod.status_strip import StatusStrip
 from interfaces.gui_qt.prod.settings_dialog import SettingsDialog
 from interfaces.gui_qt.prod.voice_input_controller import VoiceInputController
 from interfaces.gui_qt.shell.capture_exclusion import exclude_hwnd_from_capture
+from brain.state.entity_registry import EntityRegistry
 from brain.state.shell_bounds_registry import SHELL_BOUNDS
 from interfaces.gui_qt.theming.theme import Theme, SIGNAL, SYNTHWAVE, build_stylesheet
 from infrastructure.logger import log, timed
@@ -42,11 +44,22 @@ class ProdOverlayWindow(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
             | Qt.WindowType.WindowStaysOnTopHint
-            | Qt.Tool
+            | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setObjectName("prodOverlayWindow")
+        self.setWindowTitle("Ally — Gaming Companion")
         self.resize(380, 520)
+        
+        # 1. Get the directory of 'overlay_window.py' (interfaces/gui_qt/prod)
+        current_dir = Path(__file__).resolve().parent 
+        # 2. Go up 4 levels to reach the project root
+        project_root = current_dir.parents[3] 
+        # 3. Path to your icon: project_root/assets/ally_icon_32x32.png
+        icon_path = project_root / "assets" / "ally_icon_32x32.png"
+        # 4. Set the icon
+        self.setWindowIcon(QIcon(str(icon_path)))
+        
         log(f"ProdOverlayWindow base setup took {time.perf_counter() - t0:.5f}s", level="debug")
 
         t_comp = time.perf_counter()
@@ -132,20 +145,8 @@ class ProdOverlayWindow(QWidget):
 
     def closeEvent(self, event) -> None:
         SHELL_BOUNDS.unregister("prod_overlay")
-        # Do NOT call super().closeEvent(event) here to avoid Qt's default close behavior
-        # which would hide the window before our shutdown logic runs.
-        # Instead, trigger shutdown first, which will hide the window instantly.
-        try:
-            from main import _shutdown_in_progress, shutdown_application
-            if not _shutdown_in_progress.is_set():
-                shutdown_application()
-        except (ImportError, SystemExit):
-            # main module not importable in some contexts, or shutdown already in progress
-            pass
-        except Exception:
-            pass
-        # Accept the event but do not call super().closeEvent(event) to avoid double-hide
-        event.accept()
+        self.hide()
+        event.ignore()
 
     def _update_shell_bounds(self) -> None:
         """Updates absolute screen bounds in SHELL_BOUNDS registry for self-capture exclusion.
