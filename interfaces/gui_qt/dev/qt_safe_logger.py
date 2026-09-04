@@ -16,6 +16,15 @@ class QtLogEntryBridge(QObject):
     
     def __init__(self, parent: Optional[QObject] = None) -> None:
         super().__init__(parent)
+        subscribe(self._forward_to_qt)
+
+    def _forward_to_qt(self, entry: LogEntry) -> None:
+        """Forward log entry to Qt main thread via signal."""
+        self.log_entry_received.emit(entry)
+
+    def unsubscribe(self) -> None:
+        """Unsubscribe from the global logger."""
+        unsubscribe(self._forward_to_qt)
 
 
 # Singleton bridge instance
@@ -47,14 +56,6 @@ class QtSafeLogSubscriber(QObject):
         self._callback = callback
         self._bridge = get_qt_log_bridge()
         self._bridge.log_entry_received.connect(self._handle_entry)
-        
-        # Subscribe to the global logger
-        subscribe(self._forward_to_qt)
-    
-    def _forward_to_qt(self, entry: LogEntry) -> None:
-        """Forward log entry to Qt main thread via signal."""
-        # This will invoke _handle_entry on the Qt main thread via QueuedConnection
-        self._bridge.log_entry_received.emit(entry)
     
     @Slot(object)
     def _handle_entry(self, entry: LogEntry) -> None:
@@ -66,8 +67,7 @@ class QtSafeLogSubscriber(QObject):
             log("Error in Qt-safe log callback: {error}", error=str(e), level="error")
     
     def unsubscribe(self) -> None:
-        """Unsubscribe from the global logger."""
-        unsubscribe(self._forward_to_qt)
+        """Unsubscribe from the Qt bridge signal."""
         try:
             self._bridge.log_entry_received.disconnect(self._handle_entry)
         except Exception:
