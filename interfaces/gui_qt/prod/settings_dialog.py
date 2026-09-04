@@ -4,6 +4,7 @@ from typing import Optional, Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QDialog,
+    QWidget, 
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
@@ -21,7 +22,7 @@ class SettingsDialog(QDialog):
     """
     settings_saved = Signal(str, str)  # theme_name, personality_name
 
-    def __init__(self, current_theme_name: str, current_personality: str, parent: Optional[QDialog] = None):
+    def __init__(self, current_theme_name: str, current_personality: str, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Ally Settings")
         self.setFixedSize(360, 200)

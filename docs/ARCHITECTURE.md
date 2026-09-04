@@ -314,7 +314,7 @@ GUI-agnostic central manager. Owns the Scribe, Ally, `StateSandbox`,
 drives `run_turn()` (one full pipeline pass) and `run_loop()` (continuous
 polling loop with run-boundary handling). Exposes observer-style callback
 hooks (`on_status_update`, `on_feedback`, `on_chat_message`, etc.) so
-frontends — the Tkinter overlay, a headless terminal run, tests — attach
+frontends — the PySide6 overlay, a headless terminal run, tests — attach
 without `AllyCore` knowing anything about them. `send_message()` handles
 player-initiated chat/feedback on a background thread, guarded by the same
 `state_lock` `run_turn()` uses.
@@ -322,8 +322,8 @@ player-initiated chat/feedback on a background thread, guarded by the same
 **`main.py`**
 Entry point. Resolves a config path (explicit `--config`, `--game` lookup
 with auto-create via `cabinet/configs/init_config.py`, or single-image back-compat
-mode), constructs `AllyCore`, and either launches the Tkinter overlay
-(`--gui`) or runs headless with `log()`-based callback wiring.
+mode), constructs `AllyCore`, and either launches the PySide6 overlay
+(`--gui-qt`) or runs headless with `log()`-based callback wiring.
 
 ### Plugins
 

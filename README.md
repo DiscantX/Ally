@@ -55,8 +55,8 @@ python main.py
 # Explicit config path -- skips --game lookup/auto-create entirely.
 python main.py --config configs/ftl/config.json
 
-# Live loop with the Tkinter GUI overlay.
-python main.py --gui
+# Live loop with the PySide6 GUI overlay.
+python main.py --gui-qt
 
 # Single-file mode, no loop -- useful for quickly testing the pipeline
 # against a screenshot without a live game window.

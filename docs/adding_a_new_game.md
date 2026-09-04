@@ -28,8 +28,8 @@ python main.py --game my_new_game
 # window is focused right now.
 python main.py
 
-# Add --gui for the Tkinter overlay instead of terminal output.
-python main.py --game my_new_game --gui
+# Add --gui-qt for the PySide6 overlay instead of terminal output.
+python main.py --game my_new_game --gui-qt
 ```
 
 The very first run needs the game's window focused and visible, since

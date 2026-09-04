@@ -164,11 +164,6 @@ def parse_args() -> argparse.Namespace:
              "auto-create, the file must already exist.",
     )
     parser.add_argument(
-        "--gui",
-        action="store_true",
-        help="Launch the standalone Ally GUI overlay.",
-    )
-    parser.add_argument(
         "--gui-qt",
         action="store_true",
         help="Launch the standalone PySide6 Ally GUI overlay.",
@@ -299,11 +294,11 @@ def run_qt_app_with_overlay(app: Any, overlay: Any) -> None:
 
 
 def initialize_application() -> None:
-    """Application entry point invoked cleanly after splash screen processes terminate or in headless/tkinter modes."""
+    """Application entry point invoked cleanly after splash screen processes terminate or in headless mode."""
     args = parse_args()
 
     global _core_instance, _qt_app_instance, _overlay_instance
-    if getattr(args, "gui_qt", False) or (not getattr(args, "headless", False) and not getattr(args, "gui", False)):
+    if getattr(args, "gui_qt", False) or not getattr(args, "headless", False):
         from PySide6.QtWidgets import QApplication
         from interfaces.gui_qt.prod.overlay_window import ProdOverlayWindow
         app = QApplication(sys.argv)
@@ -326,52 +321,38 @@ def initialize_application() -> None:
         _core_instance = core  # Set global reference for shutdown
         core.initialize_run()
 
-        if args.gui:
-            from interfaces.gui.tkinter_app import AllyOverlay
-            gui_app = AllyOverlay(core=core)
-            gui_app.set_connection_status(True)
+        # Headless terminal mode
+        core.on_status_update.connect(lambda screen, event: None)
+        core.on_state_summary.connect(lambda summary: log("Summary:\n{summary}", summary=summary))
+        core.on_prompt_update.connect(lambda prompt: None)
+        core.on_chat_message.connect(lambda sender, msg: log("{sender}: {msg}", sender=sender, msg=msg))
+        core.on_connection_status.connect(lambda conn: log("Connection: {conn}", conn=conn))
 
-            if args.image:
-                observation = RawObservation(image=Image.open(args.image))
-                core.run_turn(observation)
-                core.stop()
-            else:
-                threading.Thread(target=core.run_loop, daemon=True).start()
+        analysis_printer = TerminalStreamPrinter(prefix="\nAlly: ")
+        chat_printer = TerminalStreamPrinter(prefix="\nAlly (chat): ")
+        thinking_printer = TerminalStreamPrinter(prefix="\nAlly (thinking): ")
 
-            gui_app.mainloop()
+        core.on_thinking_stream_begin.connect(thinking_printer.begin)
+        core.on_thinking_stream_chunk.connect(thinking_printer.chunk)
+        core.on_thinking_stream_reset.connect(thinking_printer.reset)
+        core.on_thinking_stream_finalize.connect(lambda: print("", flush=True))
+
+        core.on_analysis_stream_begin.connect(analysis_printer.begin)
+        core.on_analysis_stream_chunk.connect(analysis_printer.chunk)
+        core.on_analysis_stream_reset.connect(analysis_printer.reset)
+        core.on_analysis_stream_finalize.connect(lambda text: analysis_printer.finalize(text))
+
+        core.on_chat_stream_begin.connect(chat_printer.begin)
+        core.on_chat_stream_chunk.connect(chat_printer.chunk)
+        core.on_chat_stream_reset.connect(chat_printer.reset)
+        core.on_chat_stream_finalize.connect(lambda text: chat_printer.finalize(text))
+
+        if args.image:
+            observation = RawObservation(image=Image.open(args.image))
+            core.run_turn(observation)
+            core.stop()
         else:
-            # Headless terminal mode
-            core.on_status_update.connect(lambda screen, event: None)
-            core.on_state_summary.connect(lambda summary: log("Summary:\n{summary}", summary=summary))
-            core.on_prompt_update.connect(lambda prompt: None)
-            core.on_chat_message.connect(lambda sender, msg: log("{sender}: {msg}", sender=sender, msg=msg))
-            core.on_connection_status.connect(lambda conn: log("Connection: {conn}", conn=conn))
-
-            analysis_printer = TerminalStreamPrinter(prefix="\nAlly: ")
-            chat_printer = TerminalStreamPrinter(prefix="\nAlly (chat): ")
-            thinking_printer = TerminalStreamPrinter(prefix="\nAlly (thinking): ")
-
-            core.on_thinking_stream_begin.connect(thinking_printer.begin)
-            core.on_thinking_stream_chunk.connect(thinking_printer.chunk)
-            core.on_thinking_stream_reset.connect(thinking_printer.reset)
-            core.on_thinking_stream_finalize.connect(lambda: print("", flush=True))
-
-            core.on_analysis_stream_begin.connect(analysis_printer.begin)
-            core.on_analysis_stream_chunk.connect(analysis_printer.chunk)
-            core.on_analysis_stream_reset.connect(analysis_printer.reset)
-            core.on_analysis_stream_finalize.connect(lambda text: analysis_printer.finalize(text))
-
-            core.on_chat_stream_begin.connect(chat_printer.begin)
-            core.on_chat_stream_chunk.connect(chat_printer.chunk)
-            core.on_chat_stream_reset.connect(chat_printer.reset)
-            core.on_chat_stream_finalize.connect(lambda text: chat_printer.finalize(text))
-
-            if args.image:
-                observation = RawObservation(image=Image.open(args.image))
-                core.run_turn(observation)
-                core.stop()
-            else:
-                core.run_loop()
+            core.run_loop()
 
 # Register SIGINT handler at module import time so it catches Ctrl+C in all entry points (run.py, main.py, etc.)
 signal.signal(signal.SIGINT, _handle_sigint)

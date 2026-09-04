@@ -21,10 +21,9 @@ MODULE_NAME = "Run"
 @timer
 def initialize_and_run(main_module):
     is_headless = "--headless" in sys.argv
-    is_tkinter = "--gui" in sys.argv
 
-    if is_headless or is_tkinter:
-        log("Initializing headless or tkinter application...")
+    if is_headless:
+        log("Initializing headless application...")
         main_module.initialize_application()
     else:
         # Early Qt GUI bootstrapping design principle:

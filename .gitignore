@@ -39,3 +39,4 @@ model/
 .qdrant_storage/
 cabinet/configs/screens/
 cabinet/data/profiles/default_player/
+.archived_code/
