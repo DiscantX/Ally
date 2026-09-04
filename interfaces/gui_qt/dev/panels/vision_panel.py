@@ -3,7 +3,7 @@
 from typing import Optional, Any
 import numpy as np
 from PIL import Image
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import (
     QWidget,
@@ -29,6 +29,13 @@ class VisionPanel(QWidget):
         self.setObjectName("devDock__visionPanel")
         self._pipeline_slots: dict[str, dict[str, Any]] = {}
         self._log_tail: list[str] = []
+        self._core: Optional[Any] = None
+
+        # QTimer for live preview polling (~750ms)
+        self._live_preview_timer = QTimer(self)
+        self._live_preview_timer.setInterval(750)
+        self._live_preview_timer.timeout.connect(self._poll_live_preview)
+        self._live_preview_timer.start()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -66,6 +73,7 @@ class VisionPanel(QWidget):
 
         # Pre-initialize standard pipeline stage slots (matching Tkinter reference)
         pipeline_defs = [
+            ("live_preview", "Live Preview (Unthrottled)"),
             ("observation", "RGB PIL Image Observation"),
             ("grayscale", "Grayscale Frame"),
             ("masked_grayscale", "ROI-Masked Grayscale Frame"),
@@ -225,8 +233,26 @@ class VisionPanel(QWidget):
                 self._log_tail.pop(0)
             self._log_text.setPlainText("\n".join(self._log_tail))
 
-    def closeEvent(self, event: Any) -> None:
-        """Unsubscribes logger on close.
+    def _poll_live_preview(self) -> None:
+        """Polls screen capture statelessly via ScreenCollector for unthrottled live preview.
         """
+        if self._core is None or getattr(self._core, "collector", None) is None:
+            return
+        collector = self._core.collector
+        screen = getattr(collector, "screen", None)
+        if screen is None or not hasattr(screen, "capture_bgr"):
+            return
+        try:
+            frame_bgr = screen.capture_bgr()
+            if frame_bgr is not None:
+                self.handle_pipeline_image("live_preview", frame_bgr, "Live Preview (Unthrottled)")
+        except Exception:
+            pass
+
+    def closeEvent(self, event: Any) -> None:
+        """Stops live preview timer and unsubscribes logger on close.
+        """
+        if hasattr(self, "_live_preview_timer"):
+            self._live_preview_timer.stop()
         self._qt_log_subscriber.unsubscribe()
         super().closeEvent(event)

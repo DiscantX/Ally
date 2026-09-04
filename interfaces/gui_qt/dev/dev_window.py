@@ -72,6 +72,7 @@ class DevInspectorWindow(QMainWindow):
         self._timing_panel._core = core
         self._entity_panel._core = core
         self._memory_panel._core = core
+        self._vision_panel._core = core
 
         if not self._signals_connected:
             self._signals_connected = True
