@@ -1,4 +1,4 @@
-"""Output / Logs dev dock panel with REGISTRY channel dropdown filtering.
+"""Logs dev dock panel with REGISTRY channel dropdown filtering.
 """
 from typing import Optional, Any
 from PySide6.QtCore import Qt

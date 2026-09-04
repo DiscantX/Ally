@@ -175,9 +175,9 @@ class DevInspectorWindow(QMainWindow):
         timing_dock.setWidget(self._timing_panel)
         self._dock_manager.addDockWidget(QtAds.DockWidgetArea.BottomDockWidgetArea, timing_dock)
 
-        # 9. Output / Logs
+        # 9. Logs
         self._output_panel = OutputPanel(self)
-        output_dock = QtAds.CDockWidget("Output / Logs")
+        output_dock = QtAds.CDockWidget("Logs")
         output_dock.setObjectName("devDock__output")
         output_dock.setWidget(self._output_panel)
         self._dock_manager.addDockWidgetTab(QtAds.DockWidgetArea.BottomDockWidgetArea, output_dock)
