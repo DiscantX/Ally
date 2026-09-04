@@ -2,8 +2,11 @@
 """Dev Inspector Window (QMainWindow) with Qt Advanced Docking System (ADS) dockable panels, CoreBridge integration, and QSettings layout persistence.
 """
 from typing import Optional, Any
+import os
+import json
+import base64
 from PySide6.QtCore import Qt, QSettings
-from PySide6.QtWidgets import QMainWindow, QWidget, QMessageBox
+from PySide6.QtWidgets import QMainWindow, QWidget, QMessageBox, QFileDialog
 import PySide6QtAds as QtAds
 from brain.reasoning.core import AllyCore
 from interfaces.gui_qt.dev.bridge import CoreBridge
@@ -92,6 +95,20 @@ class DevInspectorWindow(QMainWindow):
         ads_state = self._settings.value("adsState")
         if ads_state:
             self._dock_manager.restoreState(ads_state)
+        else:
+            # Check for shipped default layout in cabinet/configs/layouts/system/default_dev_layout.json
+            default_path = os.path.join("cabinet", "configs", "layouts", "system", "default_dev_layout.json")
+            if os.path.exists(default_path):
+                try:
+                    with open(default_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        b64_state = data.get("adsState")
+                        if b64_state:
+                            state_bytes = base64.b64decode(b64_state.encode("utf-8"))
+                            self._dock_manager.restoreState(state_bytes)
+                except Exception as e:
+                    from infrastructure.logger import log
+                    log("Failed to load shipped default layout: {e}", e=e, level="warning")
 
         # Ensure all dock widgets are visible
         for dock in self.findChildren(QtAds.CDockWidget):
@@ -180,7 +197,7 @@ class DevInspectorWindow(QMainWindow):
         self._default_ads_state = self._dock_manager.saveState()
 
     def _setup_menus(self) -> None:
-        """Sets up the menu bar with View menu toggle actions for all dock widgets and layout reset.
+        """Sets up the menu bar with View menu toggle actions for all dock widgets and Layout menu for save/load/reset.
         """
         menu_bar = self.menuBar()
         view_menu = menu_bar.addMenu("&View")
@@ -193,11 +210,97 @@ class DevInspectorWindow(QMainWindow):
         reset_action = view_menu.addAction("Reset Layout")
         reset_action.triggered.connect(self._reset_layout)
 
-    def _reset_layout(self) -> None:
-        """Resets the dock layout to the default state and clears persisted state.
+        # Dedicated Layout menu
+        layout_menu = menu_bar.addMenu("&Layout")
+        
+        save_layout_action = layout_menu.addAction("Save Layout As...")
+        save_layout_action.triggered.connect(self._save_layout_dialog)
+
+        load_layout_action = layout_menu.addAction("Load Layout...")
+        load_layout_action.triggered.connect(self._load_layout_dialog)
+
+        layout_menu.addSeparator()
+        
+        export_default_action = layout_menu.addAction("Export as Default Layout")
+        export_default_action.triggered.connect(self._export_default_layout)
+
+    def _save_layout_dialog(self) -> None:
+        """Opens file dialog to save current window layout state to cabinet/configs/layouts/user/.
         """
-        if hasattr(self, "_default_ads_state") and self._default_ads_state:
+        user_dir = os.path.join("cabinet", "configs", "layouts", "user")
+        os.makedirs(user_dir, exist_ok=True)
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Layout", user_dir, "Layout Files (*.json)"
+        )
+        if path:
+            try:
+                state_bytes = self._dock_manager.saveState()
+                b64_state = base64.b64encode(state_bytes).decode("utf-8")
+                payload = {"adsState": b64_state}
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(payload, f, indent=2)
+                QMessageBox.information(self, "Layout Saved", f"Layout successfully saved to:\n{path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to save layout: {e}")
+
+    def _load_layout_dialog(self) -> None:
+        """Opens file dialog to load a custom window layout state from cabinet/configs/layouts/.
+        """
+        layouts_dir = os.path.join("cabinet", "configs", "layouts")
+        os.makedirs(layouts_dir, exist_ok=True)
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load Layout", layouts_dir, "Layout Files (*.json)"
+        )
+        if path:
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    b64_state = data.get("adsState")
+                    if b64_state:
+                        state_bytes = base64.b64decode(b64_state.encode("utf-8"))
+                        self._dock_manager.restoreState(state_bytes)
+                        self._settings = QSettings("Ally", "DevInspectorWindow")
+                        self._settings.setValue("adsState", state_bytes)
+                QMessageBox.information(self, "Layout Loaded", f"Layout successfully loaded from:\n{path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to load layout: {e}")
+
+    def _export_default_layout(self) -> None:
+        """Exports current layout as the shippable system default layout under cabinet/configs/layouts/system/default_dev_layout.json.
+        """
+        system_dir = os.path.join("cabinet", "configs", "layouts", "system")
+        os.makedirs(system_dir, exist_ok=True)
+        path = os.path.join(system_dir, "default_dev_layout.json")
+        try:
+            state_bytes = self._dock_manager.saveState()
+            b64_state = base64.b64encode(state_bytes).decode("utf-8")
+            payload = {"adsState": b64_state}
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
+            QMessageBox.information(self, "Default Layout Exported", f"Shippable default layout exported to:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to export default layout: {e}")
+
+    def _reset_layout(self) -> None:
+        """Resets the dock layout to the shipped default or in-memory default state and clears persisted state.
+        """
+        default_path = os.path.join("cabinet", "configs", "layouts", "system", "default_dev_layout.json")
+        restored = False
+        if os.path.exists(default_path):
+            try:
+                with open(default_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    b64_state = data.get("adsState")
+                    if b64_state:
+                        state_bytes = base64.b64decode(b64_state.encode("utf-8"))
+                        self._dock_manager.restoreState(state_bytes)
+                        restored = True
+            except Exception:
+                pass
+        
+        if not restored and hasattr(self, "_default_ads_state") and self._default_ads_state:
             self._dock_manager.restoreState(self._default_ads_state)
+
         self._settings = QSettings("Ally", "DevInspectorWindow")
         self._settings.remove("adsState")
 
