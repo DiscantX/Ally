@@ -158,17 +158,19 @@ class VisionPanel(QWidget):
                 arr = img
                 if arr.ndim == 2:
                     h, w = arr.shape
-                    q_img = QImage(arr.tobytes(), w, h, w, QImage.Format.Format_Grayscale8).copy()
+                    if h > 0 and w > 0:
+                        q_img = QImage(arr.tobytes(), w, h, w, QImage.Format.Format_Grayscale8).copy()
                 elif arr.ndim == 3:
                     h, w, c = arr.shape
-                    if c == 3:
-                        rgb = arr[..., ::-1].copy()  # BGR to RGB
-                        q_img = QImage(rgb.tobytes(), w, h, w * 3, QImage.Format.Format_RGB888).copy()
-                    elif c == 4:
-                        rgba = arr.copy()
-                        q_img = QImage(rgba.tobytes(), w, h, w * 4, QImage.Format.Format_RGBA8888).copy()
+                    if h > 0 and w > 0:
+                        if c == 3:
+                            rgb = arr[..., ::-1].copy()  # BGR to RGB
+                            q_img = QImage(rgb.tobytes(), w, h, w * 3, QImage.Format.Format_RGB888).copy()
+                        elif c == 4:
+                            rgba = arr.copy()
+                            q_img = QImage(rgba.tobytes(), w, h, w * 4, QImage.Format.Format_RGBA8888).copy()
 
-            if q_img is not None:
+            if q_img is not None and q_img.width() > 0 and q_img.height() > 0:
                 pix = QPixmap.fromImage(q_img)
                 img_lbl = slot["image_label"]
                 
@@ -183,6 +185,8 @@ class VisionPanel(QWidget):
                 img_lbl.setPixmap(scaled_pix)
                 img_lbl.setToolTip(f"Stage: {slot['title']} ({q_img.width()}x{q_img.height()})")
         except Exception as e:
+            from infrastructure.logger.logger import log
+            log("Error refreshing pipeline slot '{key}': {error}", key=key, error=str(e), level="error")
             slot["image_label"].setText(f"Error: {e}")
 
     def resizeEvent(self, event: Any) -> None:
