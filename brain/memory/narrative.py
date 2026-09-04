@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from brain.constants import MEMORY_TIER_SHORT, MEMORY_TIER_MEDIUM, MEMORY_TIER_LONG
 from brain.validation import validate_scope_ids, validate_not_none
 from infrastructure.llm.providers.gemini_provider import GeminiProvider
+from infrastructure.logger import log
 from brain.memory.db import MemoryDB
 from brain.memory.triggers import Trigger, TurnCountTrigger, CompositeTrigger, SalienceEventTrigger, ExplicitAllyTrigger
 from brain.knowledge.prompts.narrative import NARRATIVE_MEDIUM_TERM_PROMPT, NARRATIVE_LONG_TERM_PROMPT, CROSS_SESSION_SUMMARY_PROMPT

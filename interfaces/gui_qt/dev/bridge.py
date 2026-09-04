@@ -45,29 +45,108 @@ class CoreBridge(QObject):
         if self._wired_core is core:
             return  # already wired to this exact core instance -- no-op
         self._wired_core = core
-        core.on_pipeline_image.connect(lambda k, img, t: self.pipeline_image_ready.emit(k, img, t or ""))
-        core.on_debug_overlay.connect(lambda img: self.debug_overlay_ready.emit(img))
-        core.on_ocr_result.connect(lambda payload: self.ocr_result_ready.emit(payload))
-        core.on_scribe_output.connect(lambda payload: self.scribe_output_ready.emit(payload))
-        core.on_ally_output.connect(lambda payload: self.ally_output_ready.emit(payload))
-        core.on_status_update.connect(lambda s, t: self.status_update_ready.emit(s, t))
-        core.on_state_summary.connect(lambda summary: self.state_summary_ready.emit(summary))
-        core.on_prompt_update.connect(lambda prompt: self.prompt_update_ready.emit(prompt))
-        core.on_feedback.connect(lambda feedback: self.feedback_ready.emit(feedback))
-        core.on_chat_message.connect(lambda sender, msg: self.chat_message_ready.emit(sender, msg))
-        core.on_connection_status.connect(lambda stat: self.connection_status_ready.emit(stat))
-        core.on_medium_term.connect(lambda mem: self.medium_term_ready.emit(mem))
-        core.on_personality_state.connect(lambda state: self.personality_state_ready.emit(state))
-        core.on_strategic_memory.connect(lambda mem: self.strategic_memory_ready.emit(mem))
-        core.on_analysis_stream_begin.connect(lambda: self.analysis_stream_begin.emit())
-        core.on_analysis_stream_chunk.connect(lambda chunk: self.analysis_stream_chunk.emit(chunk))
-        core.on_analysis_stream_reset.connect(lambda: self.analysis_stream_reset.emit())
-        core.on_analysis_stream_finalize.connect(lambda analysis: self.analysis_stream_finalize.emit(analysis))
-        core.on_chat_stream_begin.connect(lambda: self.chat_stream_begin.emit())
-        core.on_chat_stream_chunk.connect(lambda chunk: self.chat_stream_chunk.emit(chunk))
-        core.on_chat_stream_reset.connect(lambda: self.chat_stream_reset.emit())
-        core.on_chat_stream_finalize.connect(lambda resp: self.chat_stream_finalize.emit(resp))
-        core.on_thinking_stream_begin.connect(lambda: self.thinking_stream_begin.emit())
-        core.on_thinking_stream_chunk.connect(lambda chunk: self.thinking_stream_chunk.emit(chunk))
-        core.on_thinking_stream_reset.connect(lambda: self.thinking_stream_reset.emit())
-        core.on_thinking_stream_finalize.connect(lambda: self.thinking_stream_finalize.emit())
+        core.on_pipeline_image.connect(self._handle_pipeline_image)
+        core.on_debug_overlay.connect(self._handle_debug_overlay)
+        core.on_ocr_result.connect(self._handle_ocr_result)
+        core.on_scribe_output.connect(self._handle_scribe_output)
+        core.on_ally_output.connect(self._handle_ally_output)
+        core.on_status_update.connect(self._handle_status_update)
+        core.on_state_summary.connect(self._handle_state_summary)
+        core.on_prompt_update.connect(self._handle_prompt_update)
+        core.on_feedback.connect(self._handle_feedback)
+        core.on_chat_message.connect(self._handle_chat_message)
+        core.on_connection_status.connect(self._handle_connection_status)
+        core.on_medium_term.connect(self._handle_medium_term)
+        core.on_personality_state.connect(self._handle_personality_state)
+        core.on_strategic_memory.connect(self._handle_strategic_memory)
+        core.on_analysis_stream_begin.connect(self._handle_analysis_stream_begin)
+        core.on_analysis_stream_chunk.connect(self._handle_analysis_stream_chunk)
+        core.on_analysis_stream_reset.connect(self._handle_analysis_stream_reset)
+        core.on_analysis_stream_finalize.connect(self._handle_analysis_stream_finalize)
+        core.on_chat_stream_begin.connect(self._handle_chat_stream_begin)
+        core.on_chat_stream_chunk.connect(self._handle_chat_stream_chunk)
+        core.on_chat_stream_reset.connect(self._handle_chat_stream_reset)
+        core.on_chat_stream_finalize.connect(self._handle_chat_stream_finalize)
+        core.on_thinking_stream_begin.connect(self._handle_thinking_stream_begin)
+        core.on_thinking_stream_chunk.connect(self._handle_thinking_stream_chunk)
+        core.on_thinking_stream_reset.connect(self._handle_thinking_stream_reset)
+        core.on_thinking_stream_finalize.connect(self._handle_thinking_stream_finalize)
+
+    # Handler methods
+    def _handle_pipeline_image(self, k: str, img: Any, t: Optional[str]) -> None:
+        self.pipeline_image_ready.emit(k, img, t or "")
+
+    def _handle_debug_overlay(self, img: Any) -> None:
+        self.debug_overlay_ready.emit(img)
+
+    def _handle_ocr_result(self, payload: Any) -> None:
+        self.ocr_result_ready.emit(payload)
+
+    def _handle_scribe_output(self, payload: Any) -> None:
+        self.scribe_output_ready.emit(payload)
+
+    def _handle_ally_output(self, payload: Any) -> None:
+        self.ally_output_ready.emit(payload)
+
+    def _handle_status_update(self, s: str, t: str) -> None:
+        self.status_update_ready.emit(s, t)
+
+    def _handle_state_summary(self, summary: str) -> None:
+        self.state_summary_ready.emit(summary)
+
+    def _handle_prompt_update(self, prompt: str) -> None:
+        self.prompt_update_ready.emit(prompt)
+
+    def _handle_feedback(self, feedback: str) -> None:
+        self.feedback_ready.emit(feedback)
+
+    def _handle_chat_message(self, sender: str, msg: str) -> None:
+        self.chat_message_ready.emit(sender, msg)
+
+    def _handle_connection_status(self, stat: str) -> None:
+        self.connection_status_ready.emit(stat)
+
+    def _handle_medium_term(self, mem: str) -> None:
+        self.medium_term_ready.emit(mem)
+
+    def _handle_personality_state(self, state: str) -> None:
+        self.personality_state_ready.emit(state)
+
+    def _handle_strategic_memory(self, mem: str) -> None:
+        self.strategic_memory_ready.emit(mem)
+
+    def _handle_analysis_stream_begin(self) -> None:
+        self.analysis_stream_begin.emit()
+
+    def _handle_analysis_stream_chunk(self, chunk: str) -> None:
+        self.analysis_stream_chunk.emit(chunk)
+
+    def _handle_analysis_stream_reset(self) -> None:
+        self.analysis_stream_reset.emit()
+
+    def _handle_analysis_stream_finalize(self, analysis: str) -> None:
+        self.analysis_stream_finalize.emit(analysis)
+
+    def _handle_chat_stream_begin(self) -> None:
+        self.chat_stream_begin.emit()
+
+    def _handle_chat_stream_chunk(self, chunk: str) -> None:
+        self.chat_stream_chunk.emit(chunk)
+
+    def _handle_chat_stream_reset(self) -> None:
+        self.chat_stream_reset.emit()
+
+    def _handle_chat_stream_finalize(self, resp: str) -> None:
+        self.chat_stream_finalize.emit(resp)
+
+    def _handle_thinking_stream_begin(self) -> None:
+        self.thinking_stream_begin.emit()
+
+    def _handle_thinking_stream_chunk(self, chunk: str) -> None:
+        self.thinking_stream_chunk.emit(chunk)
+
+    def _handle_thinking_stream_reset(self) -> None:
+        self.thinking_stream_reset.emit()
+
+    def _handle_thinking_stream_finalize(self) -> None:
+        self.thinking_stream_finalize.emit()

@@ -38,6 +38,9 @@ class DevInspectorWindow(QMainWindow):
         """
         if cls._instance is None:
             cls._instance = DevInspectorWindow(core, theme, parent)
+        else:
+            if core is not None:
+                cls._instance.set_core(core)
         cls._instance.show()
         cls._instance.raise_()
         cls._instance.activateWindow()
@@ -335,14 +338,14 @@ class DevInspectorWindow(QMainWindow):
         self._update_shell_bounds()
 
     def closeEvent(self, event: Any) -> None:
-        """Handles close event: saves state and unregisters shell bounds, resetting singleton.
+        """Handles close event: saves state, unregisters shell bounds, and hides window instead of destroying.
         """
         if hasattr(self, "_settings"):
             self._settings.setValue("geometry", self.saveGeometry())
             self._settings.setValue("adsState", self._dock_manager.saveState())
         SHELL_BOUNDS.unregister("dev_inspector")
-        DevInspectorWindow._instance = None
-        super().closeEvent(event)
+        event.ignore()
+        self.hide()
 
     def _update_shell_bounds(self) -> None:
         """Updates absolute screen bounds in SHELL_BOUNDS registry.
