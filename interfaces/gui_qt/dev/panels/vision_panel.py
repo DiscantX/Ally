@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
+    QBoxLayout,
     QLabel,
     QScrollArea,
     QTextEdit,
@@ -42,9 +43,13 @@ class VisionPanel(QWidget):
         self._content_widget.setObjectName("devDock__visionContent")
         self._content_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
-        # Initial layout orientation based on dimensions
+        # Phase 0 Verification: QBoxLayout.Direction.TopToBottom / LeftToRight works correctly for QBoxLayout.setDirection()
+        self._is_vertical: bool = True
         initial_vertical = self.height() > self.width()
-        self._pipeline_layout = QVBoxLayout() if initial_vertical else QHBoxLayout()
+        self._is_vertical = initial_vertical
+        self._pipeline_layout = QBoxLayout(
+            QBoxLayout.Direction.TopToBottom if self._is_vertical else QBoxLayout.Direction.LeftToRight
+        )
         self._pipeline_layout.setContentsMargins(4, 4, 4, 4)
         self._pipeline_layout.setSpacing(6)
         self._content_widget.setLayout(self._pipeline_layout)
@@ -77,6 +82,13 @@ class VisionPanel(QWidget):
         # Subscribe to logger for vision log tail (Qt-safe)
         self._qt_log_subscriber = QtSafeLogSubscriber(self._on_log_entry, self)
 
+    def _apply_card_size_policy(self, card: QFrame, is_vertical: bool) -> None:
+        """Applies appropriate size policy to pipeline card based on orientation."""
+        if is_vertical:
+            card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        else:
+            card.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+
     def _create_pipeline_slot(self, key: str, title: str) -> None:
         """Creates a UI card for a pipeline stage."""
         if key in self._pipeline_slots:
@@ -85,7 +97,7 @@ class VisionPanel(QWidget):
         card.setObjectName(f"devDock__visionCard_{key}")
         card.setFrameShape(QFrame.Shape.StyledPanel)
         card.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; border: 1px solid {NEUTRAL_CONTENT_THEME.border}; border-radius: 4px;")
-        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._apply_card_size_policy(card, self._is_vertical)
         
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(4, 4, 4, 4)
@@ -160,16 +172,14 @@ class VisionPanel(QWidget):
                 pix = QPixmap.fromImage(q_img)
                 img_lbl = slot["image_label"]
                 
-                # Proportional scaling based on layout orientation
-                is_vertical = self.height() > self.width()
-                if is_vertical:
-                    max_w = max(160, self.width() - 40)
-                    max_h = 240
+                viewport = self._scroll.viewport()
+                if self._is_vertical:
+                    target_w = max(100, viewport.width() - 32)
+                    scaled_pix = pix.scaledToWidth(target_w, Qt.TransformationMode.SmoothTransformation)
                 else:
-                    max_h = max(140, self.height() - 100)
-                    max_w = 320
+                    target_h = max(100, viewport.height() - 32)
+                    scaled_pix = pix.scaledToHeight(target_h, Qt.TransformationMode.SmoothTransformation)
 
-                scaled_pix = pix.scaled(max_w, max_h, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
                 img_lbl.setPixmap(scaled_pix)
                 img_lbl.setToolTip(f"Stage: {slot['title']} ({q_img.width()}x{q_img.height()})")
         except Exception as e:
@@ -190,24 +200,15 @@ class VisionPanel(QWidget):
         h = self.height()
         should_be_vertical = h > w
 
-        current_is_vertical = isinstance(self._content_widget.layout(), QVBoxLayout)
-        if current_is_vertical != should_be_vertical:
-            old_layout = self._content_widget.layout()
-            cards = []
-            if old_layout:
-                while old_layout.count() > 0:
-                    item = old_layout.takeAt(0)
-                    if item.widget():
-                        cards.append(item.widget())
-                old_layout.deleteLater()
+        if should_be_vertical == self._is_vertical:
+            return
 
-            new_layout = QVBoxLayout() if should_be_vertical else QHBoxLayout()
-            new_layout.setContentsMargins(4, 4, 4, 4)
-            new_layout.setSpacing(6)
-            for card in cards:
-                new_layout.addWidget(card)
-            self._content_widget.setLayout(new_layout)
-            self._pipeline_layout = new_layout
+        self._is_vertical = should_be_vertical
+        new_dir = QBoxLayout.Direction.TopToBottom if self._is_vertical else QBoxLayout.Direction.LeftToRight
+        self._pipeline_layout.setDirection(new_dir)
+
+        for slot in self._pipeline_slots.values():
+            self._apply_card_size_policy(slot["card"], self._is_vertical)
 
     def _on_log_entry(self, entry: LogEntry) -> None:
         """Receives log entries and filters for vision/OCR channels.
