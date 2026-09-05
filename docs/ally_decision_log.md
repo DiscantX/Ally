@@ -589,3 +589,26 @@ This reduces lock contention during expensive string matching operations while m
 
 ---
 
+## Dev Inspector Theming and Views Foundation (Phase 1)
+
+### Top-Level `theming/` Package
+- **Decision**: Create a neutral top-level `theming/` package (`theming/color_convert.py`, `theming/palettes.py`) with zero PySide6 imports.
+- **Rationale**: Both `infrastructure/logger/logger.py` and `interfaces/gui_qt/theming/theme.py` need shared access to palette data and color conversion utilities without creating cross-domain dependencies between infrastructure and interfaces.
+
+### `NEUTRAL_CONTENT_THEME` Rename to `SLATE`
+- **Decision**: Rename `NEUTRAL_CONTENT_THEME` to `SLATE` as a first-class user-selectable theme, while retaining `NEUTRAL_CONTENT_THEME = SLATE` as a deprecated compatibility alias.
+- **Rationale**: Avoids breaking existing external imports while cleaning up nomenclature across dev panels and themes.
+
+### Module Color Resolution Strategy
+- **Decision**: Use exact dictionaries for `Slate` (`THEME_MODULE_COLORS`) and hashed-palette hue rotation (`THEME_MODULE_PALETTE_HUES`) for `Signal` and `Synthwave`.
+- **Rationale**: Balances hand-curated exact color preservation for Slate (maintaining parity with legacy terminal colors) with automatic distinct color coverage for Signal and Synthwave themes.
+
+### QSS Dynamic Property Selectors
+- **Decision**: Use Qt dynamic properties (`QWidget[themed="..."]`) for QSS centralization across dev inspector panels, verified live in PySide6 `6.11.1`.
+- **Rationale**: Qt's QSS engine reliably evaluates attribute selectors on dynamic properties, allowing centralized styling rules in `base.qss.tmpl` without hardcoding inline `setStyleSheet(...)` calls.
+
+### Terminal Theme Hardcoding
+- **Decision**: Terminal output intentionally remains hardcoded to the `"Slate"` palette in Phase 1; terminal theme switching is explicitly deferred.
+- **Rationale**: Keeps scope focused on GUI dev inspector theming while providing a stable, fixed terminal palette.
+
+

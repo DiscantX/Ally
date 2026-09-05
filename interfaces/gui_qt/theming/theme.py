@@ -1,4 +1,4 @@
-"""Theme dataclass and built-in themes (SIGNAL, SYNTHWAVE, NEUTRAL_CONTENT_THEME)
+"""Theme dataclass and built-in themes (SIGNAL, SYNTHWAVE, SLATE)
 plus QSS stylesheet generation with support for custom_qss_path overrides.
 """
 from dataclasses import dataclass, field
@@ -6,6 +6,7 @@ import os
 import json
 from typing import Optional
 from infrastructure.logger import log
+from theming.palettes import THEME_MODULE_COLORS, THEME_LEVEL_COLORS
 
 
 @dataclass(frozen=True)
@@ -25,6 +26,9 @@ class Theme:
     error: str
     focus_ring: str
     companion_palette: list[str] = field(default_factory=list)
+    font_mono: str = '"Cascadia Code", "Consolas", "JetBrains Mono", monospace'
+    module_log_colors: dict[str, str] = field(default_factory=dict)
+    log_level_colors: dict[str, str] = field(default_factory=dict)
 
 
 SIGNAL = Theme(
@@ -43,6 +47,9 @@ SIGNAL = Theme(
     error="#c93b55",
     focus_ring="#00ffcc",
     companion_palette=["#ff9900", "#aa88ff", "#00cc77", "#c93b55", "#ffd966", "#00ffff", "#00ffcc"],
+    font_mono='"Cascadia Code", "Consolas", "JetBrains Mono", monospace',
+    module_log_colors=THEME_MODULE_COLORS.get("Signal", {}),
+    log_level_colors=THEME_LEVEL_COLORS["Signal"],
 )
 
 SYNTHWAVE = Theme(
@@ -61,10 +68,13 @@ SYNTHWAVE = Theme(
     error="#c93b55",
     focus_ring="#00f0f0",
     companion_palette=["#ff2ddc", "#cd24ba", "#9b1b98", "#00f0f0", "#01bcca", "#0289a5"],
+    font_mono='"Cascadia Code", "Consolas", "JetBrains Mono", monospace',
+    module_log_colors=THEME_MODULE_COLORS.get("Synthwave", {}),
+    log_level_colors=THEME_LEVEL_COLORS["Synthwave"],
 )
 
-NEUTRAL_CONTENT_THEME = Theme(
-    name="NeutralContent",
+SLATE = Theme(
+    name="Slate",
     bg_base="#1e1e1e",
     bg_surface="#252526",
     bg_elevated="#2d2d2d",
@@ -79,7 +89,13 @@ NEUTRAL_CONTENT_THEME = Theme(
     error="#f44747",
     focus_ring="#569cd6",
     companion_palette=["#569cd6", "#4ec9b0", "#c586c0", "#ce9178", "#dcdcaa", "#9cdcfe"],
+    font_mono='"Cascadia Code", "Consolas", "JetBrains Mono", monospace',
+    module_log_colors=THEME_MODULE_COLORS.get("Slate", {}),
+    log_level_colors=THEME_LEVEL_COLORS["Slate"],
 )
+
+# Deprecated compatibility alias for NEUTRAL_CONTENT_THEME
+NEUTRAL_CONTENT_THEME = SLATE
 
 
 def build_stylesheet(theme: Theme, template_path: str) -> str:

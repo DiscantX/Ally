@@ -22,7 +22,7 @@ from interfaces.gui_qt.dev.panels.memory_panel import MemoryPanel
 from interfaces.gui_qt.dev.panels.timing_panel import TimingPanel
 from interfaces.gui_qt.dev.panels.output_panel import OutputPanel
 from interfaces.gui_qt.dev.panels.thinking_panel import ThinkingPanel
-from interfaces.gui_qt.theming.theme import Theme, build_stylesheet, TEMPLATE_PATH
+from interfaces.gui_qt.theming.theme import Theme, SLATE, SIGNAL, SYNTHWAVE, build_stylesheet, TEMPLATE_PATH
 from interfaces.gui_qt.shell.capture_exclusion import exclude_hwnd_from_capture
 from brain.state.shell_bounds_registry import SHELL_BOUNDS
 

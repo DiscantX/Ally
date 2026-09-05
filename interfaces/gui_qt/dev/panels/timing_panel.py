@@ -3,7 +3,6 @@
 from typing import Optional, Any
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem
-from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
 
 
 class TimingPanel(QWidget):
@@ -22,7 +21,9 @@ class TimingPanel(QWidget):
         self._table.setColumnCount(3)
         self._table.setHorizontalHeaderLabels(["Turn", "Stage", "Duration (s)"])
         self._table.horizontalHeader().setStretchLastSection(True)
-        self._table.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; gridline-color: {NEUTRAL_CONTENT_THEME.border};")
+        self._table.setProperty("themed", "devPanelTable")
+        self._table.style().unpolish(self._table)
+        self._table.style().polish(self._table)
         layout.addWidget(self._table)
 
         self._timer = QTimer(self)

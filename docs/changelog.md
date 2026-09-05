@@ -8,6 +8,18 @@ to the decision log instead of leaving it here.
 
 ---
 
+## 2026-09-04 — Dev Inspector Theming Foundation & Views (Phase 1)
+
+Implemented Phase 1 of the Dev Inspector Theming & Views refactor:
+- **`theming/` package**: Created top-level neutral package (`theming/color_convert.py`, `theming/palettes.py`) with zero PySide6 imports and full color conversion unit tests in [`tests/test_color_convert.py`](tests/test_color_convert.py:1).
+- **Theme updates**: Renamed `NEUTRAL_CONTENT_THEME` to `SLATE` with a deprecated compatibility alias, and extended `Theme` dataclass with `font_mono`, `module_log_colors`, and `log_level_colors`.
+- **Logger rewire**: Rewired [`infrastructure/logger/logger.py`](infrastructure/logger/logger.py:1) to consume `theming/`, removing the legacy `COLORS` dict and per-entry color keys.
+- **Dev Inspector Theme Menu & Persistence**: Added a mutually exclusive Theme menu (Slate, Signal, Synthwave) in [`interfaces/gui_qt/dev/dev_window.py`](interfaces/gui_qt/dev/dev_window.py:1) with persistence via `QSettings` under `"devThemeName"`.
+- **QSS Centralization**: Centralized QSS rules across dev panels in [`interfaces/gui_qt/theming/base.qss.tmpl`](interfaces/gui_qt/theming/base.qss.tmpl:1) using dynamic properties (`themed`, `level`) and removed inline `setStyleSheet` calls across dev panels.
+- **GUI Log Panels**: Updated `OutputPanel`, `MemoryPanel`, and `VisionPanel` to render rich HTML log lines using active theme module and log-level colors, with live re-rendering on theme switch.
+
+---
+
 ## 2026-09-02 — Phase 0 Instrumentation & Diagnosis for Qt GUI Startup Responsiveness
 
 Added comprehensive timing instrumentation across `run.py`, `interfaces/visuals/header.py`, `interfaces/gui_qt/prod/overlay_window.py`, `main.py`, and `brain/reasoning/core.py` to diagnose Qt GUI startup responsiveness and freeze issues.

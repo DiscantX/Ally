@@ -16,7 +16,8 @@ from PySide6.QtWidgets import (
     QFrame,
     QSizePolicy,
 )
-from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
+from interfaces.gui_qt.theming.theme import SLATE, SIGNAL, SYNTHWAVE
+from theming.palettes import resolve_module_color
 from infrastructure.logger.logger import LogEntry
 from interfaces.gui_qt.dev.qt_safe_logger import QtSafeLogSubscriber
 
@@ -27,8 +28,9 @@ class VisionPanel(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("devDock__visionPanel")
-        self._pipeline_slots: dict[str, dict[str, Any]] = {}
-        self._log_tail: list[str] = []
+        self._log_entries: list[LogEntry] = []
+        self._active_theme_name: str = "Slate"
+        self._themes = {"Slate": SLATE, "Signal": SIGNAL, "Synthwave": SYNTHWAVE}
         self._core: Optional[Any] = None
 
         # QTimer for live preview polling (~750ms)
@@ -68,7 +70,9 @@ class VisionPanel(QWidget):
         self._log_text.setObjectName("devDock__visionLogTail")
         self._log_text.setReadOnly(True)
         self._log_text.setMaximumHeight(90)
-        self._log_text.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; font-family: monospace; font-size: 10px;")
+        self._log_text.setProperty("themed", "devPanelText")
+        self._log_text.style().unpolish(self._log_text)
+        self._log_text.style().polish(self._log_text)
         layout.addWidget(self._log_text, stretch=1)
 
         # Pre-initialize standard pipeline stage slots (matching Tkinter reference)

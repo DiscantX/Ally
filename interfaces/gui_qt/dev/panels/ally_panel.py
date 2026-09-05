@@ -3,7 +3,6 @@
 from typing import Optional, Any
 import json
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTextEdit
-from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
 
 
 class AllyPanel(QWidget):
@@ -19,7 +18,9 @@ class AllyPanel(QWidget):
         self._text = QTextEdit(self)
         self._text.setObjectName("devDock__allyText")
         self._text.setReadOnly(True)
-        self._text.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; font-family: monospace; font-size: 11px;")
+        self._text.setProperty("themed", "devPanelText")
+        self._text.style().unpolish(self._text)
+        self._text.style().polish(self._text)
         self._text.setPlainText("Awaiting Ally output...")
         layout.addWidget(self._text)
 
@@ -38,4 +39,4 @@ class AllyPanel(QWidget):
                 json_str = json.dumps(output, indent=2, default=str)
             self._text.setPlainText(json_str)
         except Exception as e:
-            self._text.setPlainText(f"Error formatting Ally output: {e}\nRaw: {output}")
+            self._text.setPlainText(f"Error formatting Ally output: {e}")

@@ -3,7 +3,8 @@
 from typing import Optional, Any
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QTextEdit, QLabel
-from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
+from interfaces.gui_qt.theming.theme import SLATE, SIGNAL, SYNTHWAVE
+from theming.palettes import resolve_module_color
 from infrastructure.logger.logger import LogEntry, REGISTRY
 from interfaces.gui_qt.dev.qt_safe_logger import QtSafeLogSubscriber
 
@@ -15,6 +16,8 @@ class OutputPanel(QWidget):
         super().__init__(parent)
         self.setObjectName("devDock__outputPanel")
         self._all_entries: list[LogEntry] = []
+        self._active_theme_name: str = "Slate"
+        self._themes = {"Slate": SLATE, "Signal": SIGNAL, "Synthwave": SYNTHWAVE}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -35,10 +38,23 @@ class OutputPanel(QWidget):
         self._text = QTextEdit(self)
         self._text.setObjectName("devDock__outputText")
         self._text.setReadOnly(True)
-        self._text.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; font-family: monospace; font-size: 11px;")
+        self._text.setProperty("themed", "devPanelText")
+        self._text.style().unpolish(self._text)
+        self._text.style().polish(self._text)
         layout.addWidget(self._text)
 
         self._qt_log_subscriber = QtSafeLogSubscriber(self._on_log_entry, self)
+
+    def set_active_theme(self, theme_name: str) -> None:
+        self._active_theme_name = theme_name
+        self._refresh_display()
+
+    def _format_entry_html(self, entry: LogEntry) -> str:
+        theme = self._themes.get(self._active_theme_name, SLATE)
+        mod_color = resolve_module_color(self._active_theme_name, entry.brain_name)
+        level_lower = entry.level.lower()
+        level_color = theme.log_level_colors.get(level_lower, theme.fg_primary)
+        return f'<span style="color: {mod_color};">[{entry.brain_name}]</span> <span style="color: {level_color};">{entry.message}</span>'
 
     def _on_log_entry(self, entry: LogEntry) -> None:
         """Receives log entry and appends if matches current channel filter.
@@ -53,18 +69,18 @@ class OutputPanel(QWidget):
         """
         channel = self._combo.currentText()
         if channel == "All" or entry.brain_name.lower() == channel.lower():
-            line = f"[{entry.brain_name}] {entry.message}"
-            self._text.append(line)
+            html = self._format_entry_html(entry)
+            self._text.append(html)
 
     def _refresh_display(self) -> None:
         """Refreshes text view based on selected channel filter.
         """
         channel = self._combo.currentText()
-        lines = []
+        html_lines = []
         for entry in self._all_entries:
             if channel == "All" or entry.brain_name.lower() == channel.lower():
-                lines.append(f"[{entry.brain_name}] {entry.message}")
-        self._text.setPlainText("\n".join(lines))
+                html_lines.append(self._format_entry_html(entry))
+        self._text.setHtml("<br>".join(html_lines))
 
     def closeEvent(self, event: Any) -> None:
         """Unsubscribes logger on close.

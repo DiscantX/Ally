@@ -64,11 +64,11 @@ Derived from splash screen and gradient definitions:
 * `focus_ring`: `#00f0f0`
 * `companion_palette`: `["#ff2ddc", "#cd24ba", "#9b1b98", "#00f0f0", "#01bcca", "#0289a5"]`
 
-### NeutralContent
+### Slate
 
-Dedicated to developer inspector content areas (JSON viewers, logs, tables) to ensure high-contrast readability resembling IDE editors:
+Dedicated to developer inspector content areas (JSON viewers, logs, tables) and available as a first-class user theme (formerly `NeutralContent`, retained as `NEUTRAL_CONTENT_THEME` alias):
 
-* `name`: `"NeutralContent"`
+* `name`: `"Slate"`
 * `bg_base`: `#1e1e1e`
 * `bg_surface`: `#252526`
 * `bg_elevated`: `#2d2d2d`
@@ -83,6 +83,17 @@ Dedicated to developer inspector content areas (JSON viewers, logs, tables) to e
 * `error`: `#f44747`
 * `focus_ring`: `#569cd6`
 * `companion_palette`: `["#569cd6", "#4ec9b0", "#c586c0", "#ce9178", "#dcdcaa", "#9cdcfe"]`
+* `font_mono`: `'"Cascadia Code", "Consolas", "JetBrains Mono", monospace'`
+* `module_log_colors`: Exact per-module display color mapping (Slate) or empty (Signal/Synthwave).
+* `log_level_colors`: Log severity level color mapping per theme.
+
+## Top-Level `theming/` Package
+
+A neutral shared package (`theming/`) provides pure data and color conversion functions (`theming/color_convert.py`, `theming/palettes.py`) with **zero PySide6 imports**, allowing both `infrastructure/logger/logger.py` and `interfaces/gui_qt/theming/theme.py` to share palette data without domain coupling.
+
+## Dev Inspector Theme Menu & Independence
+
+The Dev Inspector window includes a dedicated **Theme** menu (Slate, Signal, Synthwave) backed by `QSettings` under `"devThemeName"`. This selection is fully independent of the main overlay window's theme selection, allowing a user to run e.g. Synthwave overlay + Slate dev inspector simultaneously.
 
 ## Object-Naming Conventions
 

@@ -3,7 +3,8 @@
 from typing import Optional, Any
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QTextEdit
-from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
+from interfaces.gui_qt.theming.theme import SLATE, SIGNAL, SYNTHWAVE
+from theming.palettes import resolve_module_color
 from infrastructure.logger.logger import LogEntry
 from interfaces.gui_qt.dev.qt_safe_logger import QtSafeLogSubscriber
 
@@ -15,7 +16,9 @@ class MemoryPanel(QWidget):
         super().__init__(parent)
         self.setObjectName("devDock__memoryPanel")
         self._core = core
-        self._log_tail: list[str] = []
+        self._log_entries: list[LogEntry] = []
+        self._active_theme_name: str = "Slate"
+        self._themes = {"Slate": SLATE, "Signal": SIGNAL, "Synthwave": SYNTHWAVE}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -24,7 +27,9 @@ class MemoryPanel(QWidget):
         self._summary_text = QTextEdit(self)
         self._summary_text.setObjectName("devDock__memorySummaryText")
         self._summary_text.setReadOnly(True)
-        self._summary_text.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; font-family: monospace; font-size: 11px;")
+        self._summary_text.setProperty("themed", "devPanelText")
+        self._summary_text.style().unpolish(self._summary_text)
+        self._summary_text.style().polish(self._summary_text)
         self._summary_text.setPlainText("Polling memory summaries...")
         layout.addWidget(self._summary_text, stretch=3)
 
@@ -32,7 +37,9 @@ class MemoryPanel(QWidget):
         self._log_text.setObjectName("devDock__memoryLogTail")
         self._log_text.setReadOnly(True)
         self._log_text.setMaximumHeight(90)
-        self._log_text.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; font-family: monospace; font-size: 10px;")
+        self._log_text.setProperty("themed", "devPanelText")
+        self._log_text.style().unpolish(self._log_text)
+        self._log_text.style().polish(self._log_text)
         layout.addWidget(self._log_text, stretch=1)
 
         self._timer = QTimer(self)
@@ -41,6 +48,21 @@ class MemoryPanel(QWidget):
         self._timer.start()
 
         self._qt_log_subscriber = QtSafeLogSubscriber(self._on_log_entry, self)
+
+    def set_active_theme(self, theme_name: str) -> None:
+        self._active_theme_name = theme_name
+        self._refresh_log_tail()
+
+    def _format_entry_html(self, entry: LogEntry) -> str:
+        theme = self._themes.get(self._active_theme_name, SLATE)
+        mod_color = resolve_module_color(self._active_theme_name, entry.brain_name)
+        level_lower = entry.level.lower()
+        level_color = theme.log_level_colors.get(level_lower, theme.fg_primary)
+        return f'<span style="color: {mod_color};">[{entry.brain_name}]</span> <span style="color: {level_color};">{entry.message}</span>'
+
+    def _refresh_log_tail(self) -> None:
+        html_lines = [self._format_entry_html(e) for e in self._log_entries]
+        self._log_text.setHtml("<br>".join(html_lines))
 
     def _poll_memory(self) -> None:
         """Polls memory manager summaries.
@@ -68,11 +90,10 @@ class MemoryPanel(QWidget):
         """
         memory_brains = {"NarrativeMemory", "PersonalityMemory", "SaveTracker"}
         if entry.brain_name in memory_brains or "memory" in entry.method_name.lower():
-            line = f"[{entry.brain_name}] {entry.message}"
-            self._log_tail.append(line)
-            if len(self._log_tail) > 5:
-                self._log_tail.pop(0)
-            self._log_text.setPlainText("\n".join(self._log_tail))
+            self._log_entries.append(entry)
+            if len(self._log_entries) > 5:
+                self._log_entries.pop(0)
+            self._refresh_log_tail()
 
     def closeEvent(self, event: Any) -> None:
         """Stops timer and unsubscribes logger on close.

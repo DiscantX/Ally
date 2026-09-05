@@ -90,9 +90,4 @@
 - Auto-promotion of a CLIP-learned `"normal"` screen category to
   `"low_value"` — a repetition/staleness heuristic risks silently gating
   real gameplay without real playtesting data to tune it against.
-- **Adopting `previous_interaction_id` stateful mode** for Ally's main
-  reasoning loop — ties reasoning to Gemini-specific threading; Ally's
-  context is synthesized fresh from StateSandbox/EntityRegistry/
-  MemoryManager each turn, so there is nothing meaningful to offload.
-  Left open specifically for `send_message()`'s chat path as a separate
-  deferred design question.
+- **Terminal theme switching** — explicitly deferred in Phase 1 (terminal output remains hardcoded to the Slate palette).
