@@ -100,3 +100,13 @@ class SystemTrayManager:
         # Trigger on Trigger (single left click) or DoubleClick
         if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
             self.toggle_overlay()
+
+    def hide(self) -> None:
+        """Hides and cleans up the system tray icon immediately upon application shutdown."""
+        try:
+            if hasattr(self, "_tray_icon") and self._tray_icon is not None:
+                self._tray_icon.hide()
+                self._tray_icon.setParent(None)
+                log("System tray icon hidden and cleaned up.", level="info")
+        except Exception as e:
+            log("Error hiding system tray icon: {e}", e=e, level="warning")

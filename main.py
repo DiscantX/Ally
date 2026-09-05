@@ -45,6 +45,12 @@ def shutdown_application() -> None:
         except Exception as e:
             log("Error hiding overlay during shutdown: {error}", error=str(e), level="warning")
 
+    if _tray_manager_instance is not None:
+        try:
+            _tray_manager_instance.hide()
+        except Exception as e:
+            log("Error hiding tray icon during shutdown: {error}", error=str(e), level="warning")
+
     try:
         from brain.state.shell_bounds_registry import SHELL_BOUNDS
         SHELL_BOUNDS.unregister("prod_overlay")
