@@ -37,6 +37,8 @@ class AllyPanel(QWidget):
         self._detail_text.setReadOnly(True)
         self._detail_text.setWordWrapMode(Qt.TextWrapMode.WordWrap)
         self._detail_text.setProperty("themed", "devPanelText")
+        self._detail_text.style().unpolish(self._detail_text)
+        self._detail_text.style().polish(self._detail_text)
         self._detail_text.setPlainText("Awaiting Ally output...")
         self._splitter.addWidget(self._detail_text)
 

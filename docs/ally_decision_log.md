@@ -611,4 +611,18 @@ This reduces lock contention during expensive string matching operations while m
 - **Decision**: Terminal output intentionally remains hardcoded to the `"Slate"` palette in Phase 1; terminal theme switching is explicitly deferred.
 - **Rationale**: Keeps scope focused on GUI dev inspector theming while providing a stable, fixed terminal palette.
 
+## Dev Inspector Theming Remediation Pass (2026-09-05)
+
+### Reversing Package Dependency (`theming/` vs `interfaces.gui_qt`)
+- **Decision**: Moved `color_for_key()` out of `interfaces/gui_qt/theming/palette_hash.py` and into `theming/color_convert.py`, with `palette_hash.py` retained as a compatibility re-export.
+- **Rationale**: The neutral `theming/` package was incorrectly depending on `interfaces.gui_qt`, causing transitive imports of GUI modules whenever logger was imported in headless paths (e.g. MTGA tests). This violation was corrected to ensure `theming/` has zero references to `interfaces`.
+
+### Dev Inspector Theme Menu & Independence
+- **Decision**: Implemented the missing `"&Theme"` menu in `DevInspectorWindow` with mutually exclusive checkable actions (`Slate`, `Signal`, `Synthwave`) backed by `QSettings` under `"devThemeName"`.
+- **Rationale**: Fully decouples the dev inspector's theme selection from the main production overlay window's theme while persisting user choices across sessions.
+
+### Standardized Panel Theme Signature
+- **Decision**: Standardized all dev panels to expose `set_active_theme(self, theme: Theme) -> None`, updating `MemoryPanel` and `OutputPanel` from string-based signatures.
+- **Rationale**: Enables uniform theme propagation across all ten dev panels from `DevInspectorWindow`.
+
 

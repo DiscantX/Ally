@@ -22,8 +22,15 @@ class EntityPanel(QWidget):
         self._table.setColumnCount(4)
         self._table.setHorizontalHeaderLabels(["ID", "Name", "Type", "Facts Count"])
         self._table.horizontalHeader().setStretchLastSection(True)
-        self._table.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; gridline-color: {NEUTRAL_CONTENT_THEME.border};")
+        self._table.setProperty("themed", "devPanelTable")
+        self._table.style().unpolish(self._table)
+        self._table.style().polish(self._table)
         layout.addWidget(self._table)
+
+    def set_active_theme(self, theme: Theme) -> None:
+        """Sets active theme.
+        """
+        pass
 
         self._timer = QTimer(self)
         self._timer.setInterval(1000)

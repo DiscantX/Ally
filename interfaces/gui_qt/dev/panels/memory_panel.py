@@ -49,8 +49,8 @@ class MemoryPanel(QWidget):
 
         self._qt_log_subscriber = QtSafeLogSubscriber(self._on_log_entry, self)
 
-    def set_active_theme(self, theme_name: str) -> None:
-        self._active_theme_name = theme_name
+    def set_active_theme(self, theme: Theme) -> None:
+        self._active_theme_name = theme.name
         self._refresh_log_tail()
 
     def _format_entry_html(self, entry: LogEntry) -> str:

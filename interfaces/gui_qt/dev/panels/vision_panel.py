@@ -29,7 +29,7 @@ class VisionPanel(QWidget):
         super().__init__(parent)
         self.setObjectName("devDock__visionPanel")
         self._pipeline_slots: dict[str, Any] = {}
-        self._log_entries: list[LogEntry] = []
+        self._log_tail: list[LogEntry] = []
         self._active_theme_name: str = "Slate"
         self._themes = {"Slate": SLATE, "Signal": SIGNAL, "Synthwave": SYNTHWAVE}
         self._theme: Any = SLATE
@@ -98,7 +98,13 @@ class VisionPanel(QWidget):
 
     def set_active_theme(self, theme: Any) -> None:
         """Sets active theme and updates all pipeline slot cards referencing _pipeline_slots."""
-        self._theme = theme
+        if hasattr(theme, "name"):
+            self._active_theme_name = theme.name
+            self._theme = theme
+        elif isinstance(theme, str):
+            self._active_theme_name = theme
+            self._theme = self._themes.get(theme, SLATE)
+
         for key, slot in self._pipeline_slots.items():
             card = slot["card"]
             title_lbl = slot["title_label"]
@@ -106,6 +112,18 @@ class VisionPanel(QWidget):
             card.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; border: 1px solid {NEUTRAL_CONTENT_THEME.border}; border-radius: 4px;")
             title_lbl.setStyleSheet(f"color: {NEUTRAL_CONTENT_THEME.accent_primary}; font-weight: bold; font-size: 10px;")
             img_lbl.setStyleSheet(f"color: {NEUTRAL_CONTENT_THEME.fg_secondary}; background-color: {NEUTRAL_CONTENT_THEME.bg_base};")
+        self._refresh_log_tail()
+
+    def _format_entry_html(self, entry: LogEntry) -> str:
+        theme = self._themes.get(self._active_theme_name, SLATE)
+        mod_color = resolve_module_color(self._active_theme_name, entry.brain_name)
+        level_lower = entry.level.lower()
+        level_color = theme.log_level_colors.get(level_lower, theme.fg_primary)
+        return f'<span style="color: {mod_color};">[{entry.brain_name}]</span> <span style="color: {level_color};">{entry.message}</span>'
+
+    def _refresh_log_tail(self) -> None:
+        html_lines = [self._format_entry_html(e) for e in self._log_tail]
+        self._log_text.setHtml("<br>".join(html_lines))
 
     def _apply_card_size_policy(self, card: QFrame, is_vertical: bool) -> None:
         """Applies appropriate size policy to pipeline card based on orientation."""
@@ -244,11 +262,10 @@ class VisionPanel(QWidget):
         """
         vision_brains = {"ScreenClassifier", "ScreenBootstrapper", "LayoutOCRReader", "OCR", "ClipClassifier", "CategoryStore"}
         if entry.brain_name in vision_brains or "vision" in entry.method_name.lower():
-            line = f"[{entry.brain_name}] {entry.message}"
-            self._log_tail.append(line)
+            self._log_tail.append(entry)
             if len(self._log_tail) > 5:
                 self._log_tail.pop(0)
-            self._log_text.setPlainText("\n".join(self._log_tail))
+            self._refresh_log_tail()
 
     def _poll_live_preview(self) -> None:
         """Polls screen capture statelessly via ScreenCollector for unthrottled live preview.

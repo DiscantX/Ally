@@ -8,6 +8,16 @@ to the decision log instead of leaving it here.
 
 ---
 
+## 2026-09-05 — Dev Inspector Theming Remediation Pass
+
+Corrected incomplete/incorrect prior implementation claims and resolved all cascading application exceptions:
+- **Reversed Package Dependency Fixed**: Moved `color_for_key()` from [`interfaces/gui_qt/theming/palette_hash.py`](interfaces/gui_qt/theming/palette_hash.py:1) into [`theming/color_convert.py`](theming/color_convert.py:6), removing layering violations where the neutral `theming/` package depended on `interfaces.gui_qt`.
+- **VisionPanel Crash Fixed**: Initialized missing `self._log_tail` in [`interfaces/gui_qt/dev/panels/vision_panel.py`](interfaces/gui_qt/dev/panels/vision_panel.py:32) and upgraded log tail rendering to rich HTML with theme-aware module and log-level coloring.
+- **Theme Menu Built**: Implemented the missing Theme menu in [`interfaces/gui_qt/dev/dev_window.py`](interfaces/gui_qt/dev/dev_window.py:1) backed by `QSettings` under `"devThemeName"`, fully independent of the main overlay window.
+- **QSS Centralization Completed**: Converted remaining unconverted/partially converted panels (`AllyPanel`, `DebugPanel`, `EntityPanel`, `ThinkingPanel`, `VisionPanel`) to the `themed` dynamic property pattern with proper unpolish/polish cycles, and standardized all panel theme update methods to `set_active_theme(theme: Theme)`.
+
+---
+
 ## 2026-09-05 — Dev Inspector Views & OCR Redesign (Phases 2-4)
 
 Completed Phases 2, 3, and 4 of the Dev Inspector Theming & Views task:

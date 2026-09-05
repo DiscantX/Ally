@@ -18,13 +18,16 @@ class ThinkingPanel(QWidget):
         self._text = QTextEdit(self)
         self._text.setObjectName("devDock__thinkingText")
         self._text.setReadOnly(True)
-        self._text.setStyleSheet(
-            f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; "
-            f"color: {NEUTRAL_CONTENT_THEME.fg_secondary}; "
-            f"font-family: monospace; font-size: 11px; font-style: italic;"
-        )
+        self._text.setProperty("themed", "devPanelTextItalic")
+        self._text.style().unpolish(self._text)
+        self._text.style().polish(self._text)
         self._text.setPlainText("Awaiting thinking stream...")
         layout.addWidget(self._text)
+
+    def set_active_theme(self, theme: Theme) -> None:
+        """Sets active theme.
+        """
+        pass
 
     def handle_thinking_begin(self) -> None:
         """Clears the panel at the start of a new thinking stream.

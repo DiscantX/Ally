@@ -41,8 +41,7 @@ class DevInspectorWindow(QMainWindow):
         else:
             if core is not None:
                 cls._instance.set_core(core)
-            # Update theme if provided and instance exists
-            cls._instance.set_active_theme(theme)
+            # Do NOT override persisted active theme on subsequent get_instance calls
         cls._instance.show()
         cls._instance.raise_()
         cls._instance.activateWindow()
@@ -63,14 +62,21 @@ class DevInspectorWindow(QMainWindow):
             self.setWindowIcon(QIcon(icon_path))
 
         self._core: Optional[AllyCore] = None
-        self._theme = theme
         self._bridge = CoreBridge(parent=self)
         self._signals_connected = False
 
         self._settings = QSettings("Ally", "DevInspectorWindow")
+        persisted_theme_name = self._settings.value("devThemeName")
+        if persisted_theme_name in ("Slate", "Signal", "Synthwave"):
+            self._active_theme_name = persisted_theme_name
+        else:
+            self._active_theme_name = theme.name if theme and hasattr(theme, "name") and theme.name in ("Slate", "Signal", "Synthwave") else "Slate"
+            self._settings.setValue("devThemeName", self._active_theme_name)
+
+        self._theme = {"Slate": SLATE, "Signal": SIGNAL, "Synthwave": SYNTHWAVE}[self._active_theme_name]
         self._dev_font_scale = float(self._settings.value("devFontScale", 1.0))
 
-        self.setStyleSheet(build_stylesheet(theme, TEMPLATE_PATH, dev_font_scale=self._dev_font_scale))
+        self.setStyleSheet(build_stylesheet(self._theme, TEMPLATE_PATH, dev_font_scale=self._dev_font_scale))
 
         # Setup ADS Dock Manager
         self._dock_manager = QtAds.CDockManager(self)
@@ -84,19 +90,40 @@ class DevInspectorWindow(QMainWindow):
         if core is not None:
             self.set_core(core)
 
-    def set_active_theme(self, theme: Theme) -> None:
-        """Sets the active theme, rebuilds stylesheet, and updates theme-aware panels.
+        self._apply_active_theme()
+
+    def set_active_theme(self, theme: Any) -> None:
+        """Sets the active theme by Theme object or name string, persists, rebuilds stylesheet, and updates panels.
         """
-        self._theme = theme
+        if hasattr(theme, "name") and theme.name in ("Slate", "Signal", "Synthwave"):
+            self._active_theme_name = theme.name
+        elif isinstance(theme, str) and theme in ("Slate", "Signal", "Synthwave"):
+            self._active_theme_name = theme
+        self._apply_active_theme()
+
+    def _apply_active_theme(self) -> None:
+        """Resolves active theme from name, rebuilds stylesheet, updates menu checks, persists, and propagates to panels.
+        """
+        self._theme = {"Slate": SLATE, "Signal": SIGNAL, "Synthwave": SYNTHWAVE}[self._active_theme_name]
         self._rebuild_stylesheet()
-        if hasattr(self, "_scribe_panel"):
-            self._scribe_panel.set_active_theme(theme)
-        if hasattr(self, "_ally_panel"):
-            self._ally_panel.set_active_theme(theme)
-        if hasattr(self, "_ocr_panel"):
-            self._ocr_panel.set_active_theme(theme)
-        if hasattr(self, "_vision_panel"):
-            self._vision_panel.set_active_theme(theme)
+        self._settings.setValue("devThemeName", self._active_theme_name)
+        self._update_theme_menu_checks()
+
+        for panel_attr in ["_scribe_panel", "_ally_panel", "_ocr_panel", "_vision_panel", "_debug_panel", "_entity_panel", "_timing_panel", "_memory_panel", "_output_panel", "_thinking_panel"]:
+            if hasattr(self, panel_attr):
+                panel = getattr(self, panel_attr)
+                if hasattr(panel, "set_active_theme"):
+                    panel.set_active_theme(self._theme)
+
+    def _set_active_theme_name(self, name: str) -> None:
+        if name in ("Slate", "Signal", "Synthwave"):
+            self._active_theme_name = name
+            self._apply_active_theme()
+
+    def _update_theme_menu_checks(self) -> None:
+        if hasattr(self, "_theme_actions"):
+            for name, act in self._theme_actions.items():
+                act.setChecked(name == self._active_theme_name)
 
     def set_core(self, core: AllyCore) -> None:
         self._core = core
@@ -233,9 +260,26 @@ class DevInspectorWindow(QMainWindow):
         self._default_ads_state = self._dock_manager.saveState()
 
     def _setup_menus(self) -> None:
-        """Sets up the menu bar with View menu toggle actions for all dock widgets and Layout menu for save/load/reset.
+        """Sets up the menu bar with Theme menu, View menu, and Layout menu.
         """
         menu_bar = self.menuBar()
+
+        # Theme menu
+        theme_menu = menu_bar.addMenu("&Theme")
+        from PySide6.QtGui import QActionGroup
+        self._theme_actions = {}
+        theme_action_group = QActionGroup(self)
+        theme_action_group.setExclusive(True)
+
+        for theme_name in ["Slate", "Signal", "Synthwave"]:
+            act = theme_menu.addAction(theme_name)
+            act.setCheckable(True)
+            theme_action_group.addAction(act)
+            self._theme_actions[theme_name] = act
+            act.triggered.connect(lambda checked, name=theme_name: self._set_active_theme_name(name))
+
+        self._update_theme_menu_checks()
+
         view_menu = menu_bar.addMenu("&View")
 
         for dock in self.findChildren(QtAds.CDockWidget):

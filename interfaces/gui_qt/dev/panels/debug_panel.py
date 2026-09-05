@@ -26,9 +26,16 @@ class DebugPanel(QWidget):
         self._image_label = QLabel("Awaiting debug overlay frame...", self)
         self._image_label.setObjectName("devDock__debugImageLabel")
         self._image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._image_label.setStyleSheet(f"color: {NEUTRAL_CONTENT_THEME.fg_secondary}; background-color: {NEUTRAL_CONTENT_THEME.bg_base};")
+        self._image_label.setProperty("themed", "devPanelSurface")
+        self._image_label.style().unpolish(self._image_label)
+        self._image_label.style().polish(self._image_label)
         self._scroll.setWidget(self._image_label)
         layout.addWidget(self._scroll)
+
+    def set_active_theme(self, theme: Theme) -> None:
+        """Sets active theme.
+        """
+        pass
 
     def handle_debug_overlay(self, frame: np.ndarray) -> None:
         """Receives BGR numpy array debug overlay frame and displays it.

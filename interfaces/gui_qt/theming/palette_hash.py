@@ -1,15 +1,7 @@
-"""Deterministic color assignment from a color palette using hashlib.md5.
+"""Deprecated location. color_for_key now lives in theming/ so that
+package can be imported without depending on interfaces.gui_qt. This
+module is kept as a compatibility re-export.
 """
-import hashlib
+from theming.color_convert import color_for_key
 
-
-def color_for_key(key: str, palette: list[str]) -> str:
-    """Deterministic, stable across process restarts -- do NOT use Python's
-    built-in hash() here, it's salted per-process (PYTHONHASHSEED) and
-    will assign a different color to the same key every run.
-    """
-    if not palette:
-        return "#ffffff"
-    digest = hashlib.md5(key.encode("utf-8")).hexdigest()
-    index = int(digest, 16) % len(palette)
-    return palette[index]
+__all__ = ["color_for_key"]

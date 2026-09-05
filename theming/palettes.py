@@ -1,7 +1,7 @@
 """Color palettes and resolution logic for modules and log levels.
 """
 from typing import Final
-from interfaces.gui_qt.theming.palette_hash import color_for_key
+from theming.color_convert import color_for_key
 
 
 THEME_MODULE_COLORS: Final[dict[str, dict[str, str]]] = {
