@@ -98,8 +98,8 @@ SLATE = Theme(
 NEUTRAL_CONTENT_THEME = SLATE
 
 
-def build_stylesheet(theme: Theme, template_path: str) -> str:
-    """Loads a QSS template and formats it with theme token values.
+def build_stylesheet(theme: Theme, template_path: str, dev_font_scale: float = 1.0) -> str:
+    """Loads a QSS template and formats it with theme token values and font scaling.
     Also checks user_config.json for a custom_qss_path override.
     """
     custom_path: Optional[str] = None
@@ -123,7 +123,11 @@ def build_stylesheet(theme: Theme, template_path: str) -> str:
     try:
         with open(template_path, "r", encoding="utf-8") as f:
             template = f.read()
-        return template.format(**theme.__dict__)
+        ctx = dict(theme.__dict__)
+        ctx["dev_font_size"] = f"{11.0 * dev_font_scale:.1f}pt"
+        ctx["dev_font_size_11"] = f"{11.0 * dev_font_scale:.1f}pt"
+        ctx["dev_font_size_10"] = f"{10.0 * dev_font_scale:.1f}pt"
+        return template.format(**ctx)
     except Exception as e:
         log("Failed to build stylesheet from template {path}: {e}", path=template_path, e=e, level="error")
         return ""

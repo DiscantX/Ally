@@ -1,49 +1,49 @@
 /* Base QSS Template for PySide6 GUI */
 
-QWidget {
+QWidget {{
     background-color: {bg_base};
     color: {fg_primary};
     font-family: "Segoe UI", sans-serif;
     font-size: 9pt;
-}
+}}
 
-QMainWindow, QDialog {
+QMainWindow, QDialog {{
     background-color: {bg_base};
     border: 1px solid {border};
-}
+}}
 
-QFrame#feedPanel, QFrame#inputBar, QFrame#statusStrip {
+QFrame#feedPanel, QFrame#inputBar, QFrame#statusStrip {{
     background-color: {bg_surface};
     border: 1px solid {border};
     border-radius: 4px;
-}
+}}
 
-QScrollArea {
+QScrollArea {{
     background-color: {bg_surface};
     border: none;
-}
+}}
 
-QWidget#messageRow {
+QWidget#messageRow {{
     background-color: transparent;
     border-bottom: 1px solid {border};
     padding: 4px;
-}
+}}
 
-QLabel#messageRow__nameLabel {
+QLabel#messageRow__nameLabel {{
     color: {accent_primary};
     font-weight: bold;
-}
+}}
 
-QLabel#messageRow__bodyLabel {
+QLabel#messageRow__bodyLabel {{
     color: {fg_primary};
-}
+}}
 
-QWidget#inputBar {
+QWidget#inputBar {{
     background-color: {bg_elevated};
     border-top: 1px solid {border};
-}
+}}
 
-QLineEdit, QTextEdit, QPlainTextEdit {
+QLineEdit, QTextEdit, QPlainTextEdit {{
     background-color: {bg_base};
     color: {fg_primary};
     border: 1px solid {border};
@@ -51,170 +51,170 @@ QLineEdit, QTextEdit, QPlainTextEdit {
     padding: 4px;
     selection-background-color: {accent_primary};
     selection-color: {bg_base};
-}
+}}
 
-QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
     border: 1px solid {focus_ring};
-}
+}}
 
-QPushButton, QToolButton {
+QPushButton, QToolButton {{
     background-color: {bg_elevated};
     color: {fg_primary};
     border: 1px solid {border};
     border-radius: 3px;
     padding: 1px 1px;
     font-weight: bold;
-}
+}}
 
-QPushButton:hover, QToolButton:hover {
+QPushButton:hover, QToolButton:hover {{
     background-color: {accent_primary};
     color: {bg_base};
     border-color: {accent_primary};
-}
+}}
 
-QPushButton:pressed, QToolButton:pressed {
+QPushButton:pressed, QToolButton:pressed {{
     background-color: {accent_secondary};
     color: {bg_base};
-}
+}}
 
-QToolButton#statusStrip__exitButton:hover {
+QToolButton#statusStrip__exitButton:hover {{
     background-color: {error};
     color: {bg_base};
     border-color: {error};
-}
+}}
 
-QComboBox {
+QComboBox {{
     background-color: {bg_base};
     color: {fg_primary};
     border: 1px solid {border};
     border-radius: 3px;
     padding: 3px;
-}
+}}
 
-QComboBox::drop-down {
+QComboBox::drop-down {{
     border: 0px;
-}
+}}
 
-QScrollBar:vertical {
+QScrollBar:vertical {{
     background-color: {bg_base};
     width: 10px;
     margin: 0px;
-}
+}}
 
-QScrollBar::handle:vertical {
+QScrollBar::handle:vertical {{
     background-color: {border};
     min-height: 20px;
     border-radius: 4px;
-}
+}}
 
-QScrollBar::handle:vertical:hover {
+QScrollBar::handle:vertical:hover {{
     background-color: {fg_muted};
-}
+}}
 
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
     height: 0px;
-}
+}}
 
 /* Qt Advanced Docking System (ADS) Chrome Styling */
-ads--CDockManager {
+ads--CDockManager {{
     background-color: {bg_base};
-}
+}}
 
-ads--CDockAreaWidget {
+ads--CDockAreaWidget {{
     background-color: {bg_surface};
     border: 1px solid {border};
-}
+}}
 
-ads--CDockWidget {
+ads--CDockWidget {{
     background-color: {bg_surface};
     color: {fg_primary};
-}
+}}
 
-ads--CDockWidgetTab {
+ads--CDockWidgetTab {{
     background-color: {bg_elevated};
     color: {fg_secondary};
     border: 1px solid {border};
     padding: 4px 8px;
     border-top-left-radius: 3px;
     border-top-right-radius: 3px;
-}
+}}
 
-ads--CDockWidgetTab:hover {
+ads--CDockWidgetTab:hover {{
     background-color: {accent_primary};
     color: {bg_base};
-}
+}}
 
-ads--CDockWidgetTab:selected {
+ads--CDockWidgetTab:selected {{
     background-color: {bg_surface};
     color: {accent_primary};
     border-bottom: 2px solid {accent_primary};
-}
+}}
 
-ads--CTitleBar {
+ads--CTitleBar {{
     background-color: {bg_elevated};
     border-bottom: 1px solid {border};
-}
+}}
 
-ads--CDockSplitter {
+ads--CDockSplitter {{
     background-color: {border};
-}
+}}
 
 /* Dev Inspector Panel QSS Rules via Dynamic Properties */
-QWidget[themed="devPanelText"] {
+QWidget[themed="devPanelText"] {{
     background-color: {bg_surface};
     color: {fg_primary};
     font-family: {font_mono};
-    font-size: 11pt;
-}
+    font-size: {dev_font_size_11};
+}}
 
-QWidget[themed="devPanelTable"] {
+QWidget[themed="devPanelTable"] {{
     background-color: {bg_surface};
     color: {fg_primary};
     gridline-color: {border};
     font-family: {font_mono};
-    font-size: 11pt;
-}
+    font-size: {dev_font_size_11};
+}}
 
-QWidget[themed="devPanelSurface"] {
+QWidget[themed="devPanelSurface"] {{
     background-color: {bg_base};
     color: {fg_secondary};
     font-family: {font_mono};
-    font-size: 10pt;
-}
+    font-size: {dev_font_size_10};
+}}
 
-QWidget[themed="devPanelTitle"] {
+QWidget[themed="devPanelTitle"] {{
     color: {accent_primary};
     font-weight: bold;
-    font-size: 10pt;
-}
+    font-size: {dev_font_size_10};
+}}
 
-QWidget[themed="devPanelCard"] {
+QWidget[themed="devPanelCard"] {{
     background-color: {bg_surface};
     border: 1px solid {border};
     border-radius: 4px;
-}
+}}
 
 /* Log level rules for dynamic properties */
-QWidget[level="debug"] {
+QWidget[level="debug"] {{
     color: {fg_muted};
-}
+}}
 
-QWidget[level="info"] {
+QWidget[level="info"] {{
     color: {fg_primary};
-}
+}}
 
-QWidget[level="warning"] {
+QWidget[level="warning"] {{
     color: {warning};
     font-weight: bold;
-}
+}}
 
-QWidget[level="error"] {
+QWidget[level="error"] {{
     color: {error};
     font-weight: bold;
-}
+}}
 
-QWidget[level="critical"] {
+QWidget[level="critical"] {{
     color: {error};
     font-weight: bold;
     background-color: {bg_elevated};
-}
+}}

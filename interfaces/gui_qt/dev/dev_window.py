@@ -41,6 +41,8 @@ class DevInspectorWindow(QMainWindow):
         else:
             if core is not None:
                 cls._instance.set_core(core)
+            # Update theme if provided and instance exists
+            cls._instance.set_active_theme(theme)
         cls._instance.show()
         cls._instance.raise_()
         cls._instance.activateWindow()
@@ -65,7 +67,10 @@ class DevInspectorWindow(QMainWindow):
         self._bridge = CoreBridge(parent=self)
         self._signals_connected = False
 
-        self.setStyleSheet(build_stylesheet(theme, TEMPLATE_PATH))
+        self._settings = QSettings("Ally", "DevInspectorWindow")
+        self._dev_font_scale = float(self._settings.value("devFontScale", 1.0))
+
+        self.setStyleSheet(build_stylesheet(theme, TEMPLATE_PATH, dev_font_scale=self._dev_font_scale))
 
         # Setup ADS Dock Manager
         self._dock_manager = QtAds.CDockManager(self)
@@ -78,6 +83,20 @@ class DevInspectorWindow(QMainWindow):
 
         if core is not None:
             self.set_core(core)
+
+    def set_active_theme(self, theme: Theme) -> None:
+        """Sets the active theme, rebuilds stylesheet, and updates theme-aware panels.
+        """
+        self._theme = theme
+        self._rebuild_stylesheet()
+        if hasattr(self, "_scribe_panel"):
+            self._scribe_panel.set_active_theme(theme)
+        if hasattr(self, "_ally_panel"):
+            self._ally_panel.set_active_theme(theme)
+        if hasattr(self, "_ocr_panel"):
+            self._ocr_panel.set_active_theme(theme)
+        if hasattr(self, "_vision_panel"):
+            self._vision_panel.set_active_theme(theme)
 
     def set_core(self, core: AllyCore) -> None:
         self._core = core
@@ -148,6 +167,7 @@ class DevInspectorWindow(QMainWindow):
 
         # 3. OCR / Screen Classification
         self._ocr_panel = OcrPanel(self)
+        self._ocr_panel.set_active_theme(self._theme)
         ocr_dock = QtAds.CDockWidget("OCR / Classification")
         ocr_dock.setObjectName("devDock__ocr")
         ocr_dock.setWidget(self._ocr_panel)
@@ -155,6 +175,7 @@ class DevInspectorWindow(QMainWindow):
 
         # 4. Scribe Output
         self._scribe_panel = ScribePanel(self)
+        self._scribe_panel.set_active_theme(self._theme)
         scribe_dock = QtAds.CDockWidget("Scribe (JSON)")
         scribe_dock.setObjectName("devDock__scribe")
         scribe_dock.setWidget(self._scribe_panel)
@@ -162,6 +183,7 @@ class DevInspectorWindow(QMainWindow):
 
         # 5. Ally Output
         self._ally_panel = AllyPanel(self)
+        self._ally_panel.set_active_theme(self._theme)
         ally_dock = QtAds.CDockWidget("Ally (JSON)")
         ally_dock.setObjectName("devDock__ally")
         ally_dock.setWidget(self._ally_panel)
@@ -219,6 +241,38 @@ class DevInspectorWindow(QMainWindow):
         for dock in self.findChildren(QtAds.CDockWidget):
             action = dock.toggleViewAction()
             view_menu.addAction(action)
+
+        view_menu.addSeparator()
+
+        # Text Size submenu
+        text_size_menu = view_menu.addMenu("Text Size")
+        from PySide6.QtGui import QActionGroup
+        from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QSpinBox, QPushButton, QLabel
+
+        self._font_scale_actions = {}
+        action_group = QActionGroup(self)
+        action_group.setExclusive(True)
+
+        presets = [
+            ("Smallest (0.75x)", 0.75),
+            ("Small (0.85x)", 0.85),
+            ("Medium (1.0x)", 1.0),
+            ("Large (1.2x)", 1.2),
+            ("Largest (1.4x)", 1.4),
+        ]
+
+        for label, scale in presets:
+            act = text_size_menu.addAction(label)
+            act.setCheckable(True)
+            action_group.addAction(act)
+            self._font_scale_actions[scale] = act
+            act.triggered.connect(lambda checked, s=scale: self._set_font_scale(s))
+
+        text_size_menu.addSeparator()
+        custom_act = text_size_menu.addAction("Custom...")
+        custom_act.triggered.connect(self._open_custom_font_size_dialog)
+
+        self._update_font_scale_menu_checks()
 
         view_menu.addSeparator()
         reset_action = view_menu.addAction("Reset Layout")
@@ -317,6 +371,59 @@ class DevInspectorWindow(QMainWindow):
 
         self._settings = QSettings("Ally", "DevInspectorWindow")
         self._settings.remove("adsState")
+
+    def _set_font_scale(self, scale: float) -> None:
+        """Sets the font scale multiplier, persists it, and updates stylesheet.
+        """
+        self._dev_font_scale = scale
+        self._settings.setValue("devFontScale", scale)
+        self._update_font_scale_menu_checks()
+        self._rebuild_stylesheet()
+
+    def _update_font_scale_menu_checks(self) -> None:
+        """Updates checked state of font scale preset menu items based on current scale.
+        """
+        for scale, act in self._font_scale_actions.items():
+            if abs(self._dev_font_scale - scale) < 0.02:
+                act.setChecked(True)
+                break
+
+    def _open_custom_font_size_dialog(self) -> None:
+        """Opens custom point size dialog with QSpinBox (6-24 pt).
+        """
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Custom Text Size")
+        dialog.resize(300, 120)
+        layout = QVBoxLayout(dialog)
+
+        label = QLabel("Enter font point size (6 - 24 pt):", dialog)
+        layout.addWidget(label)
+
+        spin = QSpinBox(dialog)
+        spin.setRange(6, 24)
+        current_pt = int(round(self._dev_font_scale * 11.0))
+        spin.setValue(max(6, min(24, current_pt)))
+        layout.addWidget(spin)
+
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("OK", dialog)
+        cancel_btn = QPushButton("Cancel", dialog)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+
+        ok_btn.clicked.connect(dialog.accept)
+        cancel_btn.clicked.connect(dialog.reject)
+
+        if dialog.exec() == QDialog.Accepted:
+            pt = spin.value()
+            scale = pt / 11.0
+            self._set_font_scale(scale)
+
+    def _rebuild_stylesheet(self) -> None:
+        """Rebuilds and applies stylesheet using active theme and font scale.
+        """
+        self.setStyleSheet(build_stylesheet(self._theme, TEMPLATE_PATH, dev_font_scale=self._dev_font_scale))
 
     def showEvent(self, event: Any) -> None:
         """Handles show event: registers display affinity and shell bounds.

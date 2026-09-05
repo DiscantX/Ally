@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QSizePolicy,
 )
-from interfaces.gui_qt.theming.theme import SLATE, SIGNAL, SYNTHWAVE
+from interfaces.gui_qt.theming.theme import SLATE, SIGNAL, SYNTHWAVE, NEUTRAL_CONTENT_THEME, Theme
 from theming.palettes import resolve_module_color
 from infrastructure.logger.logger import LogEntry
 from interfaces.gui_qt.dev.qt_safe_logger import QtSafeLogSubscriber
@@ -28,9 +28,11 @@ class VisionPanel(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("devDock__visionPanel")
+        self._pipeline_slots: dict[str, Any] = {}
         self._log_entries: list[LogEntry] = []
         self._active_theme_name: str = "Slate"
         self._themes = {"Slate": SLATE, "Signal": SIGNAL, "Synthwave": SYNTHWAVE}
+        self._theme: Any = SLATE
         self._core: Optional[Any] = None
 
         # QTimer for live preview polling (~750ms)
@@ -93,6 +95,17 @@ class VisionPanel(QWidget):
 
         # Subscribe to logger for vision log tail (Qt-safe)
         self._qt_log_subscriber = QtSafeLogSubscriber(self._on_log_entry, self)
+
+    def set_active_theme(self, theme: Any) -> None:
+        """Sets active theme and updates all pipeline slot cards referencing _pipeline_slots."""
+        self._theme = theme
+        for key, slot in self._pipeline_slots.items():
+            card = slot["card"]
+            title_lbl = slot["title_label"]
+            img_lbl = slot["image_label"]
+            card.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; border: 1px solid {NEUTRAL_CONTENT_THEME.border}; border-radius: 4px;")
+            title_lbl.setStyleSheet(f"color: {NEUTRAL_CONTENT_THEME.accent_primary}; font-weight: bold; font-size: 10px;")
+            img_lbl.setStyleSheet(f"color: {NEUTRAL_CONTENT_THEME.fg_secondary}; background-color: {NEUTRAL_CONTENT_THEME.bg_base};")
 
     def _apply_card_size_policy(self, card: QFrame, is_vertical: bool) -> None:
         """Applies appropriate size policy to pipeline card based on orientation."""

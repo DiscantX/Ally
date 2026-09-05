@@ -1,10 +1,20 @@
 # Ally — Changelog
 
 Routine implementation passes, bug fixes, and refactors — kept separate
-from [`docs/ally_decision_log.md`](docs/ally_decision_log.md), which is
+from [`docs/ally_decision_log.md`](docs/ally_decision_log.md:1), which is
 reserved for genuine "why we chose X over Y" design rationale. If an entry
 here turns out to carry real architectural rationale in hindsight, move it
 to the decision log instead of leaving it here.
+
+---
+
+## 2026-09-05 — Dev Inspector Views & OCR Redesign (Phases 2-4)
+
+Completed Phases 2, 3, and 4 of the Dev Inspector Theming & Views task:
+- **`JsonTreeModel` & Scribe/Ally Panels**: Implemented [`interfaces/gui_qt/dev/json_tree_model.py`](interfaces/gui_qt/dev/json_tree_model.py:1) providing color-coded hierarchical JSON tree views with node selection details in [`interfaces/gui_qt/dev/panels/scribe_panel.py`](interfaces/gui_qt/dev/panels/scribe_panel.py:1) and [`interfaces/gui_qt/dev/panels/ally_panel.py`](interfaces/gui_qt/dev/panels/ally_panel.py:1).
+- **Text Size Controls**: Added dynamic text scaling actions in Dev Inspector View menu.
+- **OCR Panel Redesign**: Redesigned [`interfaces/gui_qt/dev/panels/ocr_panel.py`](interfaces/gui_qt/dev/panels/ocr_panel.py:1) with a structured header strip (`"devPanelTitle"`) and a sortable `QTableWidget` (`"devPanelTable"`) for `ConfirmedFact` items, supporting live theme switching.
+- **Documentation Updates**: Updated decision log, changelog, roadmap, and theming guides.
 
 ---
 

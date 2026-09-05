@@ -28,8 +28,10 @@ class TestThemingSystem(unittest.TestCase):
     def test_build_stylesheet_template(self):
         template_path = "interfaces/gui_qt/theming/base.qss.tmpl"
         qss = build_stylesheet(SIGNAL, template_path)
+        self.assertTrue(len(qss) > 0)
         self.assertIn(SIGNAL.bg_base, qss)
         self.assertIn(SIGNAL.accent_primary, qss)
+        self.assertIn("background-color:", qss)
 
     @patch("os.path.exists")
     @patch("builtins.open")

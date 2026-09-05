@@ -1,41 +1,112 @@
-"""Scribe pretty JSON dev dock panel.
+"""Scribe JSON tree view and detail pane dev dock panel.
 """
 from typing import Optional, Any
 import json
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QTextEdit
-from interfaces.gui_qt.theming.theme import NEUTRAL_CONTENT_THEME
+from PySide6.QtCore import Qt, QModelIndex
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QSplitter, QTreeView, QTextEdit
+from interfaces.gui_qt.theming.theme import Theme, SLATE
+from interfaces.gui_qt.dev.json_tree_model import JsonTreeModel
 
 
 class ScribePanel(QWidget):
-    """Dock panel displaying Scribe output as pretty-printed JSON.
+    """Dock panel displaying Scribe output as a hierarchical QTreeView with a detail pane.
     """
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("devDock__scribePanel")
+        self._theme: Theme = SLATE
+        self._last_raw_data: Any = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
 
-        self._text = QTextEdit(self)
-        self._text.setObjectName("devDock__scribeText")
-        self._text.setReadOnly(True)
-        self._text.setStyleSheet(f"background-color: {NEUTRAL_CONTENT_THEME.bg_surface}; color: {NEUTRAL_CONTENT_THEME.fg_primary}; font-family: monospace; font-size: 11px;")
-        self._text.setPlainText("Awaiting Scribe output...")
-        layout.addWidget(self._text)
+        # Vertical splitter: Tree on top, detail pane below
+        self._splitter = QSplitter(Qt.Orientation.Vertical, self)
+        layout.addWidget(self._splitter)
+
+        # Top: QTreeView backed by JsonTreeModel
+        self._tree_view = QTreeView(self)
+        self._tree_view.setObjectName("devDock__scribeTree")
+        self._tree_view.setHeaderHidden(False)
+        self._tree_view.setAlternatingRowColors(True)
+        self._splitter.addWidget(self._tree_view)
+
+        # Bottom: QTextEdit detail pane
+        self._detail_text = QTextEdit(self)
+        self._detail_text.setObjectName("devDock__scribeDetail")
+        self._detail_text.setReadOnly(True)
+        self._detail_text.setWordWrapMode(Qt.TextWrapMode.WordWrap)
+        self._detail_text.setProperty("themed", "devPanelText")
+        self._detail_text.setPlainText("Awaiting Scribe output...")
+        self._splitter.addWidget(self._detail_text)
+
+        # Set initial splitter proportions (e.g. 60% tree, 40% detail)
+        self._splitter.setSizes([300, 200])
+
+        # Initial empty model
+        empty_model = JsonTreeModel({}, theme=self._theme, parent=self)
+        self._tree_view.setModel(empty_model)
+        self._tree_view.setColumnWidth(0, 200)
+        if self._tree_view.header():
+            self._tree_view.header().setStretchLastSection(True)
+
+        # Connect selection change
+        self._tree_view.selectionModel().currentChanged.connect(self._on_current_changed)
+
+    def set_active_theme(self, theme: Theme) -> None:
+        """Updates the active theme and refreshes the tree model and detail pane.
+        """
+        self._theme = theme
+        if self._last_raw_data is not None:
+            self.handle_scribe_output(self._last_raw_data)
+        else:
+            model = JsonTreeModel({}, theme=self._theme, parent=self)
+            self._tree_view.setModel(model)
+            self._tree_view.setColumnWidth(0, 200)
+
+    def _on_current_changed(self, current: QModelIndex, previous: QModelIndex) -> None:
+        if not current.isValid():
+            self._detail_text.setPlainText("Select a node above to see its full value.")
+            return
+        model = self._tree_view.model()
+        if isinstance(model, JsonTreeModel):
+            full_val = model.full_value_for_index(current)
+            self._detail_text.setPlainText(full_val)
+        else:
+            self._detail_text.setPlainText("")
 
     def handle_scribe_output(self, output: Any) -> None:
-        """Receives ScribeOutput (or None) and displays pretty JSON.
+        """Receives ScribeOutput (or None) and displays it in the JSON tree and detail pane.
         """
+        self._last_raw_data = output
         if output is None:
-            self._text.setPlainText("(Scribe skipped this turn)")
+            model = JsonTreeModel({}, theme=self._theme, parent=self)
+            self._tree_view.setModel(model)
+            self._detail_text.setPlainText("(Scribe skipped this turn)")
             return
+
         try:
-            if hasattr(output, "model_dump_json"):
-                json_str = output.model_dump_json(indent=2)
+            if hasattr(output, "model_dump"):
+                data = output.model_dump()
             elif hasattr(output, "dict"):
-                json_str = json.dumps(output.dict(), indent=2)
+                data = output.dict()
+            elif isinstance(output, (dict, list)):
+                data = output
             else:
-                json_str = json.dumps(output, indent=2, default=str)
-            self._text.setPlainText(json_str)
+                data = {"value": str(output)}
+
+            model = JsonTreeModel(data, theme=self._theme, parent=self)
+            self._tree_view.setModel(model)
+            self._tree_view.expandToDepth(0)
+            self._tree_view.setColumnWidth(0, 200)
+            if self._tree_view.header():
+                self._tree_view.header().setStretchLastSection(True)
+
+            self._detail_text.setPlainText("Select a node above to see its full value.")
+            # Connect selection model again just in case model changed
+            self._tree_view.selectionModel().currentChanged.connect(self._on_current_changed)
         except Exception as e:
-            self._text.setPlainText(f"Error formatting Scribe output: {e}\nRaw: {output}")
+            model = JsonTreeModel({"error": str(e), "raw": str(output)}, theme=self._theme, parent=self)
+            self._tree_view.setModel(model)
+            self._tree_view.expandToDepth(0)
+            self._detail_text.setPlainText(f"Error formatting Scribe output: {e}\nRaw: {output}")
