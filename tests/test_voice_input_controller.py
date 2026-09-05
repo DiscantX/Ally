@@ -96,6 +96,29 @@ class TestGracefulDegrade(unittest.TestCase):
         self.assertEqual(len(sink.transcript_values), 0)
         self.assertEqual(len(sink.listening_values), 0)
 
+    def test_unavailable_signal_emitted_when_portaudio_error(self) -> None:
+        """When SpeechRecognizer raises sounddevice.PortAudioError the controller emits
+        ``unavailable`` instead of propagating the exception."""
+        try:
+            import sounddevice as _sd
+            err_cls = getattr(_sd, "PortAudioError", Exception)
+        except ImportError:
+            class PortAudioError(Exception):
+                pass
+            err_cls = PortAudioError
+
+        exc = err_cls("Error querying device -1")
+        mock_rec = _mock_recognizer()
+        factory = _make_recognizer_factory(mock_rec, raises=exc)
+
+        with patch("interfaces.gui_qt.prod.voice_input_controller.SpeechRecognizer", factory):
+            controller = VoiceInputController()
+            sink = SignalSink(controller)
+
+        self.assertEqual(len(sink.unavailable_values), 1)
+        self.assertIn("device", sink.unavailable_values[0])
+        self.assertFalse(controller.is_available())
+
     def test_only_file_not_found_caught(self) -> None:
         """Only FileNotFoundError is caught; other exceptions propagate."""
         mock_rec = _mock_recognizer()

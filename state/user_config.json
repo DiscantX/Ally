@@ -41,6 +41,6 @@
         "tts_voice": "Kore",
         "tts_sample_rate": 24000
     },
-    "theme": "Synthwave",
+    "theme": "Signal",
     "default_personality": "Scout"
 }

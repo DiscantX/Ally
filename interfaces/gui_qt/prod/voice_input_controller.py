@@ -84,9 +84,19 @@ class VoiceInputController(QObject):
         # Attempt to create the recognizer; emit unavailable rather than crashing
         self._recognizer: Optional[SpeechRecognizer] = None
         try:
+            import sounddevice as _sd
+            _portaudio_error = getattr(_sd, "PortAudioError", None)
+        except ImportError:
+            _portaudio_error = None
+
+        exceptions_to_catch = (FileNotFoundError,)
+        if _portaudio_error is not None:
+            exceptions_to_catch += (_portaudio_error,)
+
+        try:
             self._recognizer = SpeechRecognizer()
             self._assembler = UtteranceAssembler()
-        except FileNotFoundError as exc:
+        except exceptions_to_catch as exc:
             log(
                 "VoiceInputController: SpeechRecognizer unavailable — {}",
                 exc,
